@@ -137,40 +137,18 @@ interface Session {
 }
 ```
 
-### Ce qui est fait ✅
+### Ce qui est fait ✅ (complet)
 - `Client` + `Session` + `Discipline` dans `src/types/index.ts`
-- IPC Electron : `sessions:list/create-client/create-session/save-capture/save-recording/get-last/set-last` dans `electron/main.ts` + `electron/preload.ts`
-- Hook `src/hooks/useSessions.ts` : état global clients/sessions, création, setActiveSession, saveCapture (fallback mémoire en mode web)
-- `SessionSelector` dans le header : pill session active + dropdown groupé par client + bouton "+ Nouvelle session"
-- `NewSessionModal` : création nouveau client + session (ou session pour client existant), validation, discipline obligatoire
-- Démarrage : modal auto si aucune session ; fermeture impossible tant qu'aucune session n'existe
-- Changement de session : reset captures + enregistrements en mémoire
-- Strings i18n FR/EN ajoutées (`session.*`)
-
-### Reste à faire ⏳
-1. ~~**Auto-save captures sur disque**~~ ✅ : `handleCapture` appelle `sessions.saveCapture()`
-2. ~~**Auto-save enregistrements**~~ ✅ : `handleStopRecording` appelle `sessions.saveRecording()`
-3. ~~**Rechargement captures/enregistrements au changement de session**~~ ✅ : protocole `localfile://` + IPC list-captures/list-recordings + `loadSessionAssets()` + chargement initial au démarrage
-4. ~~**useStorage (IndexedDB)**~~ ✅ : désactivé en mode Electron (disque = source de vérité)
-5. ~~**Reset source vidéo au changement de session**~~ ✅ : `applySession()` reset isLiveMode + paneBSource
-6. ~~**Suppression session/client**~~ ✅ : IPC delete-session/delete-client + boutons 🗑 dans SessionSelector + gestion session active supprimée
-
-### Plan d'action (suite)
-1. **Types** : `Client` + `Session` dans `src/types/index.ts`
-2. **IPC Electron** (`electron/main.ts` + `electron/preload.ts`) :
-   - `sessions:list` → lit `clients.json` + toutes les sessions de chaque client
-   - `sessions:create-client` → crée dossier + `client.json` + entrée dans `clients.json`
-   - `sessions:create-session` → crée sous-dossier + `session.json`
-   - `sessions:save-capture` → écrit blob dans `<session>/captures/`
-   - `sessions:save-recording` → écrit blob dans `<session>/videos/`
-   - `sessions:set-last` / `sessions:get-last` → lit/écrit `last-session.json`
-3. **Hook `useSessions`** : état global clients + session active, appels IPC
-4. **Header** : sélecteur de session (dropdown groupé par client) + bouton "Nouvelle session"
-5. **Modal `NewSessionModal`** :
-   - Nouveau client : nom, prénom, discipline (obligatoire) → crée client + première session
-   - Session existante : sélectionner client dans liste → discipline + date → crée session
-6. **Démarrage** : charger dernière session via `sessions:get-last` ; si aucune → ouvrir `NewSessionModal`
-7. **Changement de session** : vider captures + enregistrements en mémoire, charger nouvelle session
+- IPC Electron : list, create-client/session, save-capture/recording, get/set-last, list-captures/recordings, save/load-state, delete-session/client, get-file-server-port
+- Hook `useSessions.ts` : état global, création, applySession, saveCapture/Recording, loadSessionAssets, saveSessionState/loadSessionState, deleteSession/Client
+- `SessionSelector` : pill header, dropdown groupé par client, boutons ✏ et 🗑 au hover
+- `NewSessionModal` + `EditClientModal`
+- Serveur HTTP local 127.0.0.1 (port OS aléatoire) → sert captures + vidéos avec Range requests
+- Persistance état par session (`session-state.json`) : annotations A/B, source A/B, position de lecture A/B
+- Sidecar `.info.json` → durée correcte des recordings dans la bibliothèque
+- Fix seekbar WebM (duration Infinity → seek-to-end fix)
+- Fix prod Electron : `base: './'` dans vite.config (écran blanc résolu)
+- DevTools accessibles en prod via Cmd+Option+I
 
 ### UI header
 ```
@@ -190,7 +168,7 @@ src/App.tsx                         intégrer sélecteur + démarrage
 
 ---
 
-## ⏳ Phase 4 — Aides visuelles (tableau des cotes)
+## 🔄 Phase 4 — Aides visuelles (tableau des cotes) — PROCHAINE
 
 ### Objectif
 Tableau de référence des angles/cotes à mesurer selon la discipline du client actif.
@@ -207,7 +185,14 @@ Tableau de référence des angles/cotes à mesurer selon la discipline du client
 | Angle tronc | 40–50° | 45–55° | 20–35° | 55–65° |
 | … | … | … | … | … |
 
-> **Action requise** : valider les valeurs de référence métier avant implémentation
+### Plan d'action Phase 4
+1. **Données** : valeurs de référence par discipline à valider avec Nico (fournies demain matin)
+2. **Types** : `ReferenceAngles` par discipline dans `src/types/index.ts`
+3. **UI** : panneau latéral ou overlay escamotable "Guide des cotes" (bouton Guides déjà présent dans la toolbar)
+4. **Comparaison** : mesure réelle vs valeur cible → indicateur vert/orange/rouge
+5. **i18n** : labels FR/EN pour chaque mesure
+
+> **Action requise** : valider les valeurs de référence métier avant implémentation (fournies le 04/06/2026)
 
 ---
 
@@ -297,13 +282,18 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 ## État Git
 
 ```
-Branche active : dev
-Dernière version taguée : v1.0.5
-Commits sur dev non mergés sur main :
-  - feat: Phase 2 i18n FR/EN + Phase 3 clients & sessions (partiel)
-  - feat: Phase 3 suite — édition client, fixes capture/seekbar, caméra Electron
-  - feat: auto-save captures/recordings + fix caméra macOS (systemPreferences.askForMediaAccess)
-  - feat: rechargement sessions depuis disque (localfile:// protocol + list IPC)
-  - feat: suppression session/client (IPC + UI)
-Tag : v1.1.0 — release en cours
+Branche active : dev (= main, tout est mergé)
+Dernière version taguée : v1.1.0 (Phase 3 complète — build CI en cours)
+Prochain tag prévu : v1.2.0 (fin Phase 4)
 ```
+
+## Décisions techniques Phase 3 (ajouts)
+
+| Sujet | Décision |
+|-------|----------|
+| Servir fichiers locaux | Serveur HTTP Node.js 127.0.0.1 port aléatoire (plus fiable que custom protocol Electron) |
+| Durée recordings | Sidecar `<filename>.info.json` écrit à l'enregistrement, lu au listing |
+| Seekbar WebM | Seek à `1e101` au `loadedmetadata` si `duration = Infinity`, retour position après `durationchange` |
+| Persistance état session | `session-state.json` par session (layers A/B, source A/B, playbackTime A/B) |
+| Build prod Electron | `base: './'` dans vite.config (pas `/`) pour que les assets se résolvent correctement en `file://` |
+| Distribution sans compte Apple | Build local `npm run build:electron:mac` → pas de quarantaine Gatekeeper |
