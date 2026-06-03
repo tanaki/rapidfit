@@ -17,6 +17,7 @@
     "build:electron": "ELECTRON=true tsc -b && ELECTRON=true vite build && electron-builder --publish never",
     "build:electron:win": "ELECTRON=true tsc -b && ELECTRON=true vite build && electron-builder --win --publish never",
     "build:electron:mac": "ELECTRON=true tsc -b && ELECTRON=true vite build && electron-builder --mac --publish never",
+    "build:icons": "node scripts/build-icons.mjs && node scripts/build-ico.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@resvg/resvg-js": "^2.6.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -47,6 +49,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
+    "png-to-ico": "^3.0.1",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",
@@ -59,6 +62,7 @@
   "build": {
     "appId": "com.rapidfit.app",
     "productName": "RapidFit",
+    "icon": "build/icon",
     "directories": {
       "output": "release"
     },
@@ -75,7 +79,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "extendInfo": {
