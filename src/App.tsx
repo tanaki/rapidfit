@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Recording, Capture, VideoConfig, PaneSource, Client, Discipline, PersistedSessionState, Layer } from './types';
+import type { Recording, Capture, VideoConfig, PaneSource, Client, Session, Discipline, PersistedSessionState, Layer, AnnotationElement } from './types';
 import { uid } from './utils/canvas';
 import { useLayers } from './hooks/useLayers';
 import type { LayersState } from './hooks/useLayers';
@@ -57,7 +57,7 @@ export default function App() {
   }, [sessions.isLoading, sessions.activeSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateClientAndSession = useCallback(async (
-    clientData: Pick<Client, 'nom' | 'prenom' | 'email' | 'phone'>,
+    clientData: Pick<Client, 'nom' | 'prenom' | 'email' | 'phone' | 'birthDate'>,
     sessionData: { discipline: Discipline; bikeFitDate: string; notes?: string },
   ) => {
     const client = await sessions.createClient(clientData);
@@ -213,7 +213,7 @@ export default function App() {
 
   /** Restaure l'état d'une session depuis le disque (ou remet à zéro si aucun état) */
   const restoreState = useCallback(async (
-    session: import('./types').Session, recs: Recording[],
+    session: Session, recs: Recording[],
   ) => {
     const state = await sessions.loadSessionState(session.folderPath);
 
@@ -270,7 +270,7 @@ export default function App() {
   }, [sessions, singleLayers, paneLayers1, makeDefaultLayer, t]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Change de session : sauvegarde l'état courant → charge la nouvelle */
-  const applySession = useCallback(async (client: Client, session: import('./types').Session) => {
+  const applySession = useCallback(async (client: Client, session: Session) => {
     await saveCurrentState();
     await sessions.setActiveSession(client, session);
     const { captures: loaded, recordings: loadedRecs } = await sessions.loadSessionAssets(session);
@@ -412,7 +412,7 @@ export default function App() {
       layers: ls.layers,
       activeLayerId: ls.activeLayerId,
       tool, color, strokeWidth: 2, filled: false,
-      onAddElement: (_: string, el: import('./types').AnnotationElement) => {
+      onAddElement: (_: string, el: AnnotationElement) => {
         ls.addElementOnNewLayer(el);
         if (el.type === 'line' || el.type === 'arrow' || el.type === 'angle' || el.type === 'path') {
           advanceColor();
@@ -490,7 +490,7 @@ export default function App() {
             activeSession={sessions.activeSession}
             onSelect={applySession}
             onNewSession={() => setShowNewSession(true)}
-            onEditClient={sessions.updateClient}
+            onEditClient={async updates => { await sessions.updateClient(updates); }}
             onDeleteSession={handleDeleteSession}
             onDeleteClient={handleDeleteClient}
           />

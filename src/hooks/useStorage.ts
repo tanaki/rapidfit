@@ -23,7 +23,7 @@ async function dbGetAll(): Promise<Recording[]> {
       res((req.result as StoredRec[]).map(r => ({
         ...r,
         createdAt: new Date(r.createdAt), // IndexedDB serialises dates as strings
-        url: URL.createObjectURL(r.blob),
+        url: r.blob ? URL.createObjectURL(r.blob) : '',
       })));
     req.onerror = () => rej(req.error);
   });

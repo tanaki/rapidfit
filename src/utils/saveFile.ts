@@ -19,6 +19,7 @@ export async function saveRecordingToFile(rec: Recording): Promise<void> {
         }],
       });
       const writable = await handle.createWritable();
+      if (!rec.blob) throw new Error('no blob');
       await writable.write(rec.blob);
       await writable.close();
       return;

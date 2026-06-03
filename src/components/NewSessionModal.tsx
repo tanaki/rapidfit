@@ -8,7 +8,7 @@ interface Props {
   canClose: boolean;
   onClose?: () => void;
   onCreateClientAndSession: (
-    clientData: Pick<Client, 'nom' | 'prenom' | 'email' | 'phone'>,
+    clientData: Pick<Client, 'nom' | 'prenom' | 'email' | 'phone' | 'birthDate'>,
     sessionData: { discipline: Discipline; bikeFitDate: string; notes?: string },
   ) => Promise<void>;
   onCreateSessionForClient: (
