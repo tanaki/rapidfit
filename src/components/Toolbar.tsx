@@ -7,7 +7,7 @@ const TOOLS: { id: Tool; icon: string; label: string }[] = [
   { id: 'angle',  icon: '∠', label: 'Angle (G)' },
 ];
 
-const COLORS = [
+export const COLORS = [
   '#ef4444',
   '#f97316',
   '#eab308',
@@ -37,7 +37,7 @@ export function Toolbar({
   onUndo, onRedo, onClear, canUndo, canRedo,
 }: Props) {
   return (
-    <aside className="flex flex-col gap-2 p-2 bg-[#13131f] border-r border-[#22223b] w-14 items-center overflow-y-auto">
+    <aside className="flex flex-col gap-2 p-2 bg-[#13131f] border-r border-[#22223b] w-14 items-center overflow-y-auto overflow-x-hidden">
       {/* Tool buttons */}
       <div className="flex flex-col gap-1 w-full">
         {TOOLS.map(t => (
@@ -69,15 +69,15 @@ export function Toolbar({
       <div className="w-8 border-t border-[#22223b]" />
 
       {/* Palette — 9 couleurs, 3 par ligne */}
-      <div className="grid grid-cols-3 gap-[3px]">
+      <div className="grid grid-cols-3 gap-[2px] w-full px-1">
         {COLORS.map(c => (
           <button
             key={c}
             onClick={() => onColor(c)}
             title={c}
             style={{ background: c }}
-            className={`w-[14px] h-[14px] rounded-sm transition-transform hover:scale-125 ${
-              color === c ? 'ring-2 ring-white scale-125' : ''
+            className={`w-[10px] h-[10px] rounded-sm justify-self-center transition-transform hover:scale-125 ${
+              color === c ? 'ring-1 ring-white scale-125' : ''
             }`}
           />
         ))}

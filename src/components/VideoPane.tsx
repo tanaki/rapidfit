@@ -12,13 +12,19 @@ interface Props {
   source: PaneSource;
   devices: MediaDeviceInfo[];
   recordings: Recording[];
-  active: boolean;
-  label: string;
-  onFocus: () => void;
+  active?: boolean;
+  label?: string;
+  onFocus?: () => void;
   showGuide?: boolean;
   showGrid?: boolean;
   gridSize?: number;
   onCapture?: (blob: Blob, name: string) => void;
+  // Media callbacks — used by pane A to sync state to App
+  onStreamChange?: (stream: MediaStream | null) => void;
+  onCameraError?: (err: string | null) => void;
+  onTimeUpdate?: (t: number) => void;
+  onDurationChange?: (d: number) => void;
+  onPlayStateChange?: (paused: boolean) => void;
   annotationProps?: {
     layers: Layer[];
     activeLayerId: string;
@@ -26,7 +32,6 @@ interface Props {
     color: string;
     strokeWidth: number;
     filled: boolean;
-    canvasInteractive: boolean;
     onAddElement: (layerId: string, el: AnnotationElement) => void;
     onEraseAt: (layerId: string, p: { x: number; y: number }, radius: number) => void;
     onUpdateElement: (layerId: string, el: AnnotationElement) => void;
@@ -37,17 +42,25 @@ interface Props {
 
 export interface VideoPaneHandle {
   stepFrame: (dir: 1 | -1, fps?: number, frames?: number) => void;
+  seekTo: (time: number) => void;
   isPaused: () => boolean;
   togglePlay: () => void;
 }
 
 export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
-  { source, active, label, onFocus, showGuide = false, showGrid = false, gridSize = 50, onCapture, annotationProps },
+  {
+    source, active = false, label, onFocus,
+    showGuide = false, showGrid = false, gridSize = 50,
+    onCapture,
+    onStreamChange, onCameraError, onTimeUpdate, onDurationChange, onPlayStateChange,
+    annotationProps,
+  },
   ref,
 ) {
-  const videoRef  = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const isPanMode = annotationProps?.tool === 'pan';
+  const videoRef       = useRef<HTMLVideoElement>(null);
+  const streamRef      = useRef<MediaStream | null>(null);
+  const pendingSeekRef = useRef<number | null>(null);
+  const isPanMode      = annotationProps?.tool === 'pan';
 
   const stepVideoFrame = useCallback((dir: 1 | -1) => {
     if (source.type !== 'recording') return;
@@ -56,8 +69,9 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     v.currentTime = Math.max(0, Math.min(v.duration || Infinity, v.currentTime + dir / 30));
   }, [source.type]);
 
-  const zoomState = useZoomPan(isPanMode, (d) => stepVideoFrame(d < 0 ? -1 : 1));
+  const zoomState = useZoomPan(isPanMode, d => stepVideoFrame(d < 0 ? -1 : 1));
 
+  // ── Source management ───────────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -65,6 +79,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     if (source.type === 'camera') {
       let cancelled = false;
       streamRef.current?.getTracks().forEach(t => t.stop());
+      onStreamChange?.(null);
+      onCameraError?.(null);
       navigator.mediaDevices
         .getUserMedia({
           video: {
@@ -78,48 +94,85 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           streamRef.current = stream;
           video.srcObject = stream;
           video.play();
+          onStreamChange?.(stream);
         })
-        .catch(() => {});
+        .catch(err => {
+          if (!cancelled) onCameraError?.(err?.message ?? 'Erreur caméra');
+        });
       return () => {
         cancelled = true;
         streamRef.current?.getTracks().forEach(t => t.stop());
         streamRef.current = null;
+        onStreamChange?.(null);
       };
     }
 
     if (source.type === 'recording') {
       streamRef.current?.getTracks().forEach(t => t.stop());
       streamRef.current = null;
+      onStreamChange?.(null);
       video.srcObject = null;
       video.src = source.recording.url;
       video.load();
-      return;
+
+      const onTime     = () => onTimeUpdate?.(video.currentTime);
+      const onDur      = () => { if (isFinite(video.duration) && video.duration > 0) onDurationChange?.(video.duration); };
+      const onPause    = () => onPlayStateChange?.(true);
+      const onPlay     = () => onPlayStateChange?.(false);
+      const onLoaded   = () => { onDur(); onPlayStateChange?.(video.paused); onTime(); };
+      const onCanPlay  = () => {
+        onDur();
+        if (pendingSeekRef.current !== null) {
+          video.currentTime = pendingSeekRef.current;
+          pendingSeekRef.current = null;
+        }
+      };
+
+      video.addEventListener('timeupdate',     onTime);
+      video.addEventListener('seeked',         onTime);
+      video.addEventListener('durationchange', onDur);
+      video.addEventListener('canplay',        onCanPlay);
+      video.addEventListener('loadedmetadata', onLoaded);
+      video.addEventListener('pause',          onPause);
+      video.addEventListener('play',           onPlay);
+
+      return () => {
+        video.removeEventListener('timeupdate',     onTime);
+        video.removeEventListener('seeked',         onTime);
+        video.removeEventListener('durationchange', onDur);
+        video.removeEventListener('canplay',        onCanPlay);
+        video.removeEventListener('loadedmetadata', onLoaded);
+        video.removeEventListener('pause',          onPause);
+        video.removeEventListener('play',           onPlay);
+      };
     }
 
+    // none
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
+    onStreamChange?.(null);
     video.srcObject = null;
     video.src = '';
-  }, [source]);
+  }, [source]); // eslint-disable-line
 
+  // ── Imperative handle ───────────────────────────────────────────────────────
   useImperativeHandle(ref, () => ({
     stepFrame(dir, fps = 30, frames = 1) {
       const v = videoRef.current;
       if (!v || !v.paused) return;
       v.currentTime = Math.max(0, Math.min(v.duration || Infinity, v.currentTime + dir * frames / fps));
     },
-    isPaused()  { return videoRef.current?.paused ?? true; },
-    togglePlay(){ const v = videoRef.current; if (!v) return; v.paused ? v.play() : v.pause(); },
-    async capture(paneLabel?: string) {
-      const container = zoomState.containerRef.current;
-      if (!container) return;
-      const { blob, name } = await capturePane(container, paneLabel);
-      onCapture?.(blob, name);
+    seekTo(time: number) {
+      const v = videoRef.current;
+      if (!v) return;
+      if (v.readyState >= 1) v.currentTime = time;
+      else pendingSeekRef.current = time;
     },
+    isPaused()   { return videoRef.current?.paused ?? true; },
+    togglePlay() { const v = videoRef.current; if (!v) return; v.paused ? v.play() : v.pause(); },
   }));
 
-  const isNone     = source.type === 'none';
-  const isPlayback = source.type === 'recording';
+  const isNone = source.type === 'none';
 
   return (
     <div
@@ -137,7 +190,6 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           style={{ pointerEvents: isPanMode ? 'none' : undefined }}
           className={`absolute inset-0 w-full h-full object-contain ${isNone ? 'hidden' : ''}`}
         />
-
         {isNone && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-700 pointer-events-none">
             <span className="text-4xl">📷</span>
@@ -162,18 +214,14 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           onUpdateElement={annotationProps.onUpdateElement}
           onDeleteElement={annotationProps.onDeleteElement}
           onBeginDrag={annotationProps.onBeginDrag}
-          style={(annotationProps.canvasInteractive && annotationProps.tool !== 'pan') ? undefined : { pointerEvents: 'none' }}
+          style={annotationProps.tool === 'pan' ? { pointerEvents: 'none' } : undefined}
         />
       )}
 
-      {/* Overlays — fixed to view, outside the zoom transform */}
       <GuideOverlay visible={showGuide} />
       <GridOverlay visible={showGrid} gridSize={gridSize} zoom={zoomState.zoom} pan={zoomState.pan} />
-
-      {/* Controls rendered AFTER the wrapper in DOM — always on top */}
       <ZoomControls state={zoomState} />
 
-      {/* Capture button */}
       {onCapture && (
         <button
           onClick={async e => {
@@ -191,11 +239,13 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
         </button>
       )}
 
-      {/* Label + active badge */}
-      <div className="absolute bottom-2 left-2 flex items-center gap-1.5 pointer-events-none" style={{ zIndex: 300 }}>
-        <span className="text-[10px] font-semibold text-white/60 bg-black/40 px-2 py-0.5 rounded-full">{label}</span>
-        {active && <span className="text-[10px] text-white bg-indigo-600/80 px-2 py-0.5 rounded-full">actif</span>}
-      </div>
+      {/* Label badge — only in split mode (when label is provided) */}
+      {label && (
+        <div className="absolute bottom-2 left-2 flex items-center gap-1.5 pointer-events-none" style={{ zIndex: 300 }}>
+          <span className="text-[10px] font-semibold text-white/60 bg-black/40 px-2 py-0.5 rounded-full">{label}</span>
+          {active && <span className="text-[10px] text-white bg-indigo-600/80 px-2 py-0.5 rounded-full">actif</span>}
+        </div>
+      )}
     </div>
   );
 });

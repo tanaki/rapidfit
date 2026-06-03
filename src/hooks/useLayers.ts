@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import type { Layer, AnnotationElement } from '../types';
 import { uid } from '../utils/canvas';
 
@@ -7,24 +7,14 @@ function makeLayer(name: string): Layer {
 }
 
 export function useLayers(initialName = 'Calque 1') {
-  const [layers, setLayers] = useState<Layer[]>(() => {
-    const l = makeLayer(initialName);
-    return [l];
-  });
-  const [activeLayerId, setActiveLayerId] = useState<string>(() => {
-    // read from initial state — will sync on first render
-    return '';
-  });
+  // Create the initial layer once — stable via ref so both useState calls share the same id
+  const initRef = useRef<Layer | null>(null);
+  if (!initRef.current) initRef.current = makeLayer(initialName);
+
+  const [layers, setLayers] = useState<Layer[]>([initRef.current]);
+  const [activeLayerId, setActiveLayerId] = useState<string>(initRef.current.id);
   const [history, setHistory] = useState<Layer[][]>([]);
   const [future, setFuture] = useState<Layer[][]>([]);
-
-  // init activeLayerId once
-  const [initialized, setInitialized] = useState(false);
-  if (!initialized) {
-    // synchronously bootstrap during first render
-    setActiveLayerId(layers[0].id);
-    setInitialized(true);
-  }
 
   const pushHistory = useCallback((prev: Layer[]) => {
     setHistory(h => [...h.slice(-49), prev]);
@@ -139,11 +129,18 @@ export function useLayers(initialName = 'Calque 1') {
     },
   };
 
+  const importLayers = useCallback((srcLayers: Layer[], srcActiveId: string) => {
+    setLayers(srcLayers);
+    setActiveLayerId(srcActiveId);
+    setHistory([]);
+    setFuture([]);
+  }, []);
+
   return {
     layers, activeLayerId, setActiveLayerId,
     history, future,
     addElement, addElementOnNewLayer, eraseAt, updateElement, deleteElement, beginDrag,
-    undo, redo, clearActiveLayer,
+    undo, redo, clearActiveLayer, importLayers,
     layerActions,
   };
 }
