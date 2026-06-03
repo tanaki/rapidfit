@@ -9,7 +9,7 @@ export async function saveRecordingToFile(rec: Recording): Promise<void> {
   if ('showSaveFilePicker' in window) {
     try {
       const ext = rec.name.split('.').pop() || 'webm';
-      const handle = await (window as any).showSaveFilePicker({
+      const handle = await (window as Window & { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
         suggestedName: rec.name,
         types: [{
           description: 'Fichier vidéo',
