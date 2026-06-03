@@ -270,7 +270,7 @@ export default function App() {
       {/* ── Header ── */}
       <header className="flex items-center justify-between px-4 py-2 bg-[#13131f] border-b border-[#22223b] shrink-0 h-11">
         <div className="flex items-center gap-2">
-          <span className="text-xl">🚴⚡</span>
+          <img src="/logo.svg" alt="RapidFit" className="h-6 w-6" />
           <span className="text-sm font-bold tracking-wide text-white">RapidFit</span>
           <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
           <span className="text-xs text-slate-400 bg-[#22223b] px-2 py-0.5 rounded-md border border-[#3d3d5c]">
