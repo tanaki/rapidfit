@@ -341,19 +341,9 @@ export default function App() {
 
           <button
             onClick={() => {
-              if (!splitMode) {
-                // Initialise le panneau A avec l'état courant du mode single
-                const currentSource: PaneSource = !isLiveMode && activeRecording
-                  ? { type: 'recording', recording: activeRecording }
-                  : isLiveMode
-                    ? { type: 'camera', deviceId: config.deviceId }
-                    : { type: 'none' };
-                setSplitSources([currentSource, { type: 'none' }]);
-                paneLayers0.importLayers(singleLayers.layers, singleLayers.activeLayerId);
-                if (activeRecording) {
-                  const t = playbackTime;
-                  setTimeout(() => paneRef0.current?.seekTo(t), 50);
-                }
+              if (!splitMode && activeRecording) {
+                const t = playbackTime;
+                setTimeout(() => paneRef0.current?.seekTo(t), 50);
               }
               setSplitMode(s => !s);
             }}
