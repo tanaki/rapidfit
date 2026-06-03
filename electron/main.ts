@@ -1,21 +1,79 @@
-import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences, protocol } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'fs';
+import http from 'http';
 import { fileURLToPath } from 'url';
 import type { Client, Session } from '../src/types/index.js';
-
-// Register localfile:// scheme before app is ready so it is treated as secure.
-// This allows the renderer to load images and videos from the user's filesystem
-// without cross-origin restrictions (file:// is blocked from http://localhost).
-protocol.registerSchemesAsPrivileged([
-  { scheme: 'localfile', privileges: { secure: true, standard: true, stream: true, supportFetchAPI: true } },
-]);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isDev = !app.isPackaged;
+
+// ── Local file server ─────────────────────────────────────────────────────────
+// Serves captures and recordings to the renderer over plain HTTP on 127.0.0.1.
+// A custom Electron protocol (localfile://) was unreliable — Chromium's URL
+// normalisation varies across versions and broke path extraction. A local HTTP
+// server is the standard, well-tested approach for streaming local media in
+// Electron apps. It listens only on loopback so it is not reachable externally.
+
+const MIME: Record<string, string> = {
+  '.png': 'image/png',   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp', '.webm': 'video/webm',
+  '.mp4': 'video/mp4',   '.mov': 'video/quicktime',
+};
+
+let fileServerPort = 0;
+
+function startFileServer(): Promise<number> {
+  return new Promise(resolve => {
+    const server = http.createServer(async (req, res) => {
+      // Path is the URL-decoded request path, e.g. /Users/nico/.../file.png
+      const filePath = decodeURIComponent(req.url ?? '/');
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = MIME[ext] ?? 'application/octet-stream';
+
+      try {
+        const stat = await fs.stat(filePath);
+        const total = stat.size;
+        const rangeHeader = req.headers.range;
+
+        if (rangeHeader) {
+          // Byte-range request — required for HTML5 video scrubbing
+          const [s, e] = rangeHeader.replace('bytes=', '').split('-');
+          const start = parseInt(s, 10);
+          const end   = e ? parseInt(e, 10) : total - 1;
+          const chunk = end - start + 1;
+          res.writeHead(206, {
+            'Content-Type':  contentType,
+            'Content-Range': `bytes ${start}-${end}/${total}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': chunk,
+          });
+          fsSync.createReadStream(filePath, { start, end }).pipe(res);
+        } else {
+          res.writeHead(200, {
+            'Content-Type':   contentType,
+            'Accept-Ranges':  'bytes',
+            'Content-Length': total,
+          });
+          fsSync.createReadStream(filePath).pipe(res);
+        }
+      } catch {
+        res.writeHead(404);
+        res.end('Not found');
+      }
+    });
+
+    // Port 0 → OS picks a free port
+    server.listen(0, '127.0.0.1', () => {
+      fileServerPort = (server.address() as { port: number }).port;
+      resolve(fileServerPort);
+    });
+  });
+}
 
 const iconPath = isDev
   ? path.join(__dirname, '../build/icon.png')
@@ -86,55 +144,8 @@ app.whenReady().then(async () => {
     callback(permission === 'media');
   });
 
-  // localfile:// → serve any local file path securely to the renderer.
-  // We use fs.readFile (with Range request support for video scrubbing) rather
-  // than net.fetch('file://…') because net.fetch does not reliably serve
-  // file:// URLs from a protocol.handle callback in Electron.
-  const MIME: Record<string, string> = {
-    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-    '.webp': 'image/webp', '.webm': 'video/webm',
-    '.mp4': 'video/mp4', '.mov': 'video/quicktime',
-  };
-  protocol.handle('localfile', async req => {
-    // Use URL.pathname so the path is always correct regardless of how
-    // Chromium normalises the authority (empty host vs "localhost").
-    const filePath = decodeURIComponent(new URL(req.url).pathname);
-    const contentType = MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
-    try {
-      const handle = await fs.open(filePath, 'r');
-      const { size } = await handle.stat();
-      const rangeHeader = req.headers.get('range');
-      if (rangeHeader) {
-        const [s, e] = rangeHeader.replace('bytes=', '').split('-');
-        const start = parseInt(s, 10);
-        const end   = e ? parseInt(e, 10) : size - 1;
-        const chunk = end - start + 1;
-        const buf   = Buffer.allocUnsafe(chunk);
-        await handle.read(buf, 0, chunk, start);
-        await handle.close();
-        return new Response(buf, {
-          status: 206,
-          headers: {
-            'Content-Type': contentType,
-            'Content-Range': `bytes ${start}-${end}/${size}`,
-            'Accept-Ranges': 'bytes',
-            'Content-Length': String(chunk),
-          },
-        });
-      }
-      const data = await handle.readFile();
-      await handle.close();
-      return new Response(data, {
-        headers: {
-          'Content-Type': contentType,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': String(size),
-        },
-      });
-    } catch {
-      return new Response('Not found', { status: 404 });
-    }
-  });
+  // Start local file server (port assigned by OS)
+  await startFileServer();
 
   // On macOS, request system-level camera access before the window opens.
   // setPermissionRequestHandler handles Electron's internal layer; this call
@@ -168,6 +179,9 @@ autoUpdater.on('error', (err) => {
 ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall();
 });
+
+// ── File server port ──────────────────────────────────────────────────────────
+ipcMain.handle('get-file-server-port', () => fileServerPort);
 
 // ── Camera IPC ────────────────────────────────────────────────────────────────
 

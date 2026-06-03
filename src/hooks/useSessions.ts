@@ -4,6 +4,15 @@ import { uid } from '../utils/canvas';
 
 interface DiskFile { name: string; path: string; createdAt: string; }
 
+/**
+ * Encode a local file path for use as an HTTP request path.
+ * Each segment is encoded individually so slashes are preserved as separators.
+ * e.g. /Users/nico/My File.png → /Users/nico/My%20File.png
+ */
+function encodeFilePath(filePath: string): string {
+  return filePath.split('/').map(seg => encodeURIComponent(seg)).join('/');
+}
+
 interface SessionsState {
   clients: Client[];
   sessionsByClient: Record<string, Session[]>;
@@ -13,6 +22,7 @@ interface SessionsState {
 }
 
 type ElectronAPI = {
+  getFileServerPort: () => Promise<number>;
   sessionsList: () => Promise<{ clients: Client[]; sessionsByClient: Record<string, Session[]> }>;
   sessionsCreateClient: (c: Client) => Promise<Client>;
   sessionsCreateSession: (s: Session) => Promise<Session>;
@@ -41,6 +51,14 @@ export function useSessions() {
     activeSession: null,
     isLoading: true,
   });
+
+  // Port du serveur HTTP local (Electron main process) qui sert les fichiers.
+  // 0 tant qu'on n'est pas en mode Electron ou que le port n'est pas encore connu.
+  const [fileServerPort, setFileServerPort] = useState(0);
+
+  useEffect(() => {
+    getAPI()?.getFileServerPort().then(p => setFileServerPort(p));
+  }, []);
 
   const load = useCallback(async () => {
     const api = getAPI();
@@ -230,6 +248,18 @@ export function useSessions() {
     const api = getAPI();
     if (!api || !session.folderPath) return { captures: [], recordings: [] };
 
+    // Resolve the file server port — use cached value or fetch it fresh.
+    // We fetch here (not only in the useEffect) to avoid a race condition where
+    // loadSessionAssets is called before the port useState has been updated.
+    let port = fileServerPort;
+    if (!port) {
+      port = await api.getFileServerPort();
+      setFileServerPort(port);
+    }
+
+    const buildUrl = (filePath: string) =>
+      `http://127.0.0.1:${port}${encodeFilePath(filePath)}`;
+
     const [captureFiles, recordingFiles] = await Promise.all([
       api.sessionsListCaptures(session.folderPath),
       api.sessionsListRecordings(session.folderPath),
@@ -238,20 +268,20 @@ export function useSessions() {
     const captures: Capture[] = captureFiles.map(f => ({
       id: f.name,
       name: f.name,
-      url: `localfile://${f.path}`,
+      url: buildUrl(f.path),
       createdAt: new Date(f.createdAt),
     }));
 
     const recordings: Recording[] = recordingFiles.map(f => ({
       id: f.name,
       name: f.name,
-      url: `localfile://${f.path}`,
+      url: buildUrl(f.path),
       createdAt: new Date(f.createdAt),
       duration: 0,
     }));
 
     return { captures, recordings };
-  }, []);
+  }, [fileServerPort]);
 
   return {
     ...state,
