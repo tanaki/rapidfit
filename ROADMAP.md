@@ -305,5 +305,5 @@ Commits sur dev non mergés sur main :
   - feat: auto-save captures/recordings + fix caméra macOS (systemPreferences.askForMediaAccess)
   - feat: rechargement sessions depuis disque (localfile:// protocol + list IPC)
   - feat: suppression session/client (IPC + UI)
-Prochain tag prévu : v1.1.0 (Phase 3 terminée ✅)
+Tag : v1.1.0 — release en cours
 ```
