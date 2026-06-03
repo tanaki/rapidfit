@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,19 +8,32 @@ const __dirname = path.dirname(__filename);
 
 const isDev = !app.isPackaged;
 
+// Chemin vers l'icône PNG selon le contexte
+const iconPath = isDev
+  ? path.join(__dirname, '../build/icon.png')
+  : path.join(process.resourcesPath, 'icon.png');
+
 function createWindow() {
+  const icon = nativeImage.createFromPath(iconPath);
+
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 900,
     minHeight: 600,
     title: 'RapidFit',
+    icon,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  // Icône Dock macOS
+  if (process.platform === 'darwin') {
+    app.dock.setIcon(icon);
+  }
 
   if (isDev) {
     win.loadURL('http://localhost:5173');
