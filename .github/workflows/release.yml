@@ -5,11 +5,14 @@ on:
     tags:
       - 'v*.*.*'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # opt-in to Node.js 24 for actions
+
 jobs:
   build-mac:
     runs-on: macos-latest
     permissions:
-      contents: write  # required to create GitHub Releases and upload assets
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -34,9 +37,9 @@ jobs:
         run: npx electron-builder --mac --publish always
 
   build-win:
-    runs-on: windows-latest
+    runs-on: windows-2022  # pin to stable version (windows-latest → windows-2025 from June 2026)
     permissions:
-      contents: write  # required to create GitHub Releases and upload assets
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
