@@ -70,12 +70,14 @@
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
+          "arch": ["x64", "arm64"]
         }
-      ]
+      ],
+      "extendInfo": {
+        "NSCameraUsageDescription": "RapidFit utilise la caméra pour l'analyse du bike fitting.",
+        "NSMicrophoneUsageDescription": "RapidFit peut enregistrer l'audio avec la vidéo.",
+        "NSCameraUseContinuityCameraDeviceType": true
+      }
     },
     "win": {
       "target": [

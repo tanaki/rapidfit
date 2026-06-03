@@ -12,6 +12,7 @@ import {
   moveElement,
   type Handle,
 } from '../utils/canvas';
+import type { VideoRect } from '../hooks/useVideoRect';
 
 interface Props {
   layers: Layer[];
@@ -28,6 +29,7 @@ interface Props {
   onDeleteElement: (layerId: string, elementId: string) => void;
   onBeginDrag: () => void;
   onRescaleElements?: (sx: number, sy: number) => void;
+  videoRect?: VideoRect | null;
   style?: React.CSSProperties;
 }
 
@@ -35,7 +37,7 @@ export function AnnotationCanvas({
   layers, activeLayerId, tool, color, strokeWidth, filled,
   zoom = 1,
   pan = { x: 0, y: 0 },
-  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, style,
+  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, style,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -89,24 +91,28 @@ export function AnnotationCanvas({
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedElementId, selectedLayerId, onDeleteElement]);
 
-  const prevSizeRef = useRef<{ w: number; h: number } | null>(null);
+  const prevVideoRectRef = useRef<VideoRect | null>(null);
+  const videoRectRef = useRef(videoRect ?? null);
   const onRescaleRef = useRef(onRescaleElements);
   useEffect(() => { onRescaleRef.current = onRescaleElements; }, [onRescaleElements]);
+  useEffect(() => {
+    const prev = prevVideoRectRef.current;
+    const next = videoRect ?? null;
+    // Rescale when the video display area changes (letterbox shift)
+    if (prev && next && (prev.w !== next.w || prev.h !== next.h) && prev.w > 0 && prev.h > 0) {
+      onRescaleRef.current?.(next.w / prev.w, next.h / prev.h);
+    }
+    prevVideoRectRef.current = next;
+    videoRectRef.current = next;
+  }, [videoRect]);
 
   useEffect(() => {
     const obs = new ResizeObserver(() => {
       const canvas = canvasRef.current;
       const container = containerRef.current;
       if (!canvas || !container) return;
-      const newW = container.clientWidth;
-      const newH = container.clientHeight;
-      const prev = prevSizeRef.current;
-      if (prev && (prev.w !== newW || prev.h !== newH) && prev.w > 0 && prev.h > 0) {
-        onRescaleRef.current?.(newW / prev.w, newH / prev.h);
-      }
-      prevSizeRef.current = { w: newW, h: newH };
-      canvas.width  = newW;
-      canvas.height = newH;
+      canvas.width  = container.clientWidth;
+      canvas.height = container.clientHeight;
       forceRedraw(n => n + 1);
     });
     if (containerRef.current) obs.observe(containerRef.current);
@@ -119,20 +125,29 @@ export function AnnotationCanvas({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const vr = videoRectRef.current;
+    // Offset pan by videoRect origin so annotations stay anchored to the video image
+    const adjustedPan = vr
+      ? { x: pan.x + vr.x, y: pan.y + vr.y }
+      : pan;
     renderLayersWithDraft(
       ctx, layers, draftRef.current,
       selectedLayerIdRef.current ?? undefined,
       selectedElementIdRef.current ?? undefined,
       zoom,
-      pan,
+      adjustedPan,
     );
   });
 
   const activeLayer = layers.find(l => l.id === activeLayerId);
 
-  const pt = useCallback((e: React.MouseEvent<HTMLCanvasElement>) =>
-    getCanvasPoint(e, canvasRef.current!, zoomRef.current, panRef.current),
-  []);
+  const pt = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const raw = getCanvasPoint(e, canvasRef.current!, zoomRef.current, panRef.current);
+    // If video is letterboxed, shift coords so (0,0) = top-left of video display area
+    const vr = videoRectRef.current;
+    if (vr) return { x: raw.x - vr.x, y: raw.y - vr.y };
+    return raw;
+  }, []);
 
   // Hit tolerance in content-space units ≈ 8 screen pixels
   const tol = useCallback(() => 8 / zoomRef.current, []);

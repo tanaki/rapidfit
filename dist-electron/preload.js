@@ -1,2 +1,10 @@
-let e=require("electron");e.contextBridge.exposeInMainWorld(`electronAPI`,{onUpdateAvailable:t=>e.ipcRenderer.on(`update-available`,(e,n)=>t(n)),onUpdateDownloaded:t=>e.ipcRenderer.on(`update-downloaded`,(e,n)=>t(n)),installUpdate:()=>e.ipcRenderer.send(`install-update`)});
+let electron = require("electron");
+//#region electron/preload.ts
+electron.contextBridge.exposeInMainWorld("electronAPI", {
+	onUpdateAvailable: (cb) => electron.ipcRenderer.on("update-available", (_e, info) => cb(info)),
+	onUpdateDownloaded: (cb) => electron.ipcRenderer.on("update-downloaded", (_e, info) => cb(info)),
+	installUpdate: () => electron.ipcRenderer.send("install-update")
+});
+//#endregion
+
 //# sourceMappingURL=preload.js.map

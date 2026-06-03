@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import type { PaneSource, Recording, Layer, Tool } from '../types';
 import type { AnnotationElement } from '../types';
 import { AnnotationCanvas } from './AnnotationCanvas';
@@ -7,6 +7,7 @@ import { ZoomControls } from './ZoomControls';
 import { GuideOverlay } from './GuideOverlay';
 import { GridOverlay } from './GridOverlay';
 import { capturePane } from '../utils/captureFrame';
+import { computeVideoRect, type VideoRect } from '../hooks/useVideoRect';
 
 interface Props {
   source: PaneSource;
@@ -63,6 +64,17 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   const pendingSeekRef = useRef<number | null>(null);
   const isPanMode      = annotationProps?.tool === 'pan';
 
+  // Track the video display rect (object-contain letterbox)
+  const [videoRect, setVideoRect] = useState<VideoRect | null>(null);
+
+  const updateVideoRect = useCallback(() => {
+    const video = videoRef.current;
+    const container = zoomState.containerRef.current;
+    if (!video || !container || !video.videoWidth || !video.videoHeight) return;
+    const aspect = video.videoWidth / video.videoHeight;
+    setVideoRect(computeVideoRect(container.clientWidth, container.clientHeight, aspect));
+  }, []); // eslint-disable-line
+
   const stepVideoFrame = useCallback((dir: 1 | -1) => {
     if (source.type !== 'recording') return;
     const v = videoRef.current;
@@ -71,6 +83,15 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   }, [source.type]);
 
   const zoomState = useZoomPan(isPanMode, d => stepVideoFrame(d < 0 ? -1 : 1));
+
+  // ── Video rect (letterbox) tracking ────────────────────────────────────────
+  useEffect(() => {
+    const container = zoomState.containerRef.current;
+    if (!container) return;
+    const obs = new ResizeObserver(updateVideoRect);
+    obs.observe(container);
+    return () => obs.disconnect();
+  }, [updateVideoRect, zoomState.containerRef]);
 
   // ── Source management ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -96,6 +117,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           video.srcObject = stream;
           video.play();
           onStreamChange?.(stream);
+          video.addEventListener('loadedmetadata', updateVideoRect, { once: true });
         })
         .catch(err => {
           if (!cancelled) onCameraError?.(err?.message ?? 'Erreur caméra');
@@ -120,7 +142,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       const onDur      = () => { if (isFinite(video.duration) && video.duration > 0) onDurationChange?.(video.duration); };
       const onPause    = () => onPlayStateChange?.(true);
       const onPlay     = () => onPlayStateChange?.(false);
-      const onLoaded   = () => { onDur(); onPlayStateChange?.(video.paused); onTime(); };
+      const onLoaded   = () => { onDur(); onPlayStateChange?.(video.paused); onTime(); updateVideoRect(); };
       const onCanPlay  = () => {
         onDur();
         if (pendingSeekRef.current !== null) {
@@ -216,6 +238,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           onDeleteElement={annotationProps.onDeleteElement}
           onBeginDrag={annotationProps.onBeginDrag}
           onRescaleElements={annotationProps.onRescaleElements}
+          videoRect={videoRect}
           style={annotationProps.tool === 'pan' ? { pointerEvents: 'none' } : undefined}
         />
       )}
