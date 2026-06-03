@@ -1,8 +1,42 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import electron from 'vite-plugin-electron';
+import renderer from 'vite-plugin-electron-renderer';
 
-// https://vite.dev/config/
+const isElectron = process.env.ELECTRON === 'true';
+
 export default defineConfig({
-  plugins: [react()],
-  base: '/rapidfit/',
-})
+  plugins: [
+    react(),
+    ...(isElectron
+      ? [
+          electron([
+            {
+              entry: 'electron/main.ts',
+              vite: {
+                build: {
+                  outDir: 'dist-electron',
+                  sourcemap: true,
+                },
+              },
+            },
+            {
+              entry: 'electron/preload.ts',
+              onstart(options) {
+                options.reload();
+              },
+              vite: {
+                build: {
+                  outDir: 'dist-electron',
+                  sourcemap: true,
+                },
+              },
+            },
+          ]),
+          renderer(),
+        ]
+      : []),
+  ],
+  // Base '/' en mode Electron (fichiers locaux), '/rapidfit/' pour le déploiement web
+  base: isElectron ? '/' : '/rapidfit/',
+});

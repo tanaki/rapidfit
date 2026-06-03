@@ -14,6 +14,7 @@ import { ReportModal } from './components/ReportModal';
 import { VideoPane, SourceSelector, type VideoPaneHandle } from './components/VideoPane';
 import { useStorage } from './hooks/useStorage';
 import { saveRecordingToFile } from './utils/saveFile';
+import { UpdateBanner } from './components/UpdateBanner';
 
 const DEFAULT_CONFIG: VideoConfig = {
   deviceId: '',
@@ -264,6 +265,7 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-[#0d0d14] text-slate-100 select-none overflow-hidden">
+      <UpdateBanner />
       {/* ── Header ── */}
       <header className="flex items-center justify-between px-4 py-2 bg-[#13131f] border-b border-[#22223b] shrink-0 h-11">
         <div className="flex items-center gap-2">
