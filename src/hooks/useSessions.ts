@@ -19,6 +19,8 @@ type ElectronAPI = {
   sessionsUpdateClient: (c: Client) => Promise<Client>;
   sessionsSaveCapture: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
   sessionsSaveRecording: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
+  sessionsDeleteSession: (p: { sessionFolderPath: string }) => Promise<void>;
+  sessionsDeleteClient: (p: { clientId: string; folderPath: string }) => Promise<void>;
   sessionsListCaptures: (sessionFolderPath: string) => Promise<DiskFile[]>;
   sessionsListRecordings: (sessionFolderPath: string) => Promise<DiskFile[]>;
   sessionsGetLast: () => Promise<{ clientId: string; sessionId: string } | null>;
@@ -164,6 +166,46 @@ export function useSessions() {
     await api.sessionsSaveRecording({ sessionFolderPath: session.folderPath, filename, buffer });
   }, []);
 
+  const deleteSession = useCallback(async (session: Session): Promise<boolean> => {
+    const api = getAPI();
+    if (api && session.folderPath) {
+      await api.sessionsDeleteSession({ sessionFolderPath: session.folderPath });
+    }
+    let wasActive = false;
+    setState(s => {
+      const remaining = (s.sessionsByClient[session.clientId] ?? []).filter(x => x.id !== session.id);
+      wasActive = s.activeSession?.id === session.id;
+      return {
+        ...s,
+        sessionsByClient: { ...s.sessionsByClient, [session.clientId]: remaining },
+        activeSession:  wasActive ? null : s.activeSession,
+        activeClient:   wasActive && remaining.length === 0 ? null : s.activeClient,
+      };
+    });
+    return wasActive;
+  }, []);
+
+  const deleteClient = useCallback(async (client: Client): Promise<boolean> => {
+    const api = getAPI();
+    if (api) {
+      await api.sessionsDeleteClient({ clientId: client.id, folderPath: client.folderPath });
+    }
+    let wasActive = false;
+    setState(s => {
+      wasActive = s.activeClient?.id === client.id;
+      const newSBC = { ...s.sessionsByClient };
+      delete newSBC[client.id];
+      return {
+        ...s,
+        clients: s.clients.filter(c => c.id !== client.id),
+        sessionsByClient: newSBC,
+        activeClient:  wasActive ? null : s.activeClient,
+        activeSession: wasActive ? null : s.activeSession,
+      };
+    });
+    return wasActive;
+  }, []);
+
   const loadSessionAssets = useCallback(async (
     session: Session,
   ): Promise<{ captures: Capture[]; recordings: Recording[] }> => {
@@ -201,6 +243,8 @@ export function useSessions() {
     setActiveSession,
     saveCapture,
     saveRecording,
+    deleteSession,
+    deleteClient,
     loadSessionAssets,
     reload: load,
   };

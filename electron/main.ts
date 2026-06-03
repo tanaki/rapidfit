@@ -221,6 +221,21 @@ ipcMain.handle('sessions:update-client', async (_e, client: Client) => {
   return client;
 });
 
+ipcMain.handle('sessions:delete-session', async (_e, {
+  sessionFolderPath,
+}: { sessionFolderPath: string }) => {
+  await fs.rm(sessionFolderPath, { recursive: true, force: true });
+});
+
+ipcMain.handle('sessions:delete-client', async (_e, {
+  clientId, folderPath,
+}: { clientId: string; folderPath: string }) => {
+  await fs.rm(folderPath, { recursive: true, force: true });
+  const clients = await readJson<Client[]>(clientsIndex(), []);
+  const updated = clients.filter(c => c.id !== clientId);
+  await fs.writeFile(clientsIndex(), JSON.stringify(updated, null, 2));
+});
+
 ipcMain.handle('sessions:list-captures', async (_e, sessionFolderPath: string) => {
   const dir = path.join(sessionFolderPath, 'captures');
   try {

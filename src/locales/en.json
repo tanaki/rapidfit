@@ -134,7 +134,11 @@
     "sessionOf": "{{prenom}} {{nom}}",
     "sessionLabel": "{{prenom}} {{nom}} — {{discipline}} — {{date}}",
     "editClient": "Edit profile",
-    "saveClient": "Save"
+    "saveClient": "Save",
+    "deleteSession": "Delete this session",
+    "deleteSessionConfirm": "Delete session {{date}} ({{discipline}})? This action is irreversible.",
+    "deleteClient": "Delete this client",
+    "deleteClientConfirm": "Delete {{prenom}} {{nom}} and all their sessions? This action is irreversible."
   },
   "update": {
     "available": "Update v{{version}} available — downloading…",

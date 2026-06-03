@@ -90,7 +90,7 @@ Toute l'interface en français ET anglais, sélecteur de langue dans les paramè
 
 ---
 
-## 🔄 Phase 3 — Clients & Sessions (EN COURS)
+## ✅ Phase 3 — Clients & Sessions (TERMINÉE)
 
 ### Objectif
 Hiérarchie Client → Session persistée sur disque. Un client peut avoir plusieurs sessions (vélos différents ou suivis dans le temps).
@@ -150,10 +150,10 @@ interface Session {
 ### Reste à faire ⏳
 1. ~~**Auto-save captures sur disque**~~ ✅ : `handleCapture` appelle `sessions.saveCapture()`
 2. ~~**Auto-save enregistrements**~~ ✅ : `handleStopRecording` appelle `sessions.saveRecording()`
-3. **Rechargement captures/enregistrements au changement de session** : IPC `sessions:list-captures` + `sessions:list-recordings` → reconstruire Capture[]/Recording[] depuis `file://` URLs
-4. **useStorage (IndexedDB) à rendre session-aware** ou supprimer au profit du filesystem
-5. **Reset source vidéo au changement de session**
-6. **Suppression session/client** : IPC + UI
+3. ~~**Rechargement captures/enregistrements au changement de session**~~ ✅ : protocole `localfile://` + IPC list-captures/list-recordings + `loadSessionAssets()` + chargement initial au démarrage
+4. ~~**useStorage (IndexedDB)**~~ ✅ : désactivé en mode Electron (disque = source de vérité)
+5. ~~**Reset source vidéo au changement de session**~~ ✅ : `applySession()` reset isLiveMode + paneBSource
+6. ~~**Suppression session/client**~~ ✅ : IPC delete-session/delete-client + boutons 🗑 dans SessionSelector + gestion session active supprimée
 
 ### Plan d'action (suite)
 1. **Types** : `Client` + `Session` dans `src/types/index.ts`
@@ -303,5 +303,7 @@ Commits sur dev non mergés sur main :
   - feat: Phase 2 i18n FR/EN + Phase 3 clients & sessions (partiel)
   - feat: Phase 3 suite — édition client, fixes capture/seekbar, caméra Electron
   - feat: auto-save captures/recordings + fix caméra macOS (systemPreferences.askForMediaAccess)
-Prochain tag prévu : v1.1.0 (fin Phase 3)
+  - feat: rechargement sessions depuis disque (localfile:// protocol + list IPC)
+  - feat: suppression session/client (IPC + UI)
+Prochain tag prévu : v1.1.0 (Phase 3 terminée ✅)
 ```

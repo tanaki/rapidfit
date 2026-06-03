@@ -134,7 +134,11 @@
     "sessionOf": "{{prenom}} {{nom}}",
     "sessionLabel": "{{prenom}} {{nom}} — {{discipline}} — {{date}}",
     "editClient": "Modifier le profil",
-    "saveClient": "Enregistrer"
+    "saveClient": "Enregistrer",
+    "deleteSession": "Supprimer cette session",
+    "deleteSessionConfirm": "Supprimer la session du {{date}} ({{discipline}}) ? Cette action est irréversible.",
+    "deleteClient": "Supprimer ce client",
+    "deleteClientConfirm": "Supprimer {{prenom}} {{nom}} et toutes ses sessions ? Cette action est irréversible."
   },
   "update": {
     "available": "Mise à jour v{{version}} disponible — téléchargement en cours…",

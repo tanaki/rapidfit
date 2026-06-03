@@ -337,6 +337,30 @@ export default function App() {
     return { type: 'none' };
   }, [isLiveMode, activeRecording, config.deviceId]);
 
+  const handleDeleteSession = useCallback(async (session: Session) => {
+    const wasActive = await sessions.deleteSession(session);
+    if (wasActive) {
+      setCaptures([]);
+      setRecordings([]);
+      setActiveRecording(null);
+      setIsLiveMode(false);
+      setPaneBSource({ type: 'none' });
+      setShowNewSession(true);
+    }
+  }, [sessions]);
+
+  const handleDeleteClient = useCallback(async (client: Client) => {
+    const wasActive = await sessions.deleteClient(client);
+    if (wasActive) {
+      setCaptures([]);
+      setRecordings([]);
+      setActiveRecording(null);
+      setIsLiveMode(false);
+      setPaneBSource({ type: 'none' });
+      setShowNewSession(true);
+    }
+  }, [sessions]);
+
   const handleSingleSourceChange = useCallback((s: PaneSource) => {
     if (s.type === 'camera') {
       if (s.deviceId !== config.deviceId) setConfig(c => ({ ...c, deviceId: s.deviceId }));
@@ -367,6 +391,8 @@ export default function App() {
             onSelect={applySession}
             onNewSession={() => setShowNewSession(true)}
             onEditClient={sessions.updateClient}
+            onDeleteSession={handleDeleteSession}
+            onDeleteClient={handleDeleteClient}
           />
           <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
           <span className="text-xs text-slate-400 bg-[#22223b] px-2 py-0.5 rounded-md border border-[#3d3d5c]">

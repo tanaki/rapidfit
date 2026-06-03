@@ -11,6 +11,8 @@ interface Props {
   onSelect: (client: Client, session: Session) => void;
   onNewSession: () => void;
   onEditClient: (updates: Partial<Client> & { id: string }) => Promise<void>;
+  onDeleteSession: (session: Session) => Promise<void>;
+  onDeleteClient: (client: Client) => Promise<void>;
 }
 
 function disciplineLabel(d: Discipline, lang: string) {
@@ -42,7 +44,7 @@ function calcAge(birthDate: string): number {
 
 export function SessionSelector({
   clients, sessionsByClient, activeClient, activeSession,
-  onSelect, onNewSession, onEditClient,
+  onSelect, onNewSession, onEditClient, onDeleteSession, onDeleteClient,
 }: Props) {
   const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -100,7 +102,7 @@ export function SessionSelector({
               if (sessions.length === 0) return null;
               return (
                 <div key={client.id}>
-                  {/* Client header — ✏ apparaît au hover */}
+                  {/* Client header — ✏ et 🗑 apparaissent au hover */}
                   <div className="group flex items-center justify-between px-3 py-2 border-b border-[#22223b] sticky top-0 bg-[#13131f]">
                     <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">
                       {client.prenom} {client.nom}
@@ -110,37 +112,72 @@ export function SessionSelector({
                         </span>
                       )}
                     </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); setEditingClient(client); setOpen(false); }}
-                      title={t('session.editClient')}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded hover:bg-[#3d3d5c] text-slate-400 hover:text-white text-sm"
-                    >
-                      ✏
-                    </button>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={e => { e.stopPropagation(); setEditingClient(client); setOpen(false); }}
+                        title={t('session.editClient')}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#3d3d5c] text-slate-400 hover:text-white text-sm"
+                      >
+                        ✏
+                      </button>
+                      <button
+                        onClick={async e => {
+                          e.stopPropagation();
+                          const msg = t('session.deleteClientConfirm', { prenom: client.prenom, nom: client.nom });
+                          if (!window.confirm(msg)) return;
+                          setOpen(false);
+                          await onDeleteClient(client);
+                        }}
+                        title={t('session.deleteClient')}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-900/50 text-slate-500 hover:text-red-400 text-sm"
+                      >
+                        🗑
+                      </button>
+                    </div>
                   </div>
 
                   {/* Sessions */}
                   {sessions.map(session => {
                     const isActive = session.id === activeSession?.id;
                     return (
-                      <button
+                      <div
                         key={session.id}
-                        onClick={() => { onSelect(client, session); setOpen(false); }}
-                        className={`w-full flex items-center justify-between px-4 py-2 text-left transition-colors hover:bg-[#22223b] ${
+                        className={`group/row flex items-center px-4 py-2 transition-colors hover:bg-[#22223b] ${
                           isActive ? 'bg-indigo-900/30' : ''
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          {isActive && <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />}
-                          {!isActive && <span className="w-1.5 h-1.5 shrink-0" />}
-                          <span className="text-xs text-slate-300">
-                            {disciplineLabel(session.discipline, i18n.language)}
+                        <button
+                          onClick={() => { onSelect(client, session); setOpen(false); }}
+                          className="flex-1 flex items-center justify-between text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />}
+                            {!isActive && <span className="w-1.5 h-1.5 shrink-0" />}
+                            <span className="text-xs text-slate-300">
+                              {disciplineLabel(session.discipline, i18n.language)}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 mr-2">
+                            {formatDate(session.bikeFitDate, i18n.language)}
                           </span>
-                        </div>
-                        <span className="text-[10px] text-slate-500">
-                          {formatDate(session.bikeFitDate, i18n.language)}
-                        </span>
-                      </button>
+                        </button>
+                        <button
+                          onClick={async e => {
+                            e.stopPropagation();
+                            const msg = t('session.deleteSessionConfirm', {
+                              date: formatDate(session.bikeFitDate, i18n.language),
+                              discipline: disciplineLabel(session.discipline, i18n.language),
+                            });
+                            if (!window.confirm(msg)) return;
+                            setOpen(false);
+                            await onDeleteSession(session);
+                          }}
+                          title={t('session.deleteSession')}
+                          className="opacity-0 group-hover/row:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center rounded hover:bg-red-900/50 text-slate-500 hover:text-red-400 text-xs shrink-0"
+                        >
+                          🗑
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
