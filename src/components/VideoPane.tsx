@@ -67,14 +67,6 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   // Track the video display rect (object-contain letterbox)
   const [videoRect, setVideoRect] = useState<VideoRect | null>(null);
 
-  const updateVideoRect = useCallback(() => {
-    const video = videoRef.current;
-    const container = zoomState.containerRef.current;
-    if (!video || !container || !video.videoWidth || !video.videoHeight) return;
-    const aspect = video.videoWidth / video.videoHeight;
-    setVideoRect(computeVideoRect(container.clientWidth, container.clientHeight, aspect));
-  }, []); // eslint-disable-line
-
   const stepVideoFrame = useCallback((dir: 1 | -1) => {
     if (source.type !== 'recording') return;
     const v = videoRef.current;
@@ -83,6 +75,16 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   }, [source.type]);
 
   const zoomState = useZoomPan(isPanMode, d => stepVideoFrame(d < 0 ? -1 : 1));
+
+  // updateVideoRect declared AFTER zoomState to avoid accessing it before declaration
+  const updateVideoRect = useCallback(() => {
+    const video = videoRef.current;
+    const container = zoomState.containerRef.current;
+    if (!video || !container || !video.videoWidth || !video.videoHeight) return;
+    const aspect = video.videoWidth / video.videoHeight;
+    setVideoRect(computeVideoRect(container.clientWidth, container.clientHeight, aspect));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Video rect (letterbox) tracking ────────────────────────────────────────
   useEffect(() => {

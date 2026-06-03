@@ -262,7 +262,7 @@ export default function App() {
       setIsLiveMode(false);
       setActiveRecording(null);
     }
-  }, [config.deviceId, handleSelectRecording]); // eslint-disable-line
+  }, [config.deviceId, handleSelectRecording]);
 
   return (
     <div className="flex flex-col h-screen bg-[#0d0d14] text-slate-100 select-none overflow-hidden">
