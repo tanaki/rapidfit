@@ -37,6 +37,7 @@ interface Props {
     onUpdateElement: (layerId: string, el: AnnotationElement) => void;
     onDeleteElement: (layerId: string, elementId: string) => void;
     onBeginDrag: () => void;
+    onRescaleElements?: (sx: number, sy: number) => void;
   };
 }
 
@@ -214,6 +215,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           onUpdateElement={annotationProps.onUpdateElement}
           onDeleteElement={annotationProps.onDeleteElement}
           onBeginDrag={annotationProps.onBeginDrag}
+          onRescaleElements={annotationProps.onRescaleElements}
           style={annotationProps.tool === 'pan' ? { pointerEvents: 'none' } : undefined}
         />
       )}

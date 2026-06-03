@@ -27,6 +27,7 @@ interface Props {
   onUpdateElement: (layerId: string, el: AnnotationElement) => void;
   onDeleteElement: (layerId: string, elementId: string) => void;
   onBeginDrag: () => void;
+  onRescaleElements?: (sx: number, sy: number) => void;
   style?: React.CSSProperties;
 }
 
@@ -34,7 +35,7 @@ export function AnnotationCanvas({
   layers, activeLayerId, tool, color, strokeWidth, filled,
   zoom = 1,
   pan = { x: 0, y: 0 },
-  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, style,
+  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, style,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,13 +89,24 @@ export function AnnotationCanvas({
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedElementId, selectedLayerId, onDeleteElement]);
 
+  const prevSizeRef = useRef<{ w: number; h: number } | null>(null);
+  const onRescaleRef = useRef(onRescaleElements);
+  useEffect(() => { onRescaleRef.current = onRescaleElements; }, [onRescaleElements]);
+
   useEffect(() => {
     const obs = new ResizeObserver(() => {
       const canvas = canvasRef.current;
       const container = containerRef.current;
       if (!canvas || !container) return;
-      canvas.width  = container.clientWidth;
-      canvas.height = container.clientHeight;
+      const newW = container.clientWidth;
+      const newH = container.clientHeight;
+      const prev = prevSizeRef.current;
+      if (prev && (prev.w !== newW || prev.h !== newH) && prev.w > 0 && prev.h > 0) {
+        onRescaleRef.current?.(newW / prev.w, newH / prev.h);
+      }
+      prevSizeRef.current = { w: newW, h: newH };
+      canvas.width  = newW;
+      canvas.height = newH;
       forceRedraw(n => n + 1);
     });
     if (containerRef.current) obs.observe(containerRef.current);

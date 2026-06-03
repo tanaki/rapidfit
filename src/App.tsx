@@ -236,6 +236,7 @@ export default function App() {
       onUpdateElement: ls.updateElement,
       onDeleteElement: ls.deleteElement,
       onBeginDrag: ls.beginDrag,
+      onRescaleElements: ls.rescaleElements,
     };
   }
 

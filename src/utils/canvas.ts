@@ -400,3 +400,27 @@ export function getCanvasPoint(
     y: (sy - ty) / zoom,
   };
 }
+
+// Scale all coordinates of an element by (sx, sy).
+// Used when the canvas resizes (e.g. single ↔ split) to keep annotations
+// visually anchored to the same position on screen.
+export function rescaleElement(el: AnnotationElement, sx: number, sy: number): AnnotationElement {
+  const sp = (p: Point): Point => ({ x: p.x * sx, y: p.y * sy });
+  switch (el.type) {
+    case 'line':
+    case 'arrow':
+      return { ...el, p1: sp(el.p1), p2: sp(el.p2) };
+    case 'rect':
+      return { ...el, x: el.x * sx, y: el.y * sy, w: el.w * sx, h: el.h * sy };
+    case 'ellipse':
+      return { ...el, cx: el.cx * sx, cy: el.cy * sy, rx: el.rx * sx, ry: el.ry * sy };
+    case 'path':
+      return { ...el, points: el.points.map(sp) };
+    case 'angle':
+      return { ...el, p0: sp(el.p0), p1: sp(el.p1), p2: sp(el.p2) };
+    case 'text':
+      return { ...el, x: el.x * sx, y: el.y * sy };
+    default:
+      return el;
+  }
+}

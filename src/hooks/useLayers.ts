@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import type { Layer, AnnotationElement } from '../types';
-import { uid } from '../utils/canvas';
+import { uid, rescaleElement } from '../utils/canvas';
 
 function makeLayer(name: string): Layer {
   return { id: uid(), name, visible: true, opacity: 100, locked: false, elements: [] };
@@ -129,6 +129,15 @@ export function useLayers(initialName = 'Calque 1') {
     },
   };
 
+  // Rescale all element coordinates — called when the canvas changes size
+  const rescaleElements = useCallback((sx: number, sy: number) => {
+    if (sx === 1 && sy === 1) return;
+    setLayers(prev => prev.map(l => ({
+      ...l,
+      elements: l.elements.map(el => rescaleElement(el, sx, sy)),
+    })));
+  }, []);
+
   const importLayers = useCallback((srcLayers: Layer[], srcActiveId: string) => {
     setLayers(srcLayers);
     setActiveLayerId(srcActiveId);
@@ -140,7 +149,7 @@ export function useLayers(initialName = 'Calque 1') {
     layers, activeLayerId, setActiveLayerId,
     history, future,
     addElement, addElementOnNewLayer, eraseAt, updateElement, deleteElement, beginDrag,
-    undo, redo, clearActiveLayer, importLayers,
+    undo, redo, clearActiveLayer, importLayers, rescaleElements,
     layerActions,
   };
 }

@@ -29,6 +29,11 @@ export default defineConfig({
                 build: {
                   outDir: 'dist-electron',
                   sourcemap: true,
+                  lib: {
+                    entry: 'electron/preload.ts',
+                    formats: ['cjs'],
+                    fileName: () => 'preload.js',
+                  },
                 },
               },
             },
