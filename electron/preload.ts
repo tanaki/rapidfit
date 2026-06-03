@@ -8,6 +8,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-downloaded', (_e, info) => cb(info)),
   installUpdate: () => ipcRenderer.send('install-update'),
 
+  // ── Camera ─────────────────────────────────────────────────────────────────
+  cameraRequestAccess: () => ipcRenderer.invoke('camera:request-access'),
+  cameraGetStatus: () => ipcRenderer.invoke('camera:get-status'),
+
   // ── Sessions ────────────────────────────────────────────────────────────────
   sessionsList: () =>
     ipcRenderer.invoke('sessions:list'),

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeImage, session } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs/promises';
@@ -68,10 +68,8 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // ── Camera / microphone permissions ────────────────────────────────────────
-  // Electron blocks getUserMedia by default. Grant media permissions explicitly
-  // so webcams and external cameras work on all platforms.
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => {
     if (permission === 'media') return true;
     return null;
@@ -80,6 +78,13 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
     callback(permission === 'media');
   });
+
+  // On macOS, request system-level camera access before the window opens.
+  // setPermissionRequestHandler handles Electron's internal layer; this call
+  // handles the macOS TCC (Privacy) layer which is a separate gate.
+  if (process.platform === 'darwin') {
+    await systemPreferences.askForMediaAccess('camera');
+  }
 
   createWindow();
   app.on('activate', () => {
@@ -105,6 +110,22 @@ autoUpdater.on('error', (err) => {
 });
 ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall();
+});
+
+// ── Camera IPC ────────────────────────────────────────────────────────────────
+
+ipcMain.handle('camera:request-access', async () => {
+  if (process.platform === 'darwin') {
+    return systemPreferences.askForMediaAccess('camera');
+  }
+  return true;
+});
+
+ipcMain.handle('camera:get-status', () => {
+  if (process.platform === 'darwin') {
+    return systemPreferences.getMediaAccessStatus('camera');
+  }
+  return 'granted';
 });
 
 // ── Sessions IPC ──────────────────────────────────────────────────────────────

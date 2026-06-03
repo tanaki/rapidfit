@@ -148,10 +148,12 @@ interface Session {
 - Strings i18n FR/EN ajoutées (`session.*`)
 
 ### Reste à faire ⏳
-1. **Auto-save captures sur disque** : dans `handleCapture` (App.tsx), appeler `sessions.saveCapture()` si session active
-2. **Auto-save enregistrements** : dans `handleStopRecording`, appeler `sessions.saveRecording()`
-3. **Suppression session/client** : IPC + UI
-4. **Bug caméra Electron non résolu** : voir section dédiée ci-dessous
+1. ~~**Auto-save captures sur disque**~~ ✅ : `handleCapture` appelle `sessions.saveCapture()`
+2. ~~**Auto-save enregistrements**~~ ✅ : `handleStopRecording` appelle `sessions.saveRecording()`
+3. **Rechargement captures/enregistrements au changement de session** : IPC `sessions:list-captures` + `sessions:list-recordings` → reconstruire Capture[]/Recording[] depuis `file://` URLs
+4. **useStorage (IndexedDB) à rendre session-aware** ou supprimer au profit du filesystem
+5. **Reset source vidéo au changement de session**
+6. **Suppression session/client** : IPC + UI
 
 ### Plan d'action (suite)
 1. **Types** : `Client` + `Session` dans `src/types/index.ts`
@@ -256,24 +258,16 @@ Phase 2 (i18n)          ← peut commencer maintenant
 
 ---
 
-## 🐛 Bug caméra Electron (non résolu)
+## ✅ Bug caméra Electron (résolu)
 
-### Symptôme
-`getUserMedia` ne fonctionne pas dans l'app Electron macOS — la webcam intégrée et les caméras externes ne s'ouvrent pas.
+### Cause
+Problème externe (process macOS bloqué — `VDCAssistant` / `avconferenced`).
 
-### Ce qui a été tenté (sans succès)
-- `session.defaultSession.setPermissionRequestHandler` → grant `media`
-- `session.defaultSession.setPermissionCheckHandler` → return true pour `media`
-- Entitlements macOS : `com.apple.security.device.camera` dans `build/entitlements.mac.plist` + `entitlements.mac.inherit.plist`
-- `NSCameraUsageDescription` dans `extendInfo` (était déjà présent)
-
-### Pistes à explorer en prochaine session
-- Vérifier que le build Electron compile bien avec les nouveaux entitlements (tester `npm run dev:electron` avec les DevTools ouverts, onglet Console)
-- Tester si l'erreur est `NotAllowedError` ou `NotFoundError` (distingue un problème de permission d'un problème de détection)
-- Essayer `app.commandLine.appendSwitch('use-fake-ui-for-media-stream')` pour forcer l'accès en dev
-- Vérifier `webPreferences: { sandbox: false }` — le sandbox Electron peut bloquer `getUserMedia` sur certaines versions
-- Regarder si `navigator.mediaDevices` est `undefined` dans le renderer (signe que le contexte n'est pas sécurisé)
-- Solution alternative : passer par `desktopCapturer` d'Electron au lieu de `getUserMedia` natif
+### Fix appliqué
+- `systemPreferences.askForMediaAccess('camera')` appelé au démarrage Electron (macOS TCC)
+- IPC `camera:request-access` + `camera:get-status` exposés dans le preload
+- `useCamera.ts` : appelle `cameraRequestAccess` avant `getUserMedia` + affiche `ErrorName: message` pour distinguer `NotAllowedError` vs `NotFoundError`
+- `setPermissionCheckHandler` + `setPermissionRequestHandler` déjà en place (couche Electron)
 
 ---
 
@@ -307,6 +301,7 @@ Branche active : dev
 Dernière version taguée : v1.0.5
 Commits sur dev non mergés sur main :
   - feat: Phase 2 i18n FR/EN + Phase 3 clients & sessions (partiel)
-  - feat: Phase 3 suite — édition client, bugs capture + seekbar, caméra Electron
-Prochain tag prévu : v1.1.0 (fin Phase 3, bug caméra résolu)
+  - feat: Phase 3 suite — édition client, fixes capture/seekbar, caméra Electron
+  - feat: auto-save captures/recordings + fix caméra macOS (systemPreferences.askForMediaAccess)
+Prochain tag prévu : v1.1.0 (fin Phase 3)
 ```

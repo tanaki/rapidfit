@@ -16,6 +16,7 @@ type ElectronAPI = {
   sessionsCreateSession: (s: Session) => Promise<Session>;
   sessionsUpdateClient: (c: Client) => Promise<Client>;
   sessionsSaveCapture: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
+  sessionsSaveRecording: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
   sessionsGetLast: () => Promise<{ clientId: string; sessionId: string } | null>;
   sessionsSetLast: (d: { clientId: string; sessionId: string } | null) => Promise<void>;
 };
@@ -150,6 +151,15 @@ export function useSessions() {
     await api.sessionsSaveCapture({ sessionFolderPath: session.folderPath, filename, buffer });
   }, []);
 
+  const saveRecording = useCallback(async (
+    session: Session, blob: Blob, filename: string,
+  ): Promise<void> => {
+    const api = getAPI();
+    if (!api || !session.folderPath) return;
+    const buffer = new Uint8Array(await blob.arrayBuffer());
+    await api.sessionsSaveRecording({ sessionFolderPath: session.folderPath, filename, buffer });
+  }, []);
+
   return {
     ...state,
     createClient,
@@ -157,6 +167,7 @@ export function useSessions() {
     createSession,
     setActiveSession,
     saveCapture,
+    saveRecording,
     reload: load,
   };
 }

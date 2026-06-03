@@ -12,6 +12,17 @@ export function useCamera(config: VideoConfig) {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
       }
+
+      // On macOS via Electron, ask for system-level camera access first.
+      const api = (window as unknown as { electronAPI?: { cameraRequestAccess?: () => Promise<boolean>; cameraGetStatus?: () => Promise<string> } }).electronAPI;
+      if (api?.cameraRequestAccess) {
+        const granted = await api.cameraRequestAccess();
+        if (!granted) {
+          setError('NotAllowedError: macOS camera access denied — check System Settings > Privacy > Camera');
+          return;
+        }
+      }
+
       const constraints: MediaStreamConstraints = {
         video: {
           deviceId: config.deviceId ? { exact: config.deviceId } : undefined,
@@ -30,7 +41,9 @@ export function useCamera(config: VideoConfig) {
       setIsActive(true);
       setError(null);
     } catch (err) {
-      setError((err as Error).message);
+      const e = err as Error;
+      // Prefix with error name so the UI can distinguish permission vs hardware issues
+      setError(`${e.name}: ${e.message}`);
     }
   }, [config]);
 

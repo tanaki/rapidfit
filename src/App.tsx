@@ -96,7 +96,10 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const cap: Capture = { id: uid(), name, blob, url, createdAt: new Date(), paneLabel };
     setCaptures(prev => [cap, ...prev]);
-  }, []);
+    if (sessions.activeSession) {
+      sessions.saveCapture(sessions.activeSession, blob, name);
+    }
+  }, [sessions]);
 
   const handleDeleteCapture = useCallback((id: string) => {
     setCaptures(prev => {
@@ -185,7 +188,10 @@ export default function App() {
     const rec = await recorder.stop();
     setRecordings(prev => [rec, ...prev]);
     persistRecording(rec);
-  }, [recorder, persistRecording]);
+    if (sessions.activeSession) {
+      sessions.saveRecording(sessions.activeSession, rec.blob, rec.name);
+    }
+  }, [recorder, persistRecording, sessions]);
 
   const handleSelectRecording = useCallback((rec: Recording) => {
     setActiveRecording(rec);
