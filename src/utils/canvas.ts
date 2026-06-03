@@ -1,0 +1,402 @@
+import type { Point, AnnotationElement, AngleElement, Layer } from '../types';
+
+// ── Geometry helpers ──────────────────────────────────────────────────────────
+
+export function computeAngle(p0: Point, vertex: Point, p2: Point): number {
+  const v1 = { x: p0.x - vertex.x, y: p0.y - vertex.y };
+  const v2 = { x: p2.x - vertex.x, y: p2.y - vertex.y };
+  const dot = v1.x * v2.x + v1.y * v2.y;
+  const mag1 = Math.hypot(v1.x, v1.y);
+  const mag2 = Math.hypot(v2.x, v2.y);
+  if (mag1 === 0 || mag2 === 0) return 0;
+  return Math.round(Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * (180 / Math.PI) * 10) / 10;
+}
+
+export function distToSegment(p: Point, a: Point, b: Point): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+function pathBounds(points: Point[]) {
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
+}
+
+// ── Hit testing ───────────────────────────────────────────────────────────────
+
+export function hitTestElement(el: AnnotationElement, p: Point, tol = 8): boolean {
+  switch (el.type) {
+    case 'path': {
+      const b = pathBounds(el.points);
+      return p.x >= b.minX - tol && p.x <= b.maxX + tol && p.y >= b.minY - tol && p.y <= b.maxY + tol
+        && el.points.some((_, i) => i > 0 && distToSegment(p, el.points[i - 1], el.points[i]) < tol);
+    }
+    case 'line':
+    case 'arrow':
+      return distToSegment(p, el.p1, el.p2) < tol;
+    case 'rect': {
+      const { x, y, w, h } = el;
+      if (el.filled) return p.x >= x && p.x <= x + w && p.y >= y && p.y <= y + h;
+      return (
+        (p.x >= x - tol && p.x <= x + w + tol && (Math.abs(p.y - y) < tol || Math.abs(p.y - y - h) < tol)) ||
+        (p.y >= y - tol && p.y <= y + h + tol && (Math.abs(p.x - x) < tol || Math.abs(p.x - x - w) < tol))
+      );
+    }
+    case 'ellipse': {
+      const dx = p.x - el.cx, dy = p.y - el.cy;
+      if (el.rx === 0 || el.ry === 0) return false;
+      const d = Math.sqrt((dx / el.rx) ** 2 + (dy / el.ry) ** 2);
+      return el.filled ? d <= 1.1 : Math.abs(d - 1) < 0.25;
+    }
+    case 'text':
+      return p.x >= el.x - tol && p.y >= el.y - tol && p.x <= el.x + 200 && p.y <= el.y + el.fontSize * 1.5;
+    case 'angle':
+      return distToSegment(p, el.p0, el.p1) < tol || distToSegment(p, el.p1, el.p2) < tol;
+  }
+}
+
+// ── Handles ───────────────────────────────────────────────────────────────────
+
+export type Handle = { x: number; y: number; index: number; cursor: string };
+
+export function getHandles(el: AnnotationElement): Handle[] {
+  switch (el.type) {
+    case 'line':
+    case 'arrow':
+      return [
+        { ...el.p1, index: 0, cursor: 'grab' },
+        { ...el.p2, index: 1, cursor: 'grab' },
+      ];
+    case 'rect':
+      return [
+        { x: el.x,          y: el.y,          index: 0, cursor: 'nw-resize' },
+        { x: el.x + el.w,   y: el.y,          index: 1, cursor: 'ne-resize' },
+        { x: el.x + el.w,   y: el.y + el.h,   index: 2, cursor: 'se-resize' },
+        { x: el.x,          y: el.y + el.h,   index: 3, cursor: 'sw-resize' },
+        { x: el.x + el.w/2, y: el.y,          index: 4, cursor: 'n-resize' },
+        { x: el.x + el.w,   y: el.y + el.h/2, index: 5, cursor: 'e-resize' },
+        { x: el.x + el.w/2, y: el.y + el.h,   index: 6, cursor: 's-resize' },
+        { x: el.x,          y: el.y + el.h/2, index: 7, cursor: 'w-resize' },
+      ];
+    case 'ellipse':
+      return [
+        { x: el.cx,          y: el.cy,          index: 0, cursor: 'move' },
+        { x: el.cx + el.rx,  y: el.cy,          index: 1, cursor: 'e-resize' },
+        { x: el.cx,          y: el.cy + el.ry,  index: 2, cursor: 's-resize' },
+        { x: el.cx - el.rx,  y: el.cy,          index: 3, cursor: 'w-resize' },
+        { x: el.cx,          y: el.cy - el.ry,  index: 4, cursor: 'n-resize' },
+      ];
+    case 'text':
+      return [{ x: el.x, y: el.y, index: 0, cursor: 'move' }];
+    case 'angle':
+      return [
+        { ...el.p0, index: 0, cursor: 'grab' },
+        { ...el.p1, index: 1, cursor: 'grab' },
+        { ...el.p2, index: 2, cursor: 'grab' },
+      ];
+    case 'path': {
+      const b = pathBounds(el.points);
+      return [
+        { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2, index: -1, cursor: 'move' },
+      ];
+    }
+  }
+}
+
+export function hitTestHandle(handles: Handle[], p: Point, radius = 8): Handle | null {
+  for (const h of handles) {
+    if (Math.hypot(h.x - p.x, h.y - p.y) <= radius) return h;
+  }
+  return null;
+}
+
+export function applyHandleDrag(el: AnnotationElement, handleIndex: number, newPt: Point): AnnotationElement {
+  switch (el.type) {
+    case 'line':
+    case 'arrow':
+      return handleIndex === 0 ? { ...el, p1: newPt } : { ...el, p2: newPt };
+    case 'rect': {
+      const x1 = el.x, y1 = el.y, x2 = el.x + el.w, y2 = el.y + el.h;
+      let [nx1, ny1, nx2, ny2] = [x1, y1, x2, y2];
+      if (handleIndex === 0) { nx1 = newPt.x; ny1 = newPt.y; }
+      else if (handleIndex === 1) { nx2 = newPt.x; ny1 = newPt.y; }
+      else if (handleIndex === 2) { nx2 = newPt.x; ny2 = newPt.y; }
+      else if (handleIndex === 3) { nx1 = newPt.x; ny2 = newPt.y; }
+      else if (handleIndex === 4) { ny1 = newPt.y; }
+      else if (handleIndex === 5) { nx2 = newPt.x; }
+      else if (handleIndex === 6) { ny2 = newPt.y; }
+      else if (handleIndex === 7) { nx1 = newPt.x; }
+      return { ...el, x: Math.min(nx1, nx2), y: Math.min(ny1, ny2), w: Math.abs(nx2 - nx1), h: Math.abs(ny2 - ny1) };
+    }
+    case 'ellipse':
+      if (handleIndex === 0) return { ...el, cx: newPt.x, cy: newPt.y };
+      if (handleIndex === 1 || handleIndex === 3) return { ...el, rx: Math.max(1, Math.abs(newPt.x - el.cx)) };
+      return { ...el, ry: Math.max(1, Math.abs(newPt.y - el.cy)) };
+    case 'text':
+      return { ...el, x: newPt.x, y: newPt.y };
+    case 'angle': {
+      const updated = handleIndex === 0 ? { ...el, p0: newPt }
+        : handleIndex === 1 ? { ...el, p1: newPt }
+        : { ...el, p2: newPt };
+      return { ...updated, angle: computeAngle(updated.p0, updated.p1, updated.p2) };
+    }
+    case 'path': {
+      return el; // handled by moveElement
+    }
+  }
+}
+
+export function moveElement(el: AnnotationElement, dx: number, dy: number): AnnotationElement {
+  const m = (p: Point): Point => ({ x: p.x + dx, y: p.y + dy });
+  switch (el.type) {
+    case 'path':    return { ...el, points: el.points.map(m) };
+    case 'line':
+    case 'arrow':   return { ...el, p1: m(el.p1), p2: m(el.p2) };
+    case 'rect':    return { ...el, x: el.x + dx, y: el.y + dy };
+    case 'ellipse': return { ...el, cx: el.cx + dx, cy: el.cy + dy };
+    case 'text':    return { ...el, x: el.x + dx, y: el.y + dy };
+    case 'angle':   return { ...el, p0: m(el.p0), p1: m(el.p1), p2: m(el.p2) };
+  }
+}
+
+// ── Canvas drawing ────────────────────────────────────────────────────────────
+//
+// The canvas is positioned at full screen resolution (outside the CSS zoom
+// wrapper). A ctx.setTransform(zoom, 0, 0, zoom, tx, ty) maps content-space
+// coordinates → screen pixels, so all element positions are correct.
+//
+// Visual sizes (stroke widths, handle radii, arc radius, label font…) are
+// divided by `zoom` so that after the canvas transform multiplies them back
+// by zoom they end up at a constant physical pixel size on screen.
+
+function drawArrowhead(ctx: CanvasRenderingContext2D, from: Point, to: Point, size: number) {
+  const angle = Math.atan2(to.y - from.y, to.x - from.x);
+  ctx.beginPath();
+  ctx.moveTo(to.x, to.y);
+  ctx.lineTo(to.x - size * Math.cos(angle - Math.PI / 6), to.y - size * Math.sin(angle - Math.PI / 6));
+  ctx.moveTo(to.x, to.y);
+  ctx.lineTo(to.x - size * Math.cos(angle + Math.PI / 6), to.y - size * Math.sin(angle + Math.PI / 6));
+  ctx.stroke();
+}
+
+function drawAngleArc(ctx: CanvasRenderingContext2D, el: AngleElement, zoom: number) {
+  const { p0, p1, p2, color, strokeWidth } = el;
+  const radius = 40 / zoom;
+  const a1 = Math.atan2(p0.y - p1.y, p0.x - p1.x);
+  const a2 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+
+  const cwSweep = ((a2 - a1) + 2 * Math.PI) % (2 * Math.PI);
+  const anticlockwise = cwSweep > Math.PI;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth = strokeWidth / zoom;
+  ctx.beginPath();
+  ctx.arc(p1.x, p1.y, radius, a1, a2, anticlockwise);
+  ctx.stroke();
+
+  const halfSweep = anticlockwise ? -((2 * Math.PI - cwSweep) / 2) : cwSweep / 2;
+  const midAngle = a1 + halfSweep;
+  const labelDist = radius + 18 / zoom;
+  const lx = p1.x + labelDist * Math.cos(midAngle);
+  const ly = p1.y + labelDist * Math.sin(midAngle);
+  const label = `${el.angle}°`;
+  const fontSize = (12 + strokeWidth) / zoom;
+  ctx.font = `bold ${fontSize}px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const w = ctx.measureText(label).width + 8 / zoom;
+  const boxH = 22 / zoom;
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.beginPath();
+  ctx.roundRect(lx - w / 2, ly - boxH / 2, w, boxH, 4 / zoom);
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.fillText(label, lx, ly);
+}
+
+function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom = 1) {
+  ctx.save();
+  switch (el.type) {
+    case 'path':
+      if (el.points.length < 2) break;
+      ctx.strokeStyle = el.color; ctx.lineWidth = el.strokeWidth / zoom;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(el.points[0].x, el.points[0].y);
+      for (let i = 1; i < el.points.length; i++) ctx.lineTo(el.points[i].x, el.points[i].y);
+      ctx.stroke();
+      break;
+    case 'line':
+      ctx.strokeStyle = el.color; ctx.lineWidth = el.strokeWidth / zoom; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(el.p1.x, el.p1.y); ctx.lineTo(el.p2.x, el.p2.y); ctx.stroke();
+      break;
+    case 'arrow':
+      ctx.strokeStyle = el.color; ctx.lineWidth = el.strokeWidth / zoom; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(el.p1.x, el.p1.y); ctx.lineTo(el.p2.x, el.p2.y); ctx.stroke();
+      drawArrowhead(ctx, el.p1, el.p2, (10 + el.strokeWidth * 2) / zoom);
+      break;
+    case 'rect':
+      ctx.strokeStyle = el.color; ctx.lineWidth = el.strokeWidth / zoom;
+      if (el.filled) { ctx.fillStyle = el.color + '44'; ctx.fillRect(el.x, el.y, el.w, el.h); }
+      ctx.strokeRect(el.x, el.y, el.w, el.h);
+      break;
+    case 'ellipse':
+      ctx.strokeStyle = el.color; ctx.lineWidth = el.strokeWidth / zoom;
+      ctx.beginPath(); ctx.ellipse(el.cx, el.cy, Math.abs(el.rx), Math.abs(el.ry), 0, 0, Math.PI * 2);
+      if (el.filled) { ctx.fillStyle = el.color + '44'; ctx.fill(); }
+      ctx.stroke();
+      break;
+    case 'text':
+      ctx.fillStyle = el.color; ctx.font = `${el.fontSize}px system-ui`; ctx.textBaseline = 'top';
+      el.text.split('\n').forEach((line, i) => ctx.fillText(line, el.x, el.y + i * el.fontSize * 1.3));
+      break;
+    case 'angle':
+      ctx.strokeStyle = el.color; ctx.lineWidth = el.strokeWidth / zoom; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(el.p0.x, el.p0.y); ctx.lineTo(el.p1.x, el.p1.y); ctx.lineTo(el.p2.x, el.p2.y); ctx.stroke();
+      drawAngleArc(ctx, el, zoom);
+      [el.p0, el.p1, el.p2].forEach((p, i) => {
+        const r = (i === 1 ? 5 : 4) / zoom;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = el.color; ctx.fill();
+      });
+      break;
+  }
+  ctx.restore();
+}
+
+export function drawSelectionHandles(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom = 1) {
+  ctx.save();
+
+  const pad  = 4 / zoom;
+  const pad6 = 6 / zoom;
+
+  ctx.strokeStyle = 'rgba(99,102,241,0.6)';
+  ctx.lineWidth = 1 / zoom;
+  ctx.setLineDash([5 / zoom, 4 / zoom]);
+  switch (el.type) {
+    case 'rect':
+      ctx.strokeRect(el.x - pad, el.y - pad, el.w + pad * 2, el.h + pad * 2);
+      break;
+    case 'ellipse':
+      ctx.beginPath();
+      ctx.ellipse(el.cx, el.cy, Math.abs(el.rx) + pad6, Math.abs(el.ry) + pad6, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      break;
+    case 'path': {
+      const b = pathBounds(el.points);
+      ctx.strokeRect(b.minX - pad6, b.minY - pad6, b.maxX - b.minX + pad6 * 2, b.maxY - b.minY + pad6 * 2);
+      break;
+    }
+    default: break;
+  }
+  ctx.setLineDash([]);
+
+  const handles = getHandles(el);
+  for (const h of handles) {
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, 6 / zoom, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.strokeStyle = '#6366f1';
+    ctx.lineWidth = 2 / zoom;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Compute the canvas 2D transform that maps content-space coords to screen
+// pixels, mirroring the CSS: scale(zoom) translate(pan) with origin=center.
+//   screenX = zoom * contentX + tx   where tx = zoom * pan.x + W/2 * (1 - zoom)
+export function contentTransform(
+  zoom: number,
+  pan: { x: number; y: number },
+  W: number,
+  H: number,
+): { tx: number; ty: number } {
+  return {
+    tx: zoom * pan.x + (W / 2) * (1 - zoom),
+    ty: zoom * pan.y + (H / 2) * (1 - zoom),
+  };
+}
+
+export function renderLayers(
+  ctx: CanvasRenderingContext2D,
+  layers: Layer[],
+  zoom = 1,
+  pan = { x: 0, y: 0 },
+) {
+  const { width: W, height: H } = ctx.canvas;
+  const { tx, ty } = contentTransform(zoom, pan, W, H);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.setTransform(zoom, 0, 0, zoom, tx, ty);
+  for (const layer of layers) {
+    if (!layer.visible) continue;
+    ctx.save();
+    ctx.globalAlpha = layer.opacity / 100;
+    for (const el of layer.elements) drawElement(ctx, el, zoom);
+    ctx.restore();
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+export function renderLayersWithDraft(
+  ctx: CanvasRenderingContext2D,
+  layers: Layer[],
+  draftElement: AnnotationElement | null,
+  selectedLayerId?: string,
+  selectedElementId?: string,
+  zoom = 1,
+  pan = { x: 0, y: 0 },
+) {
+  const { width: W, height: H } = ctx.canvas;
+  const { tx, ty } = contentTransform(zoom, pan, W, H);
+
+  // Clear in screen space, then switch to content space
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.setTransform(zoom, 0, 0, zoom, tx, ty);
+
+  for (const layer of layers) {
+    if (!layer.visible) continue;
+    ctx.save();
+    ctx.globalAlpha = layer.opacity / 100;
+    for (const el of layer.elements) {
+      drawElement(ctx, el, zoom);
+      if (layer.id === selectedLayerId && el.id === selectedElementId) {
+        ctx.globalAlpha = 1;
+        drawSelectionHandles(ctx, el, zoom);
+      }
+    }
+    ctx.restore();
+  }
+  if (draftElement) drawElement(ctx, draftElement, zoom);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+export function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+// Convert a mouse event to content-space coordinates.
+// The canvas sits at full screen resolution (no CSS transform). We invert the
+// same zoom/pan transform that was applied via ctx.setTransform when drawing.
+export function getCanvasPoint(
+  e: React.MouseEvent<HTMLCanvasElement> | MouseEvent,
+  canvas: HTMLCanvasElement,
+  zoom = 1,
+  pan = { x: 0, y: 0 },
+): Point {
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left;
+  const sy = e.clientY - rect.top;
+  const { tx, ty } = contentTransform(zoom, pan, rect.width, rect.height);
+  return {
+    x: (sx - tx) / zoom,
+    y: (sy - ty) / zoom,
+  };
+}

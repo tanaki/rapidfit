@@ -1,0 +1,140 @@
+export type Point = { x: number; y: number };
+
+export type Tool =
+  | 'pan'
+  | 'select'
+  | 'pen'
+  | 'line'
+  | 'arrow'
+  | 'rect'
+  | 'ellipse'
+  | 'angle'
+  | 'eraser';
+
+export interface PathElement {
+  type: 'path';
+  id: string;
+  points: Point[];
+  color: string;
+  strokeWidth: number;
+}
+export interface LineElement {
+  type: 'line';
+  id: string;
+  p1: Point;
+  p2: Point;
+  color: string;
+  strokeWidth: number;
+}
+export interface ArrowElement {
+  type: 'arrow';
+  id: string;
+  p1: Point;
+  p2: Point;
+  color: string;
+  strokeWidth: number;
+}
+export interface RectElement {
+  type: 'rect';
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color: string;
+  strokeWidth: number;
+  filled: boolean;
+}
+export interface EllipseElement {
+  type: 'ellipse';
+  id: string;
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  color: string;
+  strokeWidth: number;
+  filled: boolean;
+}
+export interface TextElement {
+  type: 'text';
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  fontSize: number;
+}
+export interface AngleElement {
+  type: 'angle';
+  id: string;
+  p0: Point;
+  p1: Point; // vertex
+  p2: Point;
+  color: string;
+  strokeWidth: number;
+  angle: number; // degrees
+}
+
+export type AnnotationElement =
+  | PathElement
+  | LineElement
+  | ArrowElement
+  | RectElement
+  | EllipseElement
+  | TextElement
+  | AngleElement;
+
+export interface Layer {
+  id: string;
+  name: string;
+  visible: boolean;
+  opacity: number;
+  locked: boolean;
+  elements: AnnotationElement[];
+}
+
+export interface Recording {
+  id: string;
+  name: string;
+  blob: Blob;
+  url: string;
+  createdAt: Date;
+  duration: number;
+}
+
+export interface Capture {
+  id: string;
+  name: string;
+  blob: Blob;
+  url: string;       // object URL for display / download
+  createdAt: Date;
+  paneLabel?: string; // 'A' | 'B' | undefined (single mode)
+}
+
+export type AppMode = 'capture' | 'playback';
+
+export type PaneSourceType = 'camera' | 'recording' | 'none';
+export type PaneSource =
+  | { type: 'camera'; deviceId: string }
+  | { type: 'recording'; recording: Recording }
+  | { type: 'none' };
+
+export interface VideoConfig {
+  deviceId: string;
+  width: number;
+  height: number;
+  frameRate: number;
+  videoBitrate: number;
+  audioBitrate: number;
+  audioEnabled: boolean;
+}
+
+export const RESOLUTIONS: Record<string, { width: number; height: number; label: string }> = {
+  '480p':  { width: 854,  height: 480,  label: '480p  (854×480)' },
+  '720p':  { width: 1280, height: 720,  label: '720p  (1280×720)' },
+  '1080p': { width: 1920, height: 1080, label: '1080p (1920×1080)' },
+  '1440p': { width: 2560, height: 1440, label: '1440p (2560×1440)' },
+};
+
+export const FRAMERATES = [24, 30, 60] as const;
