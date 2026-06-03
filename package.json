@@ -1,6 +1,11 @@
 {
   "name": "rapidfit",
   "productName": "RapidFit",
+  "description": "Outil d'analyse vidéo pour le bike fitting — annotation, mesure d'angles et compte rendu.",
+  "author": {
+    "name": "Nicolas Pigelet",
+    "email": "nipigelet@gmail.com"
+  },
   "private": true,
   "version": "1.0.0",
   "type": "module",
