@@ -33,7 +33,7 @@ export default function App() {
   const recorder = useRecorder();
 
   // UI modes
-  const [isLiveMode, setIsLiveMode] = useState(true);
+  const [isLiveMode, setIsLiveMode] = useState(false);
   const [splitMode, setSplitMode] = useState(false);
   const [canvasInteractive, setCanvasInteractive] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
@@ -107,7 +107,6 @@ export default function App() {
     : singleLayers;
 
   // ── Camera lifecycle ───────────────────────────────────────────────────────
-  useEffect(() => { camera.start(); }, []); // eslint-disable-line
   useEffect(() => {
     if (isLiveMode) camera.start(); else camera.stop();
   }, [isLiveMode]); // eslint-disable-line
@@ -278,7 +277,7 @@ export default function App() {
       {/* ── Header ── */}
       <header className="flex items-center justify-between px-4 py-2 bg-[#13131f] border-b border-[#22223b] shrink-0 h-11">
         <div className="flex items-center gap-2">
-          <span className="text-indigo-400 text-xl font-bold">⚡</span>
+          <span className="text-xl">🚴⚡</span>
           <span className="text-sm font-bold tracking-wide text-white">RapidFit</span>
           <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
           <span className="text-xs text-slate-400 bg-[#22223b] px-2 py-0.5 rounded-md border border-[#3d3d5c]">
@@ -386,7 +385,9 @@ export default function App() {
             // Derive current source from existing state
             const singleSource: PaneSource = !isLiveMode && activeRecording
               ? { type: 'recording', recording: activeRecording }
-              : { type: 'camera', deviceId: config.deviceId };
+              : isLiveMode
+                ? { type: 'camera', deviceId: config.deviceId }
+                : { type: 'none' };
 
             const handleSingleSourceChange = (s: PaneSource) => {
               if (s.type === 'camera') {
