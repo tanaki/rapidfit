@@ -1,16 +1,20 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { Recording, Capture, VideoConfig, PaneSource } from './types';
+import { useTranslation } from 'react-i18next';
+import type { Recording, Capture, VideoConfig, PaneSource, Client, Discipline } from './types';
 import { uid } from './utils/canvas';
 import { useLayers } from './hooks/useLayers';
 import type { LayersState } from './hooks/useLayers';
 import { useDevices } from './hooks/useCamera';
 import { useRecorder } from './hooks/useRecorder';
+import { useSessions } from './hooks/useSessions';
 import type { Tool } from './types';
 import { Toolbar, COLORS } from './components/Toolbar';
 import { LayerPanel } from './components/LayerPanel';
 import { RecordingBar } from './components/RecordingBar';
 import { SettingsModal } from './components/SettingsModal';
 import { ReportModal } from './components/ReportModal';
+import { SessionSelector } from './components/SessionSelector';
+import { NewSessionModal } from './components/NewSessionModal';
 import { VideoPane, SourceSelector, type VideoPaneHandle } from './components/VideoPane';
 import { useStorage } from './hooks/useStorage';
 import { saveRecordingToFile } from './utils/saveFile';
@@ -26,7 +30,45 @@ const DEFAULT_CONFIG: VideoConfig = {
 };
 
 export default function App() {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<VideoConfig>(DEFAULT_CONFIG);
+
+  // ── Sessions ───────────────────────────────────────────────────────────────
+  const sessions = useSessions();
+  const [showNewSession, setShowNewSession] = useState(false);
+
+  // Ouvre automatiquement la modal si aucune session après chargement
+  useEffect(() => {
+    if (!sessions.isLoading && !sessions.activeSession) setShowNewSession(true);
+  }, [sessions.isLoading, sessions.activeSession]);
+
+  const handleCreateClientAndSession = useCallback(async (
+    clientData: Pick<Client, 'nom' | 'prenom' | 'email' | 'phone'>,
+    sessionData: { discipline: Discipline; bikeFitDate: string; notes?: string },
+  ) => {
+    const client = await sessions.createClient(clientData);
+    const session = await sessions.createSession(client.id, sessionData);
+    await sessions.setActiveSession(client, session);
+    // Réinitialise la mémoire courante
+    setCaptures([]);
+    setRecordings([]);
+    setActiveRecording(null);
+    setShowNewSession(false);
+  }, [sessions]);
+
+  const handleCreateSessionForClient = useCallback(async (
+    clientId: string,
+    sessionData: { discipline: Discipline; bikeFitDate: string; notes?: string },
+  ) => {
+    const client = sessions.clients.find(c => c.id === clientId)!;
+    const session = await sessions.createSession(clientId, sessionData);
+    await sessions.setActiveSession(client, session);
+    // Réinitialise la mémoire courante
+    setCaptures([]);
+    setRecordings([]);
+    setActiveRecording(null);
+    setShowNewSession(false);
+  }, [sessions]);
   const { devices } = useDevices();
   const recorder = useRecorder();
 
@@ -102,8 +144,8 @@ export default function App() {
   }, []);
 
   // ── Layer sets — pane A always uses singleLayers in both modes ─────────────
-  const singleLayers = useLayers('Calque 1');
-  const paneLayers1  = useLayers('Calque B-1');
+  const singleLayers = useLayers(t('layers.initialA'));
+  const paneLayers1  = useLayers(t('layers.initialB'));
 
   const activeLayers: LayersState = splitMode && activePaneIndex === 1
     ? paneLayers1
@@ -273,13 +315,27 @@ export default function App() {
           <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="RapidFit" className="h-6 w-6" />
           <span className="text-sm font-bold tracking-wide text-white">RapidFit</span>
           <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
+          <SessionSelector
+            clients={sessions.clients}
+            sessionsByClient={sessions.sessionsByClient}
+            activeClient={sessions.activeClient}
+            activeSession={sessions.activeSession}
+            onSelect={(client, session) => {
+              sessions.setActiveSession(client, session);
+              setCaptures([]);
+              setRecordings([]);
+              setActiveRecording(null);
+            }}
+            onNewSession={() => setShowNewSession(true)}
+          />
+          <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
           <span className="text-xs text-slate-400 bg-[#22223b] px-2 py-0.5 rounded-md border border-[#3d3d5c]">
             {splitMode && (
               <span className="text-indigo-400 font-medium mr-1">
-                Panneau {activePaneIndex === 0 ? 'A' : 'B'} —
+                {t('header.panel')} {activePaneIndex === 0 ? 'A' : 'B'} —
               </span>
             )}
-            Calque : <span className="text-slate-200 font-medium">{activeLayerName}</span>
+            {t('header.layer')} : <span className="text-slate-200 font-medium">{activeLayerName}</span>
           </span>
         </div>
 
@@ -291,27 +347,27 @@ export default function App() {
 
         <div className="flex items-center gap-2">
           {isLiveMode && !cameraIsActive && !cameraError && (
-            <span className="text-xs text-slate-500">En attente de la caméra…</span>
+            <span className="text-xs text-slate-500">{t('header.cameraWaiting')}</span>
           )}
 
           {/* Overlay toggles */}
           <button
             onClick={() => setShowGuide(g => !g)}
-            title="Afficher/masquer les guides (rectangle 80% + centre)"
+            title={t('header.guidesTitle')}
             className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
               showGuide ? 'bg-yellow-600 text-white' : 'bg-[#22223b] hover:bg-[#2d2d48] text-slate-300'
             }`}
           >
-            ✛ Guides
+            {t('header.guides')}
           </button>
           <button
             onClick={() => setShowGrid(g => !g)}
-            title="Afficher/masquer la grille"
+            title={t('header.gridTitle')}
             className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
               showGrid ? 'bg-blue-600 text-white' : 'bg-[#22223b] hover:bg-[#2d2d48] text-slate-300'
             }`}
           >
-            ⊟ Grille
+            {t('header.grid')}
           </button>
 
           {/* Grid size controls — visible only when grid is on */}
@@ -337,7 +393,7 @@ export default function App() {
             onClick={() => setShowReport(true)}
             className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 font-medium transition-colors"
           >
-            📋 Compte rendu
+            {t('header.report')}
           </button>
 
           <button
@@ -352,13 +408,13 @@ export default function App() {
               splitMode ? 'bg-indigo-600 text-white' : 'bg-[#22223b] hover:bg-[#2d2d48] text-slate-300'
             }`}
           >
-            ⊞ Split
+            {t('header.split')}
           </button>
           <button onClick={() => setShowSettings(true)} className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300">
-            ⚙ Paramètres
+            {t('header.settings')}
           </button>
           <button onClick={() => setShowHelp(true)} className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300">
-            ? Aide
+            {t('header.help')}
           </button>
         </div>
       </header>
@@ -382,7 +438,7 @@ export default function App() {
             <div className={`flex items-center gap-2 px-3 py-1.5 ${splitMode ? 'flex-1 border-r border-[#22223b]' : 'w-full'}`}>
               <SourceSelector
                 source={singleSource} devices={devices} recordings={recordings}
-                label={splitMode ? 'A' : 'Source'}
+                label={splitMode ? 'A' : t('video.sourceLabel')}
                 onChange={handleSingleSourceChange}
               />
             </div>
@@ -432,7 +488,7 @@ export default function App() {
             {recorder.isRecording && (
               <div className="absolute top-3 right-3 flex items-center gap-2 bg-black/60 px-3 py-1 rounded-full pointer-events-none" style={{ zIndex: 400 }}>
                 <span className={`w-2 h-2 rounded-full ${recorder.isPaused ? 'bg-yellow-400' : 'bg-red-500 animate-pulse'}`} />
-                <span className="text-xs font-mono text-white font-semibold">{recorder.isPaused ? 'PAUSE' : 'REC'}</span>
+                <span className="text-xs font-mono text-white font-semibold">{recorder.isPaused ? t('recording.pauseIndicator') : t('recording.rec')}</span>
               </div>
             )}
           </div>
@@ -478,6 +534,16 @@ export default function App() {
 
       <input ref={importInputRef} type="file" accept="video/*" className="hidden" onChange={handleImportFile} />
 
+      {showNewSession && (
+        <NewSessionModal
+          clients={sessions.clients}
+          canClose={!!sessions.activeSession}
+          onClose={() => setShowNewSession(false)}
+          onCreateClientAndSession={handleCreateClientAndSession}
+          onCreateSessionForClient={handleCreateSessionForClient}
+        />
+      )}
+
       {showSettings && (
         <SettingsModal
           config={config}
@@ -501,19 +567,19 @@ export default function App() {
         >
           <div className="bg-[#13131f] border border-[#22223b] rounded-xl p-6 w-[700px] max-h-[88vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-slate-100">Guide d'utilisation</h2>
+              <h2 className="text-lg font-semibold text-slate-100">{t('help.title')}</h2>
               <button onClick={() => setShowHelp(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
             </div>
 
             {/* Outils */}
             <section className="mb-5">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Outils</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.tools')}</h3>
               <div className="flex flex-col gap-1.5">
                 {[
-                  ['H', '✋', 'Déplacer',   'Glisser pour déplacer la vue (zoom > 1).'],
-                  ['V', '⊙', 'Sélection',  'Cliquer pour sélectionner, glisser les handles pour modifier. Suppr/⌫ pour supprimer.'],
-                  ['L', '╱', 'Trait',      'Cliquer-glisser pour tracer une ligne droite.'],
-                  ['G', '∠', 'Angle',      '3 clics : 1er point → sommet → 3e point. L\'arc et la valeur en degrés s\'affichent automatiquement.'],
+                  ['H', '✋', t('help.tool_pan'),    t('help.tool_pan_desc')],
+                  ['V', '⊙', t('help.tool_select'), t('help.tool_select_desc')],
+                  ['L', '╱', t('help.tool_line'),   t('help.tool_line_desc')],
+                  ['G', '∠', t('help.tool_angle'),  t('help.tool_angle_desc')],
                 ].map(([key, icon, name, desc]) => (
                   <div key={key} className="flex items-start gap-3 bg-[#22223b] rounded-lg px-3 py-2">
                     <kbd className="shrink-0 w-6 h-6 bg-[#3d3d5c] rounded text-xs font-mono text-slate-300 flex items-center justify-center">{key}</kbd>
@@ -529,20 +595,20 @@ export default function App() {
 
             {/* Raccourcis clavier */}
             <section className="mb-5">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Raccourcis clavier</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.shortcuts')}</h3>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                 {[
-                  ['H',            'Outil Déplacer'],
-                  ['V',            'Outil Sélection'],
-                  ['L',            'Outil Trait'],
-                  ['G',            'Outil Angle'],
-                  ['Espace (maintien)', 'Pan temporaire → relâche pour revenir à l\'outil'],
-                  ['Ctrl/Cmd + Z', 'Annuler'],
-                  ['Ctrl/Cmd + Y', 'Rétablir'],
-                  ['Suppr / ⌫',   'Supprimer l\'élément sélectionné'],
-                  ['Entrée',       'Lecture / Pause vidéo'],
-                  ['←  →',         'Image précédente / suivante (vidéo pausée)'],
-                  ['MAJ + ←  →',   'Reculer / avancer 10 images d\'un coup'],
+                  ['H',                          t('help.shortcut_pan')],
+                  ['V',                          t('help.shortcut_select')],
+                  ['L',                          t('help.shortcut_line')],
+                  ['G',                          t('help.shortcut_angle')],
+                  [t('help.shortcut_space_key'), t('help.shortcut_space')],
+                  [t('help.shortcut_undo_key'),  t('help.shortcut_undo')],
+                  [t('help.shortcut_redo_key'),  t('help.shortcut_redo')],
+                  [t('help.shortcut_delete_key'),t('help.shortcut_delete')],
+                  [t('help.shortcut_enter_key'), t('help.shortcut_enter')],
+                  [t('help.shortcut_arrows_key'),t('help.shortcut_arrows')],
+                  [t('help.shortcut_shift_key'), t('help.shortcut_shift')],
                 ].map(([key, label]) => (
                   <div key={key} className="flex items-center gap-2 min-w-0">
                     <kbd className="shrink-0 bg-[#3d3d5c] rounded px-1.5 py-0.5 text-[10px] font-mono text-slate-300 whitespace-nowrap">{key}</kbd>
@@ -554,17 +620,17 @@ export default function App() {
 
             {/* Souris & molette */}
             <section className="mb-5">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Souris &amp; molette</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.mouse')}</h3>
               <div className="flex flex-col gap-1 text-xs text-slate-400">
                 {[
-                  ['Ctrl/Cmd + molette',       'Zoom centré sur le curseur'],
-                  ['Clic molette + glisser',   'Déplacer la vue (zoom > 1)'],
-                  ['Espace + glisser',          'Déplacer la vue (zoom > 1)'],
-                  ['Molette seule (vidéo)',     'Image précédente / suivante'],
-                  ['Clic seekbar',             'Sauter à ce point dans la vidéo'],
-                  ['Glisser seekbar',          'Navigation continue dans la vidéo'],
-                  ['Clic handle',              'Déplacer le point (curseur ✊ pendant le drag)'],
-                  ['Glisser corps d\'un élément', 'Déplacer l\'élément entier'],
+                  [t('help.mouse_zoom_key'),         t('help.mouse_zoom')],
+                  [t('help.mouse_pan_middle_key'),   t('help.mouse_pan_middle')],
+                  [t('help.mouse_pan_space_key'),    t('help.mouse_pan_space')],
+                  [t('help.mouse_wheel_key'),        t('help.mouse_wheel')],
+                  [t('help.mouse_seekbar_key'),      t('help.mouse_seekbar')],
+                  [t('help.mouse_seekbar_drag_key'), t('help.mouse_seekbar_drag')],
+                  [t('help.mouse_handle_key'),       t('help.mouse_handle')],
+                  [t('help.mouse_element_key'),      t('help.mouse_element')],
                 ].map(([key, label]) => (
                   <div key={key} className="flex items-start gap-2">
                     <span className="shrink-0 text-slate-500 text-[10px] font-mono bg-[#22223b] rounded px-1.5 py-0.5 whitespace-nowrap">{key}</span>
@@ -576,25 +642,25 @@ export default function App() {
 
             {/* Split screen */}
             <section className="mb-5">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Split screen</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.split')}</h3>
               <div className="flex flex-col gap-1 text-xs text-slate-400">
-                <p>• Chaque panneau A / B a ses <span className="text-slate-300">calques et son zoom/pan indépendants</span>.</p>
-                <p>• Cliquer sur un panneau pour l'activer — outils et calques s'y appliquent.</p>
-                <p>• ← → et MAJ+← → s'appliquent au panneau actif.</p>
+                <p>• {t('help.split_desc1')}</p>
+                <p>• {t('help.split_desc2')}</p>
+                <p>• {t('help.split_desc3')}</p>
               </div>
             </section>
 
             {/* Calques */}
             <section>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Calques</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.layers')}</h3>
               <div className="flex flex-col gap-1 text-xs text-slate-400">
-                <p>• <span className="text-slate-300">+</span> Créer · <span className="text-slate-300">👁</span> Masquer · <span className="text-slate-300">🔒</span> Verrouiller · <span className="text-slate-300">▲▼</span> Réordonner</p>
-                <p>• Slider opacité 0–100 % par calque · chaque tracé crée automatiquement son propre calque.</p>
+                <p>• <span className="text-slate-300">{t('help.layers_desc1_create')}</span> {t('help.layers_desc1_text').split(' · ')[0]} · <span className="text-slate-300">{t('help.layers_desc1_hide')}</span> {t('help.layers_desc1_text').split(' · ')[1]} · <span className="text-slate-300">{t('help.layers_desc1_lock')}</span> {t('help.layers_desc1_text').split(' · ')[2]} · <span className="text-slate-300">{t('help.layers_desc1_reorder')}</span> {t('help.layers_desc1_text').split(' · ')[3]}</p>
+                <p>• {t('help.layers_desc2')}</p>
               </div>
             </section>
 
             <button onClick={() => setShowHelp(false)} className="mt-6 w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium">
-              Fermer
+              {t('help.close')}
             </button>
           </div>
         </div>

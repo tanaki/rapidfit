@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import type { Capture } from '../types';
 
 interface ReportData {
@@ -40,7 +42,7 @@ async function generatePDF(data: ReportData, captures: Capture[]): Promise<void>
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
-  doc.text('RapidFit — Compte rendu', margin, 14);
+  doc.text(i18n.t('report.pdfTitle'), margin, 14);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.text(
@@ -62,7 +64,7 @@ async function generatePDF(data: ReportData, captures: Capture[]): Promise<void>
   };
 
   // ── Client info ─────────────────────────────────────────────────────────────
-  section('Informations client');
+  section(i18n.t('report.pdfSectionClient'));
   const col2 = pageW / 2 + 4;
   const lh   = 7;
 
@@ -76,15 +78,15 @@ async function generatePDF(data: ReportData, captures: Capture[]): Promise<void>
     doc.text(value || '—', cx, y);
   };
 
-  field('Nom :', data.nom, margin, margin + 14);
-  field('Prénom :', data.prenom, col2, col2 + 20);
+  field(i18n.t('report.pdfFieldName'), data.nom, margin, margin + 14);
+  field(i18n.t('report.pdfFieldFirstName'), data.prenom, col2, col2 + 20);
   y += lh;
-  field('Email :', data.email, margin, margin + 14);
-  field('Téléphone :', data.telephone, col2, col2 + 26);
+  field(i18n.t('report.pdfFieldEmail'), data.email, margin, margin + 14);
+  field(i18n.t('report.pdfFieldPhone'), data.telephone, col2, col2 + 26);
   y += lh + 6;
 
   // ── Notes ──────────────────────────────────────────────────────────────────
-  section('Notes');
+  section(i18n.t('report.pdfSectionNotes'));
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(20, 20, 30);
@@ -100,7 +102,7 @@ async function generatePDF(data: ReportData, captures: Capture[]): Promise<void>
 
   // ── Captures ───────────────────────────────────────────────────────────────
   if (captures.length > 0) {
-    section('Captures');
+    section(i18n.t('report.pdfSectionCaptures'));
     const gap  = 5;
     const cols = 2;
     const imgW = (pageW - margin * 2 - gap * (cols - 1)) / cols;
@@ -131,7 +133,7 @@ async function generatePDF(data: ReportData, captures: Capture[]): Promise<void>
         doc.rect(rowX(col), y, imgW, imgH, 'F');
         doc.setTextColor(160, 160, 170);
         doc.setFontSize(8);
-        doc.text('Image indisponible', rowX(col) + imgW / 2, y + imgH / 2, { align: 'center' });
+        doc.text(i18n.t('report.pdfImageUnavailable'), rowX(col) + imgW / 2, y + imgH / 2, { align: 'center' });
       }
 
       col++;
@@ -151,12 +153,14 @@ async function generatePDF(data: ReportData, captures: Capture[]): Promise<void>
   }
 
   const slug = [data.nom, data.prenom].filter(Boolean).join('_') || 'session';
-  doc.save(`Compte_rendu_${slug}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const prefix = i18n.language === 'fr' ? 'Compte_rendu' : 'Report';
+  doc.save(`${prefix}_${slug}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function ReportModal({ captures, onClose }: Props) {
+  const { t } = useTranslation();
   const [data, setData] = useState<ReportData>({
     nom: '', prenom: '', email: '', telephone: '', notes: '',
   });
@@ -197,8 +201,8 @@ export function ReportModal({ captures, onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#22223b] shrink-0">
           <div>
-            <h2 className="text-base font-semibold text-slate-100">📋 Compte rendu</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Remplis le formulaire puis exporte en PDF</p>
+            <h2 className="text-base font-semibold text-slate-100">{t('report.title')}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">{t('report.subtitle')}</p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl leading-none">✕</button>
         </div>
@@ -209,23 +213,23 @@ export function ReportModal({ captures, onClose }: Props) {
           {/* ── Bloc 1 : Informations client ── */}
           <section>
             <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">
-              Informations client
+              {t('report.clientInfo')}
             </h3>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Nom</label>
+                <label className="block text-xs text-slate-400 mb-1">{t('report.lastName')}</label>
                 <input className={input} placeholder="Dupont" value={data.nom} onChange={set('nom')} />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Prénom</label>
+                <label className="block text-xs text-slate-400 mb-1">{t('report.firstName')}</label>
                 <input className={input} placeholder="Jean" value={data.prenom} onChange={set('prenom')} />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Email</label>
+                <label className="block text-xs text-slate-400 mb-1">{t('report.email')}</label>
                 <input className={input} type="email" placeholder="jean@example.com" value={data.email} onChange={set('email')} />
               </div>
               <div>
-                <label className="block text-xs text-slate-400 mb-1">Téléphone</label>
+                <label className="block text-xs text-slate-400 mb-1">{t('report.phone')}</label>
                 <input className={input} type="tel" placeholder="+33 6 00 00 00 00" value={data.telephone} onChange={set('telephone')} />
               </div>
             </div>
@@ -234,11 +238,11 @@ export function ReportModal({ captures, onClose }: Props) {
           {/* ── Bloc 2 : Notes ── */}
           <section>
             <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">
-              Notes
+              {t('report.notes')}
             </h3>
             <textarea
               className={`${input} resize-y min-h-[120px]`}
-              placeholder="Observations, conseils, points à travailler…"
+              placeholder={t('report.notesPlaceholder')}
               value={data.notes}
               onChange={set('notes')}
             />
@@ -248,7 +252,7 @@ export function ReportModal({ captures, onClose }: Props) {
           {captures.length > 0 && (
             <section>
               <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">
-                Captures ({selectedIds.size}/{captures.length} sélectionnées)
+                {t('report.capturesSelected', { selected: selectedIds.size, total: captures.length })}
               </h3>
               <div className="grid grid-cols-4 gap-2">
                 {captures.map(cap => {
@@ -280,12 +284,12 @@ export function ReportModal({ captures, onClose }: Props) {
                 <button
                   onClick={() => setSelectedIds(new Set(captures.map(c => c.id)))}
                   className="text-xs text-slate-400 hover:text-slate-200"
-                >Tout sélectionner</button>
+                >{t('report.selectAll')}</button>
                 <span className="text-slate-600">·</span>
                 <button
                   onClick={() => setSelectedIds(new Set())}
                   className="text-xs text-slate-400 hover:text-slate-200"
-                >Tout désélectionner</button>
+                >{t('report.deselectAll')}</button>
               </div>
             </section>
           )}
@@ -293,10 +297,10 @@ export function ReportModal({ captures, onClose }: Props) {
           {captures.length === 0 && (
             <section>
               <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">
-                Captures
+                {t('report.captures')}
               </h3>
               <p className="text-xs text-slate-500 italic">
-                Aucune capture pour cette session. Utilise le bouton 📸 Capturer sur chaque panneau vidéo.
+                {t('report.noCaptures')}
               </p>
             </section>
           )}
@@ -312,7 +316,7 @@ export function ReportModal({ captures, onClose }: Props) {
               onClick={onClose}
               className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-[#22223b] hover:bg-[#2d2d48] rounded-lg transition-colors"
             >
-              Annuler
+              {t('report.cancel')}
             </button>
             <button
               onClick={handleExport}
@@ -322,10 +326,10 @@ export function ReportModal({ captures, onClose }: Props) {
               {exporting ? (
                 <>
                   <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Génération…
+                  {t('report.generating')}
                 </>
               ) : (
-                <>📄 Exporter en PDF</>
+                <>{t('report.export')}</>
               )}
             </button>
           </div>

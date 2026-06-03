@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Recording, Capture } from '../types';
 import { formatDuration } from '../hooks/useRecorder';
 
@@ -118,6 +119,7 @@ export function RecordingBar({
   onImportVideo, onLiveMode, onPlayPause, onFramePrev, onFrameNext, onSeek,
   captures, onDownloadCapture, onDeleteCapture,
 }: Props) {
+  const { t } = useTranslation();
   return (
     <div className="flex items-center px-4 bg-[#13131f] border-t border-[#22223b] shrink-0 h-14">
 
@@ -130,7 +132,7 @@ export function RecordingBar({
               isLiveMode ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            📷 Live
+            {t('recording.live')}
           </button>
           <button
             onClick={onImportVideo}
@@ -138,7 +140,7 @@ export function RecordingBar({
               !isLiveMode ? 'bg-[#22223b] text-slate-200' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            📂 Importer
+            {t('recording.import')}
           </button>
         </div>
 
@@ -150,7 +152,7 @@ export function RecordingBar({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-medium transition-colors"
               >
                 <span className="w-2 h-2 rounded-full bg-white" />
-                Enregistrer
+                {t('recording.record')}
               </button>
             ) : (
               <>
@@ -158,10 +160,10 @@ export function RecordingBar({
                   {isPaused ? '⏸ ' : '⏺ '}{formatDuration(elapsed)}
                 </span>
                 <button onClick={onPauseRecording} className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg text-xs font-medium">
-                  {isPaused ? '▶ Reprendre' : '⏸ Pause'}
+                  {isPaused ? t('recording.resume') : t('recording.pause')}
                 </button>
                 <button onClick={onStopRecording} className="px-3 py-1.5 bg-[#22223b] hover:bg-[#2d2d48] text-slate-200 rounded-lg text-xs font-medium">
-                  ⏹ Arrêter
+                  {t('recording.stop')}
                 </button>
               </>
             )}
@@ -180,7 +182,7 @@ export function RecordingBar({
             <div className="flex items-center justify-center gap-2">
               <button
                 onClick={onFramePrev}
-                title="Image précédente (←)"
+                title={t('recording.framePrev')}
                 disabled={!isPlaybackPaused}
                 className="w-7 h-7 flex items-center justify-center bg-[#22223b] hover:bg-[#2d2d48] text-slate-200 rounded-md text-sm transition-colors disabled:opacity-30"
               >
@@ -188,14 +190,14 @@ export function RecordingBar({
               </button>
               <button
                 onClick={onPlayPause}
-                title={isPlaybackPaused ? 'Lecture (Entrée)' : 'Pause (Entrée)'}
+                title={isPlaybackPaused ? t('recording.play') : t('recording.pausePlayback')}
                 className="w-8 h-8 flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 {isPlaybackPaused ? '▶' : '⏸'}
               </button>
               <button
                 onClick={onFrameNext}
-                title="Image suivante (→)"
+                title={t('recording.frameNext')}
                 disabled={!isPlaybackPaused}
                 className="w-7 h-7 flex items-center justify-center bg-[#22223b] hover:bg-[#2d2d48] text-slate-200 rounded-md text-sm transition-colors disabled:opacity-30"
               >
@@ -207,7 +209,7 @@ export function RecordingBar({
                   / {isFinite(playbackDuration) && playbackDuration > 0 ? fmtDuration(playbackDuration) : '—'}
                 </span>
               </div>
-              <span className={`text-[9px] ml-1 ${isPlaybackPaused ? 'text-slate-600' : 'invisible'}`}>MAJ+← → ×10</span>
+              <span className={`text-[9px] ml-1 ${isPlaybackPaused ? 'text-slate-600' : 'invisible'}`}>{t('recording.shiftHint')}</span>
             </div>
           </>
         )}
@@ -230,8 +232,8 @@ export function RecordingBar({
                   </span>
                 )}
                 <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-1 bg-black/50 rounded">
-                  <button onClick={e => { e.stopPropagation(); onDownloadCapture(cap); }} title="Télécharger" className="text-xs text-white hover:text-indigo-300 px-1">⬇</button>
-                  <button onClick={e => { e.stopPropagation(); onDeleteCapture(cap.id); }} title="Supprimer" className="text-xs text-red-400 hover:text-red-300 px-1">✕</button>
+                  <button onClick={e => { e.stopPropagation(); onDownloadCapture(cap); }} title={t('recording.download')} className="text-xs text-white hover:text-indigo-300 px-1">⬇</button>
+                  <button onClick={e => { e.stopPropagation(); onDeleteCapture(cap.id); }} title={t('recording.delete')} className="text-xs text-red-400 hover:text-red-300 px-1">✕</button>
                 </div>
               </div>
             ))}
@@ -240,7 +242,7 @@ export function RecordingBar({
 
         <div className="flex items-center gap-2 overflow-x-auto shrink min-w-0">
           {recordings.length === 0 && (
-            <span className="text-xs text-slate-600 whitespace-nowrap">Aucun enregistrement</span>
+            <span className="text-xs text-slate-600 whitespace-nowrap">{t('recording.noRecordings')}</span>
           )}
           {recordings.map(rec => (
             <div
@@ -258,8 +260,8 @@ export function RecordingBar({
                 <span className="text-[10px] text-slate-500">{formatDuration(rec.duration)}</span>
               </div>
               <div className="hidden group-hover:flex items-center gap-1">
-                <button onClick={e => { e.stopPropagation(); onDownloadRecording(rec); }} title="Télécharger" className="text-xs text-slate-400 hover:text-white px-1">⬇</button>
-                <button onClick={e => { e.stopPropagation(); onDeleteRecording(rec.id); }} title="Supprimer" className="text-xs text-red-400 hover:text-red-300 px-1">✕</button>
+                <button onClick={e => { e.stopPropagation(); onDownloadRecording(rec); }} title={t('recording.download')} className="text-xs text-slate-400 hover:text-white px-1">⬇</button>
+                <button onClick={e => { e.stopPropagation(); onDeleteRecording(rec.id); }} title={t('recording.delete')} className="text-xs text-red-400 hover:text-red-300 px-1">✕</button>
               </div>
             </div>
           ))}

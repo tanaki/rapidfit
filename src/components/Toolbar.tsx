@@ -1,11 +1,5 @@
+import { useTranslation } from 'react-i18next';
 import type { Tool } from '../types';
-
-const TOOLS: { id: Tool; icon: string; label: string }[] = [
-  { id: 'pan',    icon: '✋', label: 'Déplacer (H)' },
-  { id: 'select', icon: '⊙', label: 'Sélection (V)' },
-  { id: 'line',   icon: '╱', label: 'Trait (L)' },
-  { id: 'angle',  icon: '∠', label: 'Angle (G)' },
-];
 
 export const COLORS = [
   '#ef4444',
@@ -36,39 +30,45 @@ export function Toolbar({
   onTool, onColor,
   onUndo, onRedo, onClear, canUndo, canRedo,
 }: Props) {
+  const { t } = useTranslation();
+
+  const TOOLS: { id: Tool; icon: string; label: string }[] = [
+    { id: 'pan',    icon: '✋', label: t('toolbar.pan') },
+    { id: 'select', icon: '⊙', label: t('toolbar.select') },
+    { id: 'line',   icon: '╱', label: t('toolbar.line') },
+    { id: 'angle',  icon: '∠', label: t('toolbar.angle') },
+  ];
+
   return (
     <aside className="flex flex-col gap-2 p-2 bg-[#13131f] border-r border-[#22223b] w-14 items-center overflow-y-auto overflow-x-hidden">
-      {/* Tool buttons */}
       <div className="flex flex-col gap-1 w-full">
-        {TOOLS.map(t => (
+        {TOOLS.map(toolItem => (
           <button
-            key={t.id}
-            title={t.label}
-            onClick={() => onTool(t.id)}
+            key={toolItem.id}
+            title={toolItem.label}
+            onClick={() => onTool(toolItem.id)}
             className={`w-10 h-10 rounded-lg text-lg flex items-center justify-center transition-colors
-              ${tool === t.id
+              ${tool === toolItem.id
                 ? 'bg-indigo-600 text-white'
                 : 'bg-[#22223b] text-slate-300 hover:bg-[#2d2d48]'
               }`}
           >
-            {t.icon}
+            {toolItem.icon}
           </button>
         ))}
       </div>
 
       <div className="w-8 border-t border-[#22223b]" />
 
-      {/* Undo / Redo / Clear */}
-      <button title="Annuler (Ctrl+Z)" onClick={onUndo} disabled={!canUndo}
+      <button title={t('toolbar.undo')} onClick={onUndo} disabled={!canUndo}
         className="w-10 h-10 rounded-lg bg-[#22223b] text-slate-300 hover:bg-[#2d2d48] disabled:opacity-30 text-sm">↩</button>
-      <button title="Rétablir (Ctrl+Y)" onClick={onRedo} disabled={!canRedo}
+      <button title={t('toolbar.redo')} onClick={onRedo} disabled={!canRedo}
         className="w-10 h-10 rounded-lg bg-[#22223b] text-slate-300 hover:bg-[#2d2d48] disabled:opacity-30 text-sm">↪</button>
-      <button title="Effacer le calque actif" onClick={onClear}
+      <button title={t('toolbar.clear')} onClick={onClear}
         className="w-10 h-10 rounded-lg bg-[#22223b] text-red-400 hover:bg-red-900/30 text-sm">🗑</button>
 
       <div className="w-8 border-t border-[#22223b]" />
 
-      {/* Palette — 9 couleurs, 3 par ligne */}
       <div className="grid grid-cols-3 gap-[2px] w-full px-1">
         {COLORS.map(c => (
           <button

@@ -130,6 +130,31 @@ export interface VideoConfig {
   audioEnabled: boolean;
 }
 
+export type Discipline = 'route' | 'gravel' | 'clm' | 'vtt';
+
+export interface Client {
+  id: string;
+  nom: string;
+  prenom: string;
+  email?: string;
+  phone?: string;
+  birthDate?: string;
+  weight?: number;
+  height?: number;
+  createdAt: string;
+  folderPath: string;
+}
+
+export interface Session {
+  id: string;
+  clientId: string;
+  discipline: Discipline;
+  bikeFitDate: string;
+  notes?: string;
+  createdAt: string;
+  folderPath: string;
+}
+
 export const RESOLUTIONS: Record<string, { width: number; height: number; label: string }> = {
   '480p':  { width: 854,  height: 480,  label: '480p  (854×480)' },
   '720p':  { width: 1280, height: 720,  label: '720p  (1280×720)' },

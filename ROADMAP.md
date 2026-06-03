@@ -54,17 +54,19 @@ src/hooks/useVideoRect.ts  calcul du rect vidéo (letterbox)
 
 ---
 
-## ⏳ Phase 2 — Internationalisation FR/EN (PROCHAINE)
+## ✅ Phase 2 — Internationalisation FR/EN (TERMINÉE)
 
 ### Objectif
 Toute l'interface en français ET anglais, sélecteur de langue dans les paramètres, persisté.
 
-### Plan d'action
-1. Installer `i18next` + `react-i18next`
-2. Créer `src/locales/fr.json` + `src/locales/en.json`
-3. Extraire toutes les strings de l'app
-4. Ajouter un sélecteur de langue dans `SettingsModal.tsx`
-5. Persister le choix (localStorage ou electron-store)
+### Ce qui est fait
+- `i18next` + `react-i18next` installés
+- `src/i18n.ts` : initialisation, langue persistée dans `localStorage` (clé `lang`, défaut `fr`)
+- `src/locales/fr.json` + `src/locales/en.json` : toutes les strings extraites
+- Sélecteur de langue dans `SettingsModal.tsx` (🇫🇷 Français / 🇬🇧 English), switch live
+- Tous les composants migrés : App, Toolbar, RecordingBar, LayerPanel, VideoPane, SettingsModal, ReportModal, UpdateBanner
+- `useLayers.ts` utilise `i18n.t()` directement pour les noms de calques auto-générés
+- PDF (`ReportModal`) traduit via import direct de `i18n`
 
 ### Fichiers à traiter
 - `src/App.tsx` (header, boutons, modales)
@@ -88,33 +90,100 @@ Toute l'interface en français ET anglais, sélecteur de langue dans les paramè
 
 ---
 
-## ⏳ Phase 3 — Gestion de profils clients
+## 🔄 Phase 3 — Clients & Sessions (EN COURS)
 
 ### Objectif
-Enregistrement des clients sur le disque de l'utilisateur, avec dossiers dédiés pour vidéos et captures.
+Hiérarchie Client → Session persistée sur disque. Un client peut avoir plusieurs sessions (vélos différents ou suivis dans le temps).
 
-### Plan d'action
-1. Nouveau type `ClientProfile` dans `src/types/index.ts`
-2. IPC Electron pour accès au filesystem (`electron/main.ts`)
-3. Stockage : `Documents/RapidFit/Clients/<nom>/` avec `profile.json`, `captures/`, `videos/`, `reports/`
-4. Écran liste clients (création / édition / suppression)
-5. Lier la session en cours à un client → auto-save captures + enregistrements dans son dossier
-6. Historique des sessions par client
+### Structure disque
+```
+Documents/RapidFit/
+  clients.json                      ← index de tous les clients
+  last-session.json                 ← { clientId, sessionId } dernière session ouverte
+  clients/
+    <client-id>/
+      client.json                   ← infos permanentes du client
+      sessions/
+        <session-id>/
+          session.json              ← discipline, date, notes
+          captures/
+          videos/
+          reports/
+```
 
-### Type à créer
+### Types
 ```typescript
-interface ClientProfile {
+interface Client {
   id: string;
-  name: string;
+  nom: string;
+  prenom: string;
+  email?: string;
+  phone?: string;
   birthDate?: string;
   weight?: number;
   height?: number;
-  discipline: 'route' | 'gravel' | 'clm' | 'vtt';
-  notes?: string;
-  bikeFitDate: string;
   createdAt: string;
   folderPath: string;
 }
+
+interface Session {
+  id: string;
+  clientId: string;
+  discipline: 'route' | 'gravel' | 'clm' | 'vtt';
+  bikeFitDate: string;
+  notes?: string;
+  createdAt: string;
+  folderPath: string;
+}
+```
+
+### Ce qui est fait ✅
+- `Client` + `Session` + `Discipline` dans `src/types/index.ts`
+- IPC Electron : `sessions:list/create-client/create-session/save-capture/save-recording/get-last/set-last` dans `electron/main.ts` + `electron/preload.ts`
+- Hook `src/hooks/useSessions.ts` : état global clients/sessions, création, setActiveSession, saveCapture (fallback mémoire en mode web)
+- `SessionSelector` dans le header : pill session active + dropdown groupé par client + bouton "+ Nouvelle session"
+- `NewSessionModal` : création nouveau client + session (ou session pour client existant), validation, discipline obligatoire
+- Démarrage : modal auto si aucune session ; fermeture impossible tant qu'aucune session n'existe
+- Changement de session : reset captures + enregistrements en mémoire
+- Strings i18n FR/EN ajoutées (`session.*`)
+
+### Reste à faire ⏳
+1. **Auto-save captures sur disque** : dans `handleCapture` (App.tsx), appeler `sessions.saveCapture()` si session active
+2. **Auto-save enregistrements** : dans `handleStopRecording`, appeler `sessions.saveRecording()`
+3. **Édition client/session** : modifier les infos depuis le header ou une modale dédiée
+4. **Suppression session/client** : IPC + UI
+
+### Plan d'action (suite)
+1. **Types** : `Client` + `Session` dans `src/types/index.ts`
+2. **IPC Electron** (`electron/main.ts` + `electron/preload.ts`) :
+   - `sessions:list` → lit `clients.json` + toutes les sessions de chaque client
+   - `sessions:create-client` → crée dossier + `client.json` + entrée dans `clients.json`
+   - `sessions:create-session` → crée sous-dossier + `session.json`
+   - `sessions:save-capture` → écrit blob dans `<session>/captures/`
+   - `sessions:save-recording` → écrit blob dans `<session>/videos/`
+   - `sessions:set-last` / `sessions:get-last` → lit/écrit `last-session.json`
+3. **Hook `useSessions`** : état global clients + session active, appels IPC
+4. **Header** : sélecteur de session (dropdown groupé par client) + bouton "Nouvelle session"
+5. **Modal `NewSessionModal`** :
+   - Nouveau client : nom, prénom, discipline (obligatoire) → crée client + première session
+   - Session existante : sélectionner client dans liste → discipline + date → crée session
+6. **Démarrage** : charger dernière session via `sessions:get-last` ; si aucune → ouvrir `NewSessionModal`
+7. **Changement de session** : vider captures + enregistrements en mémoire, charger nouvelle session
+
+### UI header
+```
+[ Dupont J. — Route — 03/06/2026  ▾ ]  [ + Nouvelle session ]
+```
+
+### Fichiers à créer/modifier
+```
+src/types/index.ts                  ajouter Client, Session
+electron/main.ts                    handlers IPC sessions
+electron/preload.ts                 exposer API sessions
+src/hooks/useSessions.ts            état global + appels IPC
+src/components/SessionSelector.tsx  dropdown header
+src/components/NewSessionModal.tsx  création client/session
+src/App.tsx                         intégrer sélecteur + démarrage
 ```
 
 ---
@@ -210,10 +279,12 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 
 ---
 
-## État Git au moment de cet export
+## État Git
 
 ```
 Branche active : dev
-Dernière version : v1.0.5
+Dernière version taguée : v1.0.5
 Tags : v0.0.1 → v0.0.3, v1.0.0 → v1.0.5
+Commits non mergés sur dev : Phase 2 (i18n) + Phase 3 partielle (sessions)
+Prochain tag prévu : v1.1.0 (fin Phase 3)
 ```

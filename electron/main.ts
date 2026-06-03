@@ -1,17 +1,38 @@
 import { app, BrowserWindow, ipcMain, shell, nativeImage } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
+import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+import type { Client, Session } from '../src/types/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isDev = !app.isPackaged;
 
-// Chemin vers l'icône PNG selon le contexte
 const iconPath = isDev
   ? path.join(__dirname, '../build/icon.png')
   : path.join(process.resourcesPath, 'icon.png');
+
+// ── Filesystem helpers ────────────────────────────────────────────────────────
+
+const rapidfitDir = () => path.join(app.getPath('documents'), 'RapidFit');
+const clientsIndex = () => path.join(rapidfitDir(), 'clients.json');
+const lastSessionFile = () => path.join(rapidfitDir(), 'last-session.json');
+
+async function ensureDir(p: string) {
+  await fs.mkdir(p, { recursive: true });
+}
+
+async function readJson<T>(filePath: string, fallback: T): Promise<T> {
+  try {
+    return JSON.parse(await fs.readFile(filePath, 'utf-8')) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+// ── Window ────────────────────────────────────────────────────────────────────
 
 function createWindow() {
   const icon = nativeImage.createFromPath(iconPath);
@@ -30,7 +51,6 @@ function createWindow() {
     },
   });
 
-  // Icône Dock macOS
   if (process.platform === 'darwin') {
     app.dock.setIcon(icon);
   }
@@ -42,7 +62,6 @@ function createWindow() {
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  // Open external links in the default browser
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -51,36 +70,111 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-
-  // Check for updates after window is ready (production only)
-  if (!isDev) {
-    autoUpdater.checkForUpdatesAndNotify();
-  }
+  if (!isDev) autoUpdater.checkForUpdatesAndNotify();
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// ── Auto-updater events ───────────────────────────────────────────────────────
+// ── Auto-updater ──────────────────────────────────────────────────────────────
 
 autoUpdater.on('update-available', (info) => {
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-available', info);
 });
-
 autoUpdater.on('update-downloaded', (info) => {
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-downloaded', info);
 });
-
 autoUpdater.on('error', (err) => {
   console.error('AutoUpdater error:', err);
 });
-
-// IPC: renderer asks to install the downloaded update
 ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall();
+});
+
+// ── Sessions IPC ──────────────────────────────────────────────────────────────
+
+ipcMain.handle('sessions:list', async () => {
+  await ensureDir(rapidfitDir());
+  const clients = await readJson<Client[]>(clientsIndex(), []);
+  const sessionsByClient: Record<string, Session[]> = {};
+
+  for (const client of clients) {
+    const sessionsDir = path.join(client.folderPath, 'sessions');
+    try {
+      const dirs = await fs.readdir(sessionsDir);
+      const sessions: Session[] = [];
+      for (const dir of dirs) {
+        const s = await readJson<Session | null>(path.join(sessionsDir, dir, 'session.json'), null);
+        if (s) sessions.push(s);
+      }
+      sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      sessionsByClient[client.id] = sessions;
+    } catch {
+      sessionsByClient[client.id] = [];
+    }
+  }
+
+  return { clients, sessionsByClient };
+});
+
+ipcMain.handle('sessions:create-client', async (_e, client: Client) => {
+  await ensureDir(rapidfitDir());
+  const clientDir = path.join(rapidfitDir(), 'clients', client.id);
+  await ensureDir(path.join(clientDir, 'sessions'));
+
+  const saved: Client = { ...client, folderPath: clientDir };
+  await fs.writeFile(path.join(clientDir, 'client.json'), JSON.stringify(saved, null, 2));
+
+  const clients = await readJson<Client[]>(clientsIndex(), []);
+  clients.push(saved);
+  await fs.writeFile(clientsIndex(), JSON.stringify(clients, null, 2));
+
+  return saved;
+});
+
+ipcMain.handle('sessions:create-session', async (_e, session: Session) => {
+  const sessionDir = path.join(
+    rapidfitDir(), 'clients', session.clientId, 'sessions', session.id,
+  );
+  await ensureDir(path.join(sessionDir, 'captures'));
+  await ensureDir(path.join(sessionDir, 'videos'));
+  await ensureDir(path.join(sessionDir, 'reports'));
+
+  const saved: Session = { ...session, folderPath: sessionDir };
+  await fs.writeFile(path.join(sessionDir, 'session.json'), JSON.stringify(saved, null, 2));
+
+  return saved;
+});
+
+ipcMain.handle('sessions:save-capture', async (_e, {
+  sessionFolderPath, filename, buffer,
+}: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => {
+  const dest = path.join(sessionFolderPath, 'captures', filename);
+  await fs.writeFile(dest, Buffer.from(buffer));
+  return dest;
+});
+
+ipcMain.handle('sessions:save-recording', async (_e, {
+  sessionFolderPath, filename, buffer,
+}: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => {
+  const dest = path.join(sessionFolderPath, 'videos', filename);
+  await fs.writeFile(dest, Buffer.from(buffer));
+  return dest;
+});
+
+ipcMain.handle('sessions:get-last', async () => {
+  return readJson<{ clientId: string; sessionId: string } | null>(lastSessionFile(), null);
+});
+
+ipcMain.handle('sessions:set-last', async (_e, data: { clientId: string; sessionId: string } | null) => {
+  await ensureDir(rapidfitDir());
+  if (data) {
+    await fs.writeFile(lastSessionFile(), JSON.stringify(data, null, 2));
+  } else {
+    try { await fs.unlink(lastSessionFile()); } catch { /* already gone */ }
+  }
 });
