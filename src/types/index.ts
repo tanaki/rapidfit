@@ -97,8 +97,8 @@ export interface Layer {
 export interface Recording {
   id: string;
   name: string;
-  blob: Blob;
-  url: string;
+  blob?: Blob;        // undefined for disk-backed recordings (loaded from filesystem)
+  url: string;        // object URL (fresh) or localfile:// URL (disk-backed)
   createdAt: Date;
   duration: number;
 }
@@ -106,8 +106,8 @@ export interface Recording {
 export interface Capture {
   id: string;
   name: string;
-  blob: Blob;
-  url: string;       // object URL for display / download
+  blob?: Blob;        // undefined for disk-backed captures (loaded from filesystem)
+  url: string;        // object URL (fresh) or localfile:// URL (disk-backed)
   createdAt: Date;
   paneLabel?: string; // 'A' | 'B' | undefined (single mode)
 }

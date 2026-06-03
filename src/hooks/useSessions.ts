@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Client, Session, Discipline } from '../types';
+import type { Client, Session, Discipline, Capture, Recording } from '../types';
 import { uid } from '../utils/canvas';
+
+interface DiskFile { name: string; path: string; createdAt: string; }
 
 interface SessionsState {
   clients: Client[];
@@ -17,6 +19,8 @@ type ElectronAPI = {
   sessionsUpdateClient: (c: Client) => Promise<Client>;
   sessionsSaveCapture: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
   sessionsSaveRecording: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
+  sessionsListCaptures: (sessionFolderPath: string) => Promise<DiskFile[]>;
+  sessionsListRecordings: (sessionFolderPath: string) => Promise<DiskFile[]>;
   sessionsGetLast: () => Promise<{ clientId: string; sessionId: string } | null>;
   sessionsSetLast: (d: { clientId: string; sessionId: string } | null) => Promise<void>;
 };
@@ -160,6 +164,35 @@ export function useSessions() {
     await api.sessionsSaveRecording({ sessionFolderPath: session.folderPath, filename, buffer });
   }, []);
 
+  const loadSessionAssets = useCallback(async (
+    session: Session,
+  ): Promise<{ captures: Capture[]; recordings: Recording[] }> => {
+    const api = getAPI();
+    if (!api || !session.folderPath) return { captures: [], recordings: [] };
+
+    const [captureFiles, recordingFiles] = await Promise.all([
+      api.sessionsListCaptures(session.folderPath),
+      api.sessionsListRecordings(session.folderPath),
+    ]);
+
+    const captures: Capture[] = captureFiles.map(f => ({
+      id: f.name,
+      name: f.name,
+      url: `localfile://${f.path}`,
+      createdAt: new Date(f.createdAt),
+    }));
+
+    const recordings: Recording[] = recordingFiles.map(f => ({
+      id: f.name,
+      name: f.name,
+      url: `localfile://${f.path}`,
+      createdAt: new Date(f.createdAt),
+      duration: 0,
+    }));
+
+    return { captures, recordings };
+  }, []);
+
   return {
     ...state,
     createClient,
@@ -168,6 +201,7 @@ export function useSessions() {
     setActiveSession,
     saveCapture,
     saveRecording,
+    loadSessionAssets,
     reload: load,
   };
 }

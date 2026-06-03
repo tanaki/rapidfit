@@ -1,9 +1,16 @@
-import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences, protocol, net } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import type { Client, Session } from '../src/types/index.js';
+
+// Register localfile:// scheme before app is ready so it is treated as secure.
+// This allows the renderer to load images and videos from the user's filesystem
+// without cross-origin restrictions (file:// is blocked from http://localhost).
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'localfile', privileges: { secure: true, standard: true, stream: true, supportFetchAPI: true } },
+]);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -77,6 +84,12 @@ app.whenReady().then(async () => {
 
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
     callback(permission === 'media');
+  });
+
+  // localfile:// → serve any local file path securely to the renderer
+  protocol.handle('localfile', req => {
+    const filePath = decodeURIComponent(req.url.slice('localfile://'.length));
+    return net.fetch(`file://${filePath}`);
   });
 
   // On macOS, request system-level camera access before the window opens.
@@ -206,6 +219,40 @@ ipcMain.handle('sessions:update-client', async (_e, client: Client) => {
   if (idx >= 0) clients[idx] = client;
   await fs.writeFile(clientsIndex(), JSON.stringify(clients, null, 2));
   return client;
+});
+
+ipcMain.handle('sessions:list-captures', async (_e, sessionFolderPath: string) => {
+  const dir = path.join(sessionFolderPath, 'captures');
+  try {
+    const files = await fs.readdir(dir);
+    const items = await Promise.all(
+      files
+        .filter(f => /\.(png|jpe?g|webp)$/i.test(f))
+        .map(async f => {
+          const filePath = path.join(dir, f);
+          const stat = await fs.stat(filePath);
+          return { name: f, path: filePath, createdAt: stat.birthtime.toISOString() };
+        }),
+    );
+    return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } catch { return []; }
+});
+
+ipcMain.handle('sessions:list-recordings', async (_e, sessionFolderPath: string) => {
+  const dir = path.join(sessionFolderPath, 'videos');
+  try {
+    const files = await fs.readdir(dir);
+    const items = await Promise.all(
+      files
+        .filter(f => /\.(webm|mp4|mov)$/i.test(f))
+        .map(async f => {
+          const filePath = path.join(dir, f);
+          const stat = await fs.stat(filePath);
+          return { name: f, path: filePath, createdAt: stat.birthtime.toISOString() };
+        }),
+    );
+    return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  } catch { return []; }
 });
 
 ipcMain.handle('sessions:get-last', async () => {

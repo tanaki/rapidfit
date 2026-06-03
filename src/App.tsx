@@ -37,10 +37,23 @@ export default function App() {
   const sessions = useSessions();
   const [showNewSession, setShowNewSession] = useState(false);
 
-  // Ouvre automatiquement la modal si aucune session après chargement
+  // Ouvre automatiquement la modal si aucune session après chargement.
+  // Si une session active est restaurée, charge ses assets depuis le disque.
+  const sessionLoadedRef = useRef(false);
   useEffect(() => {
-    if (!sessions.isLoading && !sessions.activeSession) setShowNewSession(true);
-  }, [sessions.isLoading, sessions.activeSession]);
+    if (sessions.isLoading) return;
+    if (!sessions.activeSession) {
+      setShowNewSession(true);
+      return;
+    }
+    // Ne charger qu'une fois au démarrage (pas à chaque re-render)
+    if (sessionLoadedRef.current) return;
+    sessionLoadedRef.current = true;
+    sessions.loadSessionAssets(sessions.activeSession).then(({ captures: loaded, recordings: loadedRecs }) => {
+      setCaptures(loaded);
+      setRecordings(loadedRecs);
+    });
+  }, [sessions.isLoading, sessions.activeSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCreateClientAndSession = useCallback(async (
     clientData: Pick<Client, 'nom' | 'prenom' | 'email' | 'phone'>,
@@ -118,9 +131,11 @@ export default function App() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [activeRecording, setActiveRecording] = useState<Recording | null>(null);
 
-  // Persistent storage (IndexedDB)
+  // En mode Electron, le disque est la source de vérité — on désactive IndexedDB.
+  // En mode web (dev sans Electron), on garde IndexedDB pour survivre aux rechargements.
+  const isElectron = !!(window as unknown as { electronAPI?: unknown }).electronAPI;
   const { persistRecording, removeRecording } = useStorage({
-    onLoad: recs => setRecordings(recs),
+    onLoad: isElectron ? () => {} : recs => setRecordings(recs),
   });
   const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,6 +149,18 @@ export default function App() {
   const paneRef1 = useRef<VideoPaneHandle>(null);
   const [paneBSource, setPaneBSource] = useState<PaneSource>({ type: 'none' });
   const [activePaneIndex, setActivePaneIndex] = useState<0 | 1>(0);
+
+  // Charge les captures + enregistrements depuis le disque et applique une session
+  // Déclaré ici, après tous les useState, pour éviter le temporal dead zone TypeScript.
+  const applySession = useCallback(async (client: Client, session: Session) => {
+    await sessions.setActiveSession(client, session);
+    setActiveRecording(null);
+    setIsLiveMode(false);
+    setPaneBSource({ type: 'none' });
+    const { captures: loaded, recordings: loadedRecs } = await sessions.loadSessionAssets(session);
+    setCaptures(loaded);
+    setRecordings(loadedRecs);
+  }, [sessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tools (shared across all canvases)
   const [tool, setTool] = useState<Tool>('angle');
@@ -187,9 +214,11 @@ export default function App() {
   const handleStopRecording = useCallback(async () => {
     const rec = await recorder.stop();
     setRecordings(prev => [rec, ...prev]);
-    persistRecording(rec);
     if (sessions.activeSession) {
-      sessions.saveRecording(sessions.activeSession, rec.blob, rec.name);
+      sessions.saveRecording(sessions.activeSession, rec.blob!, rec.name);
+    } else {
+      // Pas de session active → fallback IndexedDB (mode web)
+      persistRecording(rec);
     }
   }, [recorder, persistRecording, sessions]);
 
@@ -335,12 +364,7 @@ export default function App() {
             sessionsByClient={sessions.sessionsByClient}
             activeClient={sessions.activeClient}
             activeSession={sessions.activeSession}
-            onSelect={(client, session) => {
-              sessions.setActiveSession(client, session);
-              setCaptures([]);
-              setRecordings([]);
-              setActiveRecording(null);
-            }}
+            onSelect={applySession}
             onNewSession={() => setShowNewSession(true)}
             onEditClient={sessions.updateClient}
           />

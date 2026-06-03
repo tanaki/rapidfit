@@ -23,6 +23,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('sessions:save-capture', payload),
   sessionsSaveRecording: (payload: unknown) =>
     ipcRenderer.invoke('sessions:save-recording', payload),
+  sessionsListCaptures: (sessionFolderPath: string) =>
+    ipcRenderer.invoke('sessions:list-captures', sessionFolderPath),
+  sessionsListRecordings: (sessionFolderPath: string) =>
+    ipcRenderer.invoke('sessions:list-recordings', sessionFolderPath),
   sessionsUpdateClient: (client: unknown) =>
     ipcRenderer.invoke('sessions:update-client', client),
   sessionsGetLast: () =>
