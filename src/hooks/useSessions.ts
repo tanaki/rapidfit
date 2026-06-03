@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Client, Session, Discipline, Capture, Recording } from '../types';
+import type { Client, Session, Discipline, Capture, Recording, PersistedSessionState } from '../types';
 import { uid } from '../utils/canvas';
 
 interface DiskFile { name: string; path: string; createdAt: string; }
@@ -19,6 +19,8 @@ type ElectronAPI = {
   sessionsUpdateClient: (c: Client) => Promise<Client>;
   sessionsSaveCapture: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
   sessionsSaveRecording: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
+  sessionsSaveState: (p: { sessionFolderPath: string; state: PersistedSessionState }) => Promise<void>;
+  sessionsLoadState: (sessionFolderPath: string) => Promise<PersistedSessionState | null>;
   sessionsDeleteSession: (p: { sessionFolderPath: string }) => Promise<void>;
   sessionsDeleteClient: (p: { clientId: string; folderPath: string }) => Promise<void>;
   sessionsListCaptures: (sessionFolderPath: string) => Promise<DiskFile[]>;
@@ -166,6 +168,22 @@ export function useSessions() {
     await api.sessionsSaveRecording({ sessionFolderPath: session.folderPath, filename, buffer });
   }, []);
 
+  const saveSessionState = useCallback(async (
+    folderPath: string, state: PersistedSessionState,
+  ): Promise<void> => {
+    const api = getAPI();
+    if (!api || !folderPath) return;
+    await api.sessionsSaveState({ sessionFolderPath: folderPath, state });
+  }, []);
+
+  const loadSessionState = useCallback(async (
+    folderPath: string,
+  ): Promise<PersistedSessionState | null> => {
+    const api = getAPI();
+    if (!api || !folderPath) return null;
+    return api.sessionsLoadState(folderPath);
+  }, []);
+
   const deleteSession = useCallback(async (session: Session): Promise<boolean> => {
     const api = getAPI();
     if (api && session.folderPath) {
@@ -243,6 +261,8 @@ export function useSessions() {
     setActiveSession,
     saveCapture,
     saveRecording,
+    saveSessionState,
+    loadSessionState,
     deleteSession,
     deleteClient,
     loadSessionAssets,

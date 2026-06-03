@@ -96,7 +96,9 @@ app.whenReady().then(async () => {
     '.mp4': 'video/mp4', '.mov': 'video/quicktime',
   };
   protocol.handle('localfile', async req => {
-    const filePath = decodeURIComponent(req.url.slice('localfile://'.length));
+    // Use URL.pathname so the path is always correct regardless of how
+    // Chromium normalises the authority (empty host vs "localhost").
+    const filePath = decodeURIComponent(new URL(req.url).pathname);
     const contentType = MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
     try {
       const handle = await fs.open(filePath, 'r');
@@ -261,6 +263,19 @@ ipcMain.handle('sessions:update-client', async (_e, client: Client) => {
   if (idx >= 0) clients[idx] = client;
   await fs.writeFile(clientsIndex(), JSON.stringify(clients, null, 2));
   return client;
+});
+
+ipcMain.handle('sessions:save-state', async (_e, {
+  sessionFolderPath, state,
+}: { sessionFolderPath: string; state: unknown }) => {
+  await fs.writeFile(
+    path.join(sessionFolderPath, 'session-state.json'),
+    JSON.stringify(state, null, 2),
+  );
+});
+
+ipcMain.handle('sessions:load-state', async (_e, sessionFolderPath: string) => {
+  return readJson<unknown>(path.join(sessionFolderPath, 'session-state.json'), null);
 });
 
 ipcMain.handle('sessions:delete-session', async (_e, {

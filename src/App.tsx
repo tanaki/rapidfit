@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Recording, Capture, VideoConfig, PaneSource, Client, Discipline } from './types';
+import type { Recording, Capture, VideoConfig, PaneSource, Client, Discipline, PersistedSessionState, Layer } from './types';
 import { uid } from './utils/canvas';
 import { useLayers } from './hooks/useLayers';
 import type { LayersState } from './hooks/useLayers';
@@ -46,12 +46,13 @@ export default function App() {
       setShowNewSession(true);
       return;
     }
-    // Ne charger qu'une fois au démarrage (pas à chaque re-render)
     if (sessionLoadedRef.current) return;
     sessionLoadedRef.current = true;
-    sessions.loadSessionAssets(sessions.activeSession).then(({ captures: loaded, recordings: loadedRecs }) => {
+    const sess = sessions.activeSession;
+    sessions.loadSessionAssets(sess).then(async ({ captures: loaded, recordings: loadedRecs }) => {
       setCaptures(loaded);
       setRecordings(loadedRecs);
+      await restoreState(sess, loadedRecs);
     });
   }, [sessions.isLoading, sessions.activeSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -150,18 +151,6 @@ export default function App() {
   const [paneBSource, setPaneBSource] = useState<PaneSource>({ type: 'none' });
   const [activePaneIndex, setActivePaneIndex] = useState<0 | 1>(0);
 
-  // Charge les captures + enregistrements depuis le disque et applique une session
-  // Déclaré ici, après tous les useState, pour éviter le temporal dead zone TypeScript.
-  const applySession = useCallback(async (client: Client, session: Session) => {
-    await sessions.setActiveSession(client, session);
-    setActiveRecording(null);
-    setIsLiveMode(false);
-    setPaneBSource({ type: 'none' });
-    const { captures: loaded, recordings: loadedRecs } = await sessions.loadSessionAssets(session);
-    setCaptures(loaded);
-    setRecordings(loadedRecs);
-  }, [sessions]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Tools (shared across all canvases)
   const [tool, setTool] = useState<Tool>('angle');
   const [color, setColor] = useState('#ef4444');
@@ -180,6 +169,115 @@ export default function App() {
   const activeLayers: LayersState = splitMode && activePaneIndex === 1
     ? paneLayers1
     : singleLayers;
+
+  // ── Session state persistence ─────────────────────────────────────────────
+
+  /** Couche vide par défaut */
+  const makeDefaultLayer = useCallback((name: string): Layer => ({
+    id: uid(), name, visible: true, opacity: 100, locked: false, elements: [],
+  }), []);
+
+  /** Sérialise et sauvegarde l'état courant (annotations + source + temps) */
+  const saveCurrentState = useCallback(async () => {
+    if (!sessions.activeSession?.folderPath) return;
+
+    const paneASource: PersistedSessionState['paneA']['source'] = isLiveMode
+      ? { type: 'camera', deviceId: config.deviceId }
+      : activeRecording
+        ? { type: 'recording', filename: activeRecording.name }
+        : { type: 'none' };
+
+    const paneBSrc: PersistedSessionState['paneB']['source'] =
+      paneBSource.type === 'camera'    ? { type: 'camera',    deviceId: paneBSource.deviceId }
+      : paneBSource.type === 'recording' ? { type: 'recording', filename: paneBSource.recording.name }
+      : { type: 'none' };
+
+    const state: PersistedSessionState = {
+      paneA: {
+        source:       paneASource,
+        playbackTime: isLiveMode ? 0 : (paneRef0.current?.getTime() ?? 0),
+        layers:       singleLayers.layers,
+        activeLayerId: singleLayers.activeLayerId,
+      },
+      paneB: {
+        source:       paneBSrc,
+        playbackTime: paneRef1.current?.getTime() ?? 0,
+        layers:       paneLayers1.layers,
+        activeLayerId: paneLayers1.activeLayerId,
+      },
+    };
+
+    await sessions.saveSessionState(sessions.activeSession.folderPath, state);
+  }, [sessions, isLiveMode, config.deviceId, activeRecording, paneBSource,
+      singleLayers, paneLayers1]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Restaure l'état d'une session depuis le disque (ou remet à zéro si aucun état) */
+  const restoreState = useCallback(async (
+    session: import('./types').Session, recs: Recording[],
+  ) => {
+    const state = await sessions.loadSessionState(session.folderPath);
+
+    // ── Layers ──────────────────────────────────────────────────────────────
+    if (state?.paneA.layers.length) {
+      singleLayers.importLayers(state.paneA.layers, state.paneA.activeLayerId);
+    } else {
+      const l = makeDefaultLayer(t('layers.initialA'));
+      singleLayers.importLayers([l], l.id);
+    }
+    if (state?.paneB.layers.length) {
+      paneLayers1.importLayers(state.paneB.layers, state.paneB.activeLayerId);
+    } else {
+      const l = makeDefaultLayer(t('layers.initialB'));
+      paneLayers1.importLayers([l], l.id);
+    }
+
+    // ── Source pane A ────────────────────────────────────────────────────────
+    const srcA = state?.paneA.source ?? { type: 'none' };
+    if (srcA.type === 'camera') {
+      setIsLiveMode(true);
+      setActiveRecording(null);
+    } else if (srcA.type === 'recording') {
+      const rec = recs.find(r => r.name === srcA.filename) ?? null;
+      setActiveRecording(rec);
+      setIsLiveMode(false);
+      if (rec && (state?.paneA.playbackTime ?? 0) > 0) {
+        const t0 = state!.paneA.playbackTime;
+        setTimeout(() => paneRef0.current?.seekTo(t0), 400);
+      }
+    } else {
+      setIsLiveMode(false);
+      setActiveRecording(null);
+    }
+
+    // ── Source pane B ────────────────────────────────────────────────────────
+    const srcB = state?.paneB.source ?? { type: 'none' };
+    if (srcB.type === 'camera') {
+      setPaneBSource({ type: 'camera', deviceId: srcB.deviceId });
+    } else if (srcB.type === 'recording') {
+      const rec = recs.find(r => r.name === srcB.filename) ?? null;
+      if (rec) {
+        setPaneBSource({ type: 'recording', recording: rec });
+        if ((state?.paneB.playbackTime ?? 0) > 0) {
+          const t1 = state!.paneB.playbackTime;
+          setTimeout(() => paneRef1.current?.seekTo(t1), 400);
+        }
+      } else {
+        setPaneBSource({ type: 'none' });
+      }
+    } else {
+      setPaneBSource({ type: 'none' });
+    }
+  }, [sessions, singleLayers, paneLayers1, makeDefaultLayer, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Change de session : sauvegarde l'état courant → charge la nouvelle */
+  const applySession = useCallback(async (client: Client, session: import('./types').Session) => {
+    await saveCurrentState();
+    await sessions.setActiveSession(client, session);
+    const { captures: loaded, recordings: loadedRecs } = await sessions.loadSessionAssets(session);
+    setCaptures(loaded);
+    setRecordings(loadedRecs);
+    await restoreState(session, loadedRecs);
+  }, [saveCurrentState, sessions, restoreState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Frame-by-frame ──────────────────────────────────────────────────────────
   const stepFrame = useCallback((dir: 1 | -1, frames = 1) => {

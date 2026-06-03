@@ -155,6 +155,25 @@ export interface Session {
   folderPath: string;
 }
 
+// ── Session state persistence ──────────────────────────────────────────────────
+// Saved in <session>/session-state.json; blob/url are ephemeral and not stored.
+export type SavedPaneSource =
+  | { type: 'none' }
+  | { type: 'camera'; deviceId: string }
+  | { type: 'recording'; filename: string };
+
+export interface SavedPaneState {
+  source: SavedPaneSource;
+  playbackTime: number;
+  layers: Layer[];
+  activeLayerId: string;
+}
+
+export interface PersistedSessionState {
+  paneA: SavedPaneState;
+  paneB: SavedPaneState;
+}
+
 export const RESOLUTIONS: Record<string, { width: number; height: number; label: string }> = {
   '480p':  { width: 854,  height: 480,  label: '480p  (854×480)' },
   '720p':  { width: 1280, height: 720,  label: '720p  (1280×720)' },
