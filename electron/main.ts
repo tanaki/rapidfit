@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences, protocol, net } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences, protocol } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs/promises';
@@ -86,10 +86,52 @@ app.whenReady().then(async () => {
     callback(permission === 'media');
   });
 
-  // localfile:// → serve any local file path securely to the renderer
-  protocol.handle('localfile', req => {
+  // localfile:// → serve any local file path securely to the renderer.
+  // We use fs.readFile (with Range request support for video scrubbing) rather
+  // than net.fetch('file://…') because net.fetch does not reliably serve
+  // file:// URLs from a protocol.handle callback in Electron.
+  const MIME: Record<string, string> = {
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp', '.webm': 'video/webm',
+    '.mp4': 'video/mp4', '.mov': 'video/quicktime',
+  };
+  protocol.handle('localfile', async req => {
     const filePath = decodeURIComponent(req.url.slice('localfile://'.length));
-    return net.fetch(`file://${filePath}`);
+    const contentType = MIME[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
+    try {
+      const handle = await fs.open(filePath, 'r');
+      const { size } = await handle.stat();
+      const rangeHeader = req.headers.get('range');
+      if (rangeHeader) {
+        const [s, e] = rangeHeader.replace('bytes=', '').split('-');
+        const start = parseInt(s, 10);
+        const end   = e ? parseInt(e, 10) : size - 1;
+        const chunk = end - start + 1;
+        const buf   = Buffer.allocUnsafe(chunk);
+        await handle.read(buf, 0, chunk, start);
+        await handle.close();
+        return new Response(buf, {
+          status: 206,
+          headers: {
+            'Content-Type': contentType,
+            'Content-Range': `bytes ${start}-${end}/${size}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': String(chunk),
+          },
+        });
+      }
+      const data = await handle.readFile();
+      await handle.close();
+      return new Response(data, {
+        headers: {
+          'Content-Type': contentType,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': String(size),
+        },
+      });
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
   });
 
   // On macOS, request system-level camera access before the window opens.
