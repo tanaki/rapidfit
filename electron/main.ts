@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences, globalShortcut } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs/promises';
@@ -126,6 +126,15 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  // Cmd+Option+I (mac) ou Ctrl+Shift+I (win/linux) ouvre les DevTools en prod
+  win.webContents.on('before-input-event', (_e, input) => {
+    const toggle =
+      (process.platform === 'darwin'
+        ? input.meta && input.alt && input.key === 'i'
+        : input.control && input.shift && input.key === 'I');
+    if (toggle) win.webContents.toggleDevTools();
+  });
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);

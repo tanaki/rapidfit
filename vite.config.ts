@@ -42,8 +42,10 @@ export default defineConfig({
         ]
       : []),
   ],
-  // Base '/' en mode Electron (fichiers locaux), '/rapidfit/' pour le déploiement web
-  base: isElectron ? '/' : '/rapidfit/',
+  // './' en mode Electron : les assets sont chargés en chemin relatif à index.html
+  // via file://, donc '/' pointerait vers la racine du filesystem. '/rapidfit/'
+  // pour le déploiement web GitHub Pages.
+  base: isElectron ? './' : '/rapidfit/',
   test: {
     environment: 'jsdom',
     globals: true,
