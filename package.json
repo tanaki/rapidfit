@@ -25,9 +25,11 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.3",
+    "i18next": "^26.3.1",
     "jspdf": "^4.2.1",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "react-i18next": "^17.0.8"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -76,6 +78,8 @@
     },
     "mac": {
       "category": "public.app-category.sports",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "target": [
         {
           "target": "dmg",
@@ -87,7 +91,6 @@
       ],
       "extendInfo": {
         "NSCameraUsageDescription": "RapidFit utilise la caméra pour l'analyse du bike fitting.",
-        "NSMicrophoneUsageDescription": "RapidFit peut enregistrer l'audio avec la vidéo.",
         "NSCameraUseContinuityCameraDeviceType": true
       }
     },

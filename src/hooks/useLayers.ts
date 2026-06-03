@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import type { Layer, AnnotationElement } from '../types';
 import { uid, rescaleElement } from '../utils/canvas';
+import i18n from '../i18n';
 
 function makeLayer(name: string): Layer {
   return { id: uid(), name, visible: true, opacity: 100, locked: false, elements: [] };
@@ -33,7 +34,7 @@ export function useLayers(initialName = 'Calque 1') {
 
   // Crée automatiquement un nouveau calque pour chaque annotation
   const addElementOnNewLayer = useCallback((el: AnnotationElement) => {
-    const newLayer = makeLayer(`Calque ${layers.length + 1}`);
+    const newLayer = makeLayer(i18n.t('layers.default', { n: layers.length + 1 }));
     setHistory(h => [...h.slice(-49), layers]);
     setFuture([]);
     setLayers(prev => [...prev, { ...newLayer, elements: [el] }]);

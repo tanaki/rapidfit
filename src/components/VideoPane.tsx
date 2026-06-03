@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { PaneSource, Recording, Layer, Tool } from '../types';
 import type { AnnotationElement } from '../types';
 import { AnnotationCanvas } from './AnnotationCanvas';
@@ -45,6 +46,7 @@ interface Props {
 export interface VideoPaneHandle {
   stepFrame: (dir: 1 | -1, fps?: number, frames?: number) => void;
   seekTo: (time: number) => void;
+  getTime: () => number;
   isPaused: () => boolean;
   togglePlay: () => void;
 }
@@ -59,6 +61,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   },
   ref,
 ) {
+  const { t } = useTranslation();
   const videoRef       = useRef<HTMLVideoElement>(null);
   const streamRef      = useRef<MediaStream | null>(null);
   const pendingSeekRef = useRef<number | null>(null);
@@ -122,7 +125,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           video.addEventListener('loadedmetadata', updateVideoRect, { once: true });
         })
         .catch(err => {
-          if (!cancelled) onCameraError?.(err?.message ?? 'Erreur caméra');
+          if (!cancelled) onCameraError?.(err?.message ?? err?.name ?? 'camera-error');
         });
       return () => {
         cancelled = true;
@@ -140,16 +143,47 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       video.src = source.recording.url;
       video.load();
 
-      const onTime     = () => onTimeUpdate?.(video.currentTime);
-      const onDur      = () => { if (isFinite(video.duration) && video.duration > 0) onDurationChange?.(video.duration); };
-      const onPause    = () => onPlayStateChange?.(true);
-      const onPlay     = () => onPlayStateChange?.(false);
-      const onLoaded   = () => { onDur(); onPlayStateChange?.(video.paused); onTime(); updateVideoRect(); };
-      const onCanPlay  = () => {
-        onDur();
-        if (pendingSeekRef.current !== null) {
-          video.currentTime = pendingSeekRef.current;
-          pendingSeekRef.current = null;
+      const onTime  = () => onTimeUpdate?.(video.currentTime);
+      const onPause = () => onPlayStateChange?.(true);
+      const onPlay  = () => onPlayStateChange?.(false);
+
+      // WebM files recorded by MediaRecorder do not embed a duration in the
+      // header — video.duration is Infinity. The standard fix is to seek to a
+      // huge timestamp so the browser reads the last cluster and derives the
+      // real duration, then seek back to 0 (or the pending restore position).
+      let fixingDuration = false;
+      const onDur = () => {
+        if (isFinite(video.duration) && video.duration > 0) {
+          onDurationChange?.(video.duration);
+          if (fixingDuration) {
+            fixingDuration = false;
+            const seek = pendingSeekRef.current ?? 0;
+            pendingSeekRef.current = null;
+            video.currentTime = seek;
+          }
+        }
+      };
+
+      const onLoaded = () => {
+        onPlayStateChange?.(video.paused);
+        updateVideoRect();
+        if (!isFinite(video.duration) || video.duration <= 0) {
+          // Trigger the browser to seek to the end so it can determine duration.
+          fixingDuration = true;
+          video.currentTime = 1e101; // browser clamps to actual end
+        } else {
+          onDur();
+          onTime();
+        }
+      };
+
+      const onCanPlay = () => {
+        if (!fixingDuration) {
+          onDur();
+          if (pendingSeekRef.current !== null) {
+            video.currentTime = pendingSeekRef.current;
+            pendingSeekRef.current = null;
+          }
         }
       };
 
@@ -193,6 +227,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       if (v.readyState >= 1) v.currentTime = time;
       else pendingSeekRef.current = time;
     },
+    getTime()    { return videoRef.current?.currentTime ?? 0; },
     isPaused()   { return videoRef.current?.paused ?? true; },
     togglePlay() { const v = videoRef.current; if (!v) return; v.paused ? v.play() : v.pause(); },
   }));
@@ -218,7 +253,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
         {isNone && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-700 pointer-events-none">
             <span className="text-4xl">📷</span>
-            <span className="text-xs">Aucune source</span>
+            <span className="text-xs">{t('video.noSource')}</span>
           </div>
         )}
       </div>
@@ -258,11 +293,11 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
             const { blob, name } = await capturePane(container, label);
             onCapture(blob, name);
           }}
-          title="Capturer l'image avec les calques"
+          title={t('video.captureTitle')}
           style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 300 }}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 border border-white/20 text-white text-xs font-medium backdrop-blur-sm transition-colors"
         >
-          📸 Capturer
+          {t('video.capture')}
         </button>
       )}
 
@@ -270,7 +305,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       {label && (
         <div className="absolute bottom-2 left-2 flex items-center gap-1.5 pointer-events-none" style={{ zIndex: 300 }}>
           <span className="text-[10px] font-semibold text-white/60 bg-black/40 px-2 py-0.5 rounded-full">{label}</span>
-          {active && <span className="text-[10px] text-white bg-indigo-600/80 px-2 py-0.5 rounded-full">actif</span>}
+          {active && <span className="text-[10px] text-white bg-indigo-600/80 px-2 py-0.5 rounded-full">{t('video.active')}</span>}
         </div>
       )}
     </div>
@@ -288,6 +323,7 @@ interface SourceSelectorProps {
 }
 
 export function SourceSelector({ source, devices, recordings, label, onChange }: SourceSelectorProps) {
+  const { t } = useTranslation();
   const value =
     source.type === 'camera'    ? `cam:${source.deviceId}`
     : source.type === 'recording' ? `rec:${source.recording.id}`
@@ -309,18 +345,18 @@ export function SourceSelector({ source, devices, recordings, label, onChange }:
         }}
         className="flex-1 min-w-0 text-xs bg-[#22223b] text-slate-200 border border-[#3d3d5c] rounded-lg px-2 py-1 outline-none"
       >
-        <option value="none">— Aucune source —</option>
+        <option value="none">{t('video.noSourceOption')}</option>
         {devices.length > 0 && (
-          <optgroup label="Caméras">
+          <optgroup label={t('video.cameras')}>
             {devices.map(d => (
               <option key={d.deviceId} value={`cam:${d.deviceId}`}>
-                {d.label || `Caméra ${d.deviceId.slice(0, 6)}`}
+                {d.label || t('video.cameraLabel', { id: d.deviceId.slice(0, 6) })}
               </option>
             ))}
           </optgroup>
         )}
         {recordings.length > 0 && (
-          <optgroup label="Enregistrements">
+          <optgroup label={t('video.recordings')}>
             {recordings.map(r => (
               <option key={r.id} value={`rec:${r.id}`}>{r.name}</option>
             ))}

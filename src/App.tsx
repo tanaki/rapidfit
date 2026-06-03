@@ -1,16 +1,20 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { Recording, Capture, VideoConfig, PaneSource } from './types';
+import { useTranslation } from 'react-i18next';
+import type { Recording, Capture, VideoConfig, PaneSource, Client, Discipline, PersistedSessionState, Layer } from './types';
 import { uid } from './utils/canvas';
 import { useLayers } from './hooks/useLayers';
 import type { LayersState } from './hooks/useLayers';
 import { useDevices } from './hooks/useCamera';
 import { useRecorder } from './hooks/useRecorder';
+import { useSessions } from './hooks/useSessions';
 import type { Tool } from './types';
 import { Toolbar, COLORS } from './components/Toolbar';
 import { LayerPanel } from './components/LayerPanel';
 import { RecordingBar } from './components/RecordingBar';
 import { SettingsModal } from './components/SettingsModal';
 import { ReportModal } from './components/ReportModal';
+import { SessionSelector } from './components/SessionSelector';
+import { NewSessionModal } from './components/NewSessionModal';
 import { VideoPane, SourceSelector, type VideoPaneHandle } from './components/VideoPane';
 import { useStorage } from './hooks/useStorage';
 import { saveRecordingToFile } from './utils/saveFile';
@@ -26,7 +30,59 @@ const DEFAULT_CONFIG: VideoConfig = {
 };
 
 export default function App() {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<VideoConfig>(DEFAULT_CONFIG);
+
+  // ── Sessions ───────────────────────────────────────────────────────────────
+  const sessions = useSessions();
+  const [showNewSession, setShowNewSession] = useState(false);
+
+  // Ouvre automatiquement la modal si aucune session après chargement.
+  // Si une session active est restaurée, charge ses assets depuis le disque.
+  const sessionLoadedRef = useRef(false);
+  useEffect(() => {
+    if (sessions.isLoading) return;
+    if (!sessions.activeSession) {
+      setShowNewSession(true);
+      return;
+    }
+    if (sessionLoadedRef.current) return;
+    sessionLoadedRef.current = true;
+    const sess = sessions.activeSession;
+    sessions.loadSessionAssets(sess).then(async ({ captures: loaded, recordings: loadedRecs }) => {
+      setCaptures(loaded);
+      setRecordings(loadedRecs);
+      await restoreState(sess, loadedRecs);
+    });
+  }, [sessions.isLoading, sessions.activeSession]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCreateClientAndSession = useCallback(async (
+    clientData: Pick<Client, 'nom' | 'prenom' | 'email' | 'phone'>,
+    sessionData: { discipline: Discipline; bikeFitDate: string; notes?: string },
+  ) => {
+    const client = await sessions.createClient(clientData);
+    const session = await sessions.createSession(client.id, sessionData);
+    await sessions.setActiveSession(client, session);
+    // Réinitialise la mémoire courante
+    setCaptures([]);
+    setRecordings([]);
+    setActiveRecording(null);
+    setShowNewSession(false);
+  }, [sessions]);
+
+  const handleCreateSessionForClient = useCallback(async (
+    clientId: string,
+    sessionData: { discipline: Discipline; bikeFitDate: string; notes?: string },
+  ) => {
+    const client = sessions.clients.find(c => c.id === clientId)!;
+    const session = await sessions.createSession(clientId, sessionData);
+    await sessions.setActiveSession(client, session);
+    // Réinitialise la mémoire courante
+    setCaptures([]);
+    setRecordings([]);
+    setActiveRecording(null);
+    setShowNewSession(false);
+  }, [sessions]);
   const { devices } = useDevices();
   const recorder = useRecorder();
 
@@ -54,7 +110,10 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const cap: Capture = { id: uid(), name, blob, url, createdAt: new Date(), paneLabel };
     setCaptures(prev => [cap, ...prev]);
-  }, []);
+    if (sessions.activeSession) {
+      sessions.saveCapture(sessions.activeSession, blob, name);
+    }
+  }, [sessions]);
 
   const handleDeleteCapture = useCallback((id: string) => {
     setCaptures(prev => {
@@ -73,9 +132,11 @@ export default function App() {
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [activeRecording, setActiveRecording] = useState<Recording | null>(null);
 
-  // Persistent storage (IndexedDB)
+  // En mode Electron, le disque est la source de vérité — on désactive IndexedDB.
+  // En mode web (dev sans Electron), on garde IndexedDB pour survivre aux rechargements.
+  const isElectron = !!(window as unknown as { electronAPI?: unknown }).electronAPI;
   const { persistRecording, removeRecording } = useStorage({
-    onLoad: recs => setRecordings(recs),
+    onLoad: isElectron ? () => {} : recs => setRecordings(recs),
   });
   const importInputRef = useRef<HTMLInputElement>(null);
 
@@ -102,18 +163,136 @@ export default function App() {
   }, []);
 
   // ── Layer sets — pane A always uses singleLayers in both modes ─────────────
-  const singleLayers = useLayers('Calque 1');
-  const paneLayers1  = useLayers('Calque B-1');
+  const singleLayers = useLayers(t('layers.initialA'));
+  const paneLayers1  = useLayers(t('layers.initialB'));
 
   const activeLayers: LayersState = splitMode && activePaneIndex === 1
     ? paneLayers1
     : singleLayers;
+
+  // ── Session state persistence ─────────────────────────────────────────────
+
+  /** Couche vide par défaut */
+  const makeDefaultLayer = useCallback((name: string): Layer => ({
+    id: uid(), name, visible: true, opacity: 100, locked: false, elements: [],
+  }), []);
+
+  /** Sérialise et sauvegarde l'état courant (annotations + source + temps) */
+  const saveCurrentState = useCallback(async () => {
+    if (!sessions.activeSession?.folderPath) return;
+
+    const paneASource: PersistedSessionState['paneA']['source'] = isLiveMode
+      ? { type: 'camera', deviceId: config.deviceId }
+      : activeRecording
+        ? { type: 'recording', filename: activeRecording.name }
+        : { type: 'none' };
+
+    const paneBSrc: PersistedSessionState['paneB']['source'] =
+      paneBSource.type === 'camera'    ? { type: 'camera',    deviceId: paneBSource.deviceId }
+      : paneBSource.type === 'recording' ? { type: 'recording', filename: paneBSource.recording.name }
+      : { type: 'none' };
+
+    const state: PersistedSessionState = {
+      paneA: {
+        source:       paneASource,
+        playbackTime: isLiveMode ? 0 : (paneRef0.current?.getTime() ?? 0),
+        layers:       singleLayers.layers,
+        activeLayerId: singleLayers.activeLayerId,
+      },
+      paneB: {
+        source:       paneBSrc,
+        playbackTime: paneRef1.current?.getTime() ?? 0,
+        layers:       paneLayers1.layers,
+        activeLayerId: paneLayers1.activeLayerId,
+      },
+    };
+
+    await sessions.saveSessionState(sessions.activeSession.folderPath, state);
+  }, [sessions, isLiveMode, config.deviceId, activeRecording, paneBSource,
+      singleLayers, paneLayers1]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Restaure l'état d'une session depuis le disque (ou remet à zéro si aucun état) */
+  const restoreState = useCallback(async (
+    session: import('./types').Session, recs: Recording[],
+  ) => {
+    const state = await sessions.loadSessionState(session.folderPath);
+
+    // ── Layers ──────────────────────────────────────────────────────────────
+    if (state?.paneA.layers.length) {
+      singleLayers.importLayers(state.paneA.layers, state.paneA.activeLayerId);
+    } else {
+      const l = makeDefaultLayer(t('layers.initialA'));
+      singleLayers.importLayers([l], l.id);
+    }
+    if (state?.paneB.layers.length) {
+      paneLayers1.importLayers(state.paneB.layers, state.paneB.activeLayerId);
+    } else {
+      const l = makeDefaultLayer(t('layers.initialB'));
+      paneLayers1.importLayers([l], l.id);
+    }
+
+    // ── Source pane A ────────────────────────────────────────────────────────
+    const srcA = state?.paneA.source ?? { type: 'none' };
+    if (srcA.type === 'camera') {
+      setIsLiveMode(true);
+      setActiveRecording(null);
+    } else if (srcA.type === 'recording') {
+      const rec = recs.find(r => r.name === srcA.filename) ?? null;
+      setActiveRecording(rec);
+      setIsLiveMode(false);
+      if (rec && (state?.paneA.playbackTime ?? 0) > 0) {
+        const t0 = state!.paneA.playbackTime;
+        setTimeout(() => paneRef0.current?.seekTo(t0), 400);
+      }
+    } else {
+      setIsLiveMode(false);
+      setActiveRecording(null);
+    }
+
+    // ── Source pane B ────────────────────────────────────────────────────────
+    const srcB = state?.paneB.source ?? { type: 'none' };
+    if (srcB.type === 'camera') {
+      setPaneBSource({ type: 'camera', deviceId: srcB.deviceId });
+    } else if (srcB.type === 'recording') {
+      const rec = recs.find(r => r.name === srcB.filename) ?? null;
+      if (rec) {
+        setPaneBSource({ type: 'recording', recording: rec });
+        if ((state?.paneB.playbackTime ?? 0) > 0) {
+          const t1 = state!.paneB.playbackTime;
+          setTimeout(() => paneRef1.current?.seekTo(t1), 400);
+        }
+      } else {
+        setPaneBSource({ type: 'none' });
+      }
+    } else {
+      setPaneBSource({ type: 'none' });
+    }
+  }, [sessions, singleLayers, paneLayers1, makeDefaultLayer, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Change de session : sauvegarde l'état courant → charge la nouvelle */
+  const applySession = useCallback(async (client: Client, session: import('./types').Session) => {
+    await saveCurrentState();
+    await sessions.setActiveSession(client, session);
+    const { captures: loaded, recordings: loadedRecs } = await sessions.loadSessionAssets(session);
+    setCaptures(loaded);
+    setRecordings(loadedRecs);
+    await restoreState(session, loadedRecs);
+  }, [saveCurrentState, sessions, restoreState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Frame-by-frame ──────────────────────────────────────────────────────────
   const stepFrame = useCallback((dir: 1 | -1, frames = 1) => {
     const fps = config.frameRate || 30;
     const activeRef = splitMode && activePaneIndex === 1 ? paneRef1 : paneRef0;
     activeRef.current?.stepFrame(dir, fps, frames);
+    // Force seekbar sync — 'seeked' event is not always reliable on first seek
+    // (e.g. Firefox with certain codecs, or seek from t=0). We read currentTime
+    // directly after one rAF to guarantee the UI updates.
+    if (!splitMode || activePaneIndex === 0) {
+      requestAnimationFrame(() => {
+        const t = paneRef0.current?.getTime();
+        if (t !== undefined) setPlaybackTime(t);
+      });
+    }
   }, [splitMode, activePaneIndex, config.frameRate]);
 
   const handlePlayPause = useCallback(() => paneRef0.current?.togglePlay(), []);
@@ -133,13 +312,20 @@ export default function App() {
   const handleStopRecording = useCallback(async () => {
     const rec = await recorder.stop();
     setRecordings(prev => [rec, ...prev]);
-    persistRecording(rec);
-  }, [recorder, persistRecording]);
+    if (sessions.activeSession) {
+      sessions.saveRecording(sessions.activeSession, rec.blob!, rec.name, rec.duration);
+    } else {
+      // Pas de session active → fallback IndexedDB (mode web)
+      persistRecording(rec);
+    }
+  }, [recorder, persistRecording, sessions]);
 
   const handleSelectRecording = useCallback((rec: Recording) => {
     setActiveRecording(rec);
     setIsLiveMode(false);
-    // VideoPane A reacts to singleSource change and loads the video automatically
+    // Reset seekbar so it doesn't show stale values while the new video loads
+    setPlaybackTime(0);
+    setPlaybackDuration(0);
   }, []);
 
   const handleDeleteRecording = useCallback((id: string) => {
@@ -251,6 +437,30 @@ export default function App() {
     return { type: 'none' };
   }, [isLiveMode, activeRecording, config.deviceId]);
 
+  const handleDeleteSession = useCallback(async (session: Session) => {
+    const wasActive = await sessions.deleteSession(session);
+    if (wasActive) {
+      setCaptures([]);
+      setRecordings([]);
+      setActiveRecording(null);
+      setIsLiveMode(false);
+      setPaneBSource({ type: 'none' });
+      setShowNewSession(true);
+    }
+  }, [sessions]);
+
+  const handleDeleteClient = useCallback(async (client: Client) => {
+    const wasActive = await sessions.deleteClient(client);
+    if (wasActive) {
+      setCaptures([]);
+      setRecordings([]);
+      setActiveRecording(null);
+      setIsLiveMode(false);
+      setPaneBSource({ type: 'none' });
+      setShowNewSession(true);
+    }
+  }, [sessions]);
+
   const handleSingleSourceChange = useCallback((s: PaneSource) => {
     if (s.type === 'camera') {
       if (s.deviceId !== config.deviceId) setConfig(c => ({ ...c, deviceId: s.deviceId }));
@@ -273,13 +483,25 @@ export default function App() {
           <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="RapidFit" className="h-6 w-6" />
           <span className="text-sm font-bold tracking-wide text-white">RapidFit</span>
           <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
+          <SessionSelector
+            clients={sessions.clients}
+            sessionsByClient={sessions.sessionsByClient}
+            activeClient={sessions.activeClient}
+            activeSession={sessions.activeSession}
+            onSelect={applySession}
+            onNewSession={() => setShowNewSession(true)}
+            onEditClient={sessions.updateClient}
+            onDeleteSession={handleDeleteSession}
+            onDeleteClient={handleDeleteClient}
+          />
+          <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
           <span className="text-xs text-slate-400 bg-[#22223b] px-2 py-0.5 rounded-md border border-[#3d3d5c]">
             {splitMode && (
               <span className="text-indigo-400 font-medium mr-1">
-                Panneau {activePaneIndex === 0 ? 'A' : 'B'} —
+                {t('header.panel')} {activePaneIndex === 0 ? 'A' : 'B'} —
               </span>
             )}
-            Calque : <span className="text-slate-200 font-medium">{activeLayerName}</span>
+            {t('header.layer')} : <span className="text-slate-200 font-medium">{activeLayerName}</span>
           </span>
         </div>
 
@@ -291,27 +513,27 @@ export default function App() {
 
         <div className="flex items-center gap-2">
           {isLiveMode && !cameraIsActive && !cameraError && (
-            <span className="text-xs text-slate-500">En attente de la caméra…</span>
+            <span className="text-xs text-slate-500">{t('header.cameraWaiting')}</span>
           )}
 
           {/* Overlay toggles */}
           <button
             onClick={() => setShowGuide(g => !g)}
-            title="Afficher/masquer les guides (rectangle 80% + centre)"
+            title={t('header.guidesTitle')}
             className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
               showGuide ? 'bg-yellow-600 text-white' : 'bg-[#22223b] hover:bg-[#2d2d48] text-slate-300'
             }`}
           >
-            ✛ Guides
+            {t('header.guides')}
           </button>
           <button
             onClick={() => setShowGrid(g => !g)}
-            title="Afficher/masquer la grille"
+            title={t('header.gridTitle')}
             className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
               showGrid ? 'bg-blue-600 text-white' : 'bg-[#22223b] hover:bg-[#2d2d48] text-slate-300'
             }`}
           >
-            ⊟ Grille
+            {t('header.grid')}
           </button>
 
           {/* Grid size controls — visible only when grid is on */}
@@ -337,7 +559,7 @@ export default function App() {
             onClick={() => setShowReport(true)}
             className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 font-medium transition-colors"
           >
-            📋 Compte rendu
+            {t('header.report')}
           </button>
 
           <button
@@ -352,13 +574,13 @@ export default function App() {
               splitMode ? 'bg-indigo-600 text-white' : 'bg-[#22223b] hover:bg-[#2d2d48] text-slate-300'
             }`}
           >
-            ⊞ Split
+            {t('header.split')}
           </button>
           <button onClick={() => setShowSettings(true)} className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300">
-            ⚙ Paramètres
+            {t('header.settings')}
           </button>
           <button onClick={() => setShowHelp(true)} className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300">
-            ? Aide
+            {t('header.help')}
           </button>
         </div>
       </header>
@@ -382,7 +604,7 @@ export default function App() {
             <div className={`flex items-center gap-2 px-3 py-1.5 ${splitMode ? 'flex-1 border-r border-[#22223b]' : 'w-full'}`}>
               <SourceSelector
                 source={singleSource} devices={devices} recordings={recordings}
-                label={splitMode ? 'A' : 'Source'}
+                label={splitMode ? 'A' : t('video.sourceLabel')}
                 onChange={handleSingleSourceChange}
               />
             </div>
@@ -410,7 +632,16 @@ export default function App() {
               onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
               onCameraError={setCameraError}
               onTimeUpdate={setPlaybackTime}
-              onDurationChange={setPlaybackDuration}
+              onDurationChange={d => {
+                setPlaybackDuration(d);
+                // Persist finite duration into the recordings list (fixes 00:00 for
+                // disk-backed recordings whose duration was unknown at load time).
+                if (isFinite(d) && d > 0) {
+                  setRecordings(prev => prev.map(r =>
+                    r.id === activeRecording?.id && r.duration === 0 ? { ...r, duration: d } : r,
+                  ));
+                }
+              }}
               onPlayStateChange={p => setPlaybackPaused(p)}
             />
             {splitMode && (
@@ -432,7 +663,7 @@ export default function App() {
             {recorder.isRecording && (
               <div className="absolute top-3 right-3 flex items-center gap-2 bg-black/60 px-3 py-1 rounded-full pointer-events-none" style={{ zIndex: 400 }}>
                 <span className={`w-2 h-2 rounded-full ${recorder.isPaused ? 'bg-yellow-400' : 'bg-red-500 animate-pulse'}`} />
-                <span className="text-xs font-mono text-white font-semibold">{recorder.isPaused ? 'PAUSE' : 'REC'}</span>
+                <span className="text-xs font-mono text-white font-semibold">{recorder.isPaused ? t('recording.pauseIndicator') : t('recording.rec')}</span>
               </div>
             )}
           </div>
@@ -478,6 +709,16 @@ export default function App() {
 
       <input ref={importInputRef} type="file" accept="video/*" className="hidden" onChange={handleImportFile} />
 
+      {showNewSession && (
+        <NewSessionModal
+          clients={sessions.clients}
+          canClose={!!sessions.activeSession}
+          onClose={() => setShowNewSession(false)}
+          onCreateClientAndSession={handleCreateClientAndSession}
+          onCreateSessionForClient={handleCreateSessionForClient}
+        />
+      )}
+
       {showSettings && (
         <SettingsModal
           config={config}
@@ -501,19 +742,19 @@ export default function App() {
         >
           <div className="bg-[#13131f] border border-[#22223b] rounded-xl p-6 w-[700px] max-h-[88vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-slate-100">Guide d'utilisation</h2>
+              <h2 className="text-lg font-semibold text-slate-100">{t('help.title')}</h2>
               <button onClick={() => setShowHelp(false)} className="text-slate-400 hover:text-white text-xl">✕</button>
             </div>
 
             {/* Outils */}
             <section className="mb-5">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Outils</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.tools')}</h3>
               <div className="flex flex-col gap-1.5">
                 {[
-                  ['H', '✋', 'Déplacer',   'Glisser pour déplacer la vue (zoom > 1).'],
-                  ['V', '⊙', 'Sélection',  'Cliquer pour sélectionner, glisser les handles pour modifier. Suppr/⌫ pour supprimer.'],
-                  ['L', '╱', 'Trait',      'Cliquer-glisser pour tracer une ligne droite.'],
-                  ['G', '∠', 'Angle',      '3 clics : 1er point → sommet → 3e point. L\'arc et la valeur en degrés s\'affichent automatiquement.'],
+                  ['H', '✋', t('help.tool_pan'),    t('help.tool_pan_desc')],
+                  ['V', '⊙', t('help.tool_select'), t('help.tool_select_desc')],
+                  ['L', '╱', t('help.tool_line'),   t('help.tool_line_desc')],
+                  ['G', '∠', t('help.tool_angle'),  t('help.tool_angle_desc')],
                 ].map(([key, icon, name, desc]) => (
                   <div key={key} className="flex items-start gap-3 bg-[#22223b] rounded-lg px-3 py-2">
                     <kbd className="shrink-0 w-6 h-6 bg-[#3d3d5c] rounded text-xs font-mono text-slate-300 flex items-center justify-center">{key}</kbd>
@@ -529,20 +770,20 @@ export default function App() {
 
             {/* Raccourcis clavier */}
             <section className="mb-5">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Raccourcis clavier</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.shortcuts')}</h3>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                 {[
-                  ['H',            'Outil Déplacer'],
-                  ['V',            'Outil Sélection'],
-                  ['L',            'Outil Trait'],
-                  ['G',            'Outil Angle'],
-                  ['Espace (maintien)', 'Pan temporaire → relâche pour revenir à l\'outil'],
-                  ['Ctrl/Cmd + Z', 'Annuler'],
-                  ['Ctrl/Cmd + Y', 'Rétablir'],
-                  ['Suppr / ⌫',   'Supprimer l\'élément sélectionné'],
-                  ['Entrée',       'Lecture / Pause vidéo'],
-                  ['←  →',         'Image précédente / suivante (vidéo pausée)'],
-                  ['MAJ + ←  →',   'Reculer / avancer 10 images d\'un coup'],
+                  ['H',                          t('help.shortcut_pan')],
+                  ['V',                          t('help.shortcut_select')],
+                  ['L',                          t('help.shortcut_line')],
+                  ['G',                          t('help.shortcut_angle')],
+                  [t('help.shortcut_space_key'), t('help.shortcut_space')],
+                  [t('help.shortcut_undo_key'),  t('help.shortcut_undo')],
+                  [t('help.shortcut_redo_key'),  t('help.shortcut_redo')],
+                  [t('help.shortcut_delete_key'),t('help.shortcut_delete')],
+                  [t('help.shortcut_enter_key'), t('help.shortcut_enter')],
+                  [t('help.shortcut_arrows_key'),t('help.shortcut_arrows')],
+                  [t('help.shortcut_shift_key'), t('help.shortcut_shift')],
                 ].map(([key, label]) => (
                   <div key={key} className="flex items-center gap-2 min-w-0">
                     <kbd className="shrink-0 bg-[#3d3d5c] rounded px-1.5 py-0.5 text-[10px] font-mono text-slate-300 whitespace-nowrap">{key}</kbd>
@@ -554,17 +795,17 @@ export default function App() {
 
             {/* Souris & molette */}
             <section className="mb-5">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Souris &amp; molette</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.mouse')}</h3>
               <div className="flex flex-col gap-1 text-xs text-slate-400">
                 {[
-                  ['Ctrl/Cmd + molette',       'Zoom centré sur le curseur'],
-                  ['Clic molette + glisser',   'Déplacer la vue (zoom > 1)'],
-                  ['Espace + glisser',          'Déplacer la vue (zoom > 1)'],
-                  ['Molette seule (vidéo)',     'Image précédente / suivante'],
-                  ['Clic seekbar',             'Sauter à ce point dans la vidéo'],
-                  ['Glisser seekbar',          'Navigation continue dans la vidéo'],
-                  ['Clic handle',              'Déplacer le point (curseur ✊ pendant le drag)'],
-                  ['Glisser corps d\'un élément', 'Déplacer l\'élément entier'],
+                  [t('help.mouse_zoom_key'),         t('help.mouse_zoom')],
+                  [t('help.mouse_pan_middle_key'),   t('help.mouse_pan_middle')],
+                  [t('help.mouse_pan_space_key'),    t('help.mouse_pan_space')],
+                  [t('help.mouse_wheel_key'),        t('help.mouse_wheel')],
+                  [t('help.mouse_seekbar_key'),      t('help.mouse_seekbar')],
+                  [t('help.mouse_seekbar_drag_key'), t('help.mouse_seekbar_drag')],
+                  [t('help.mouse_handle_key'),       t('help.mouse_handle')],
+                  [t('help.mouse_element_key'),      t('help.mouse_element')],
                 ].map(([key, label]) => (
                   <div key={key} className="flex items-start gap-2">
                     <span className="shrink-0 text-slate-500 text-[10px] font-mono bg-[#22223b] rounded px-1.5 py-0.5 whitespace-nowrap">{key}</span>
@@ -576,25 +817,25 @@ export default function App() {
 
             {/* Split screen */}
             <section className="mb-5">
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Split screen</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.split')}</h3>
               <div className="flex flex-col gap-1 text-xs text-slate-400">
-                <p>• Chaque panneau A / B a ses <span className="text-slate-300">calques et son zoom/pan indépendants</span>.</p>
-                <p>• Cliquer sur un panneau pour l'activer — outils et calques s'y appliquent.</p>
-                <p>• ← → et MAJ+← → s'appliquent au panneau actif.</p>
+                <p>• {t('help.split_desc1')}</p>
+                <p>• {t('help.split_desc2')}</p>
+                <p>• {t('help.split_desc3')}</p>
               </div>
             </section>
 
             {/* Calques */}
             <section>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">Calques</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.layers')}</h3>
               <div className="flex flex-col gap-1 text-xs text-slate-400">
-                <p>• <span className="text-slate-300">+</span> Créer · <span className="text-slate-300">👁</span> Masquer · <span className="text-slate-300">🔒</span> Verrouiller · <span className="text-slate-300">▲▼</span> Réordonner</p>
-                <p>• Slider opacité 0–100 % par calque · chaque tracé crée automatiquement son propre calque.</p>
+                <p>• <span className="text-slate-300">{t('help.layers_desc1_create')}</span> {t('help.layers_desc1_text').split(' · ')[0]} · <span className="text-slate-300">{t('help.layers_desc1_hide')}</span> {t('help.layers_desc1_text').split(' · ')[1]} · <span className="text-slate-300">{t('help.layers_desc1_lock')}</span> {t('help.layers_desc1_text').split(' · ')[2]} · <span className="text-slate-300">{t('help.layers_desc1_reorder')}</span> {t('help.layers_desc1_text').split(' · ')[3]}</p>
+                <p>• {t('help.layers_desc2')}</p>
               </div>
             </section>
 
             <button onClick={() => setShowHelp(false)} className="mt-6 w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium">
-              Fermer
+              {t('help.close')}
             </button>
           </div>
         </div>

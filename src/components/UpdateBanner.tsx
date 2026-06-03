@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type UpdateState = 'idle' | 'available' | 'downloaded';
 
 export function UpdateBanner() {
+  const { t } = useTranslation();
   const [state, setState] = useState<UpdateState>('idle');
   const [version, setVersion] = useState<string>('');
 
@@ -32,15 +34,15 @@ export function UpdateBanner() {
     <div className="flex items-center justify-between px-4 py-2 bg-indigo-700 border-b border-indigo-500 text-white text-xs shrink-0">
       <span>
         {state === 'available'
-          ? `Mise à jour v${version} disponible — téléchargement en cours…`
-          : `Mise à jour v${version} prête à installer.`}
+          ? t('update.available', { version })
+          : t('update.downloaded', { version })}
       </span>
       {state === 'downloaded' && (
         <button
           onClick={() => (window as unknown as { electronAPI: { installUpdate: () => void } }).electronAPI.installUpdate()}
           className="ml-4 px-3 py-1 bg-white text-indigo-700 font-semibold rounded hover:bg-indigo-100 transition-colors"
         >
-          Installer et relancer
+          {t('update.install')}
         </button>
       )}
     </div>

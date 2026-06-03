@@ -97,8 +97,8 @@ export interface Layer {
 export interface Recording {
   id: string;
   name: string;
-  blob: Blob;
-  url: string;
+  blob?: Blob;        // undefined for disk-backed recordings (loaded from filesystem)
+  url: string;        // object URL (fresh) or localfile:// URL (disk-backed)
   createdAt: Date;
   duration: number;
 }
@@ -106,8 +106,8 @@ export interface Recording {
 export interface Capture {
   id: string;
   name: string;
-  blob: Blob;
-  url: string;       // object URL for display / download
+  blob?: Blob;        // undefined for disk-backed captures (loaded from filesystem)
+  url: string;        // object URL (fresh) or localfile:// URL (disk-backed)
   createdAt: Date;
   paneLabel?: string; // 'A' | 'B' | undefined (single mode)
 }
@@ -128,6 +128,50 @@ export interface VideoConfig {
   videoBitrate: number;
   audioBitrate: number;
   audioEnabled: boolean;
+}
+
+export type Discipline = 'route' | 'gravel' | 'clm' | 'vtt';
+
+export interface Client {
+  id: string;
+  nom: string;
+  prenom: string;
+  email?: string;
+  phone?: string;
+  birthDate?: string;
+  weight?: number;
+  height?: number;
+  createdAt: string;
+  folderPath: string;
+}
+
+export interface Session {
+  id: string;
+  clientId: string;
+  discipline: Discipline;
+  bikeFitDate: string;
+  notes?: string;
+  createdAt: string;
+  folderPath: string;
+}
+
+// ── Session state persistence ──────────────────────────────────────────────────
+// Saved in <session>/session-state.json; blob/url are ephemeral and not stored.
+export type SavedPaneSource =
+  | { type: 'none' }
+  | { type: 'camera'; deviceId: string }
+  | { type: 'recording'; filename: string };
+
+export interface SavedPaneState {
+  source: SavedPaneSource;
+  playbackTime: number;
+  layers: Layer[];
+  activeLayerId: string;
+}
+
+export interface PersistedSessionState {
+  paneA: SavedPaneState;
+  paneB: SavedPaneState;
 }
 
 export const RESOLUTIONS: Record<string, { width: number; height: number; label: string }> = {
