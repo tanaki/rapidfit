@@ -313,7 +313,7 @@ export default function App() {
     const rec = await recorder.stop();
     setRecordings(prev => [rec, ...prev]);
     if (sessions.activeSession) {
-      sessions.saveRecording(sessions.activeSession, rec.blob!, rec.name);
+      sessions.saveRecording(sessions.activeSession, rec.blob!, rec.name, rec.duration);
     } else {
       // Pas de session active → fallback IndexedDB (mode web)
       persistRecording(rec);
@@ -323,7 +323,9 @@ export default function App() {
   const handleSelectRecording = useCallback((rec: Recording) => {
     setActiveRecording(rec);
     setIsLiveMode(false);
-    // VideoPane A reacts to singleSource change and loads the video automatically
+    // Reset seekbar so it doesn't show stale values while the new video loads
+    setPlaybackTime(0);
+    setPlaybackDuration(0);
   }, []);
 
   const handleDeleteRecording = useCallback((id: string) => {
@@ -630,7 +632,16 @@ export default function App() {
               onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
               onCameraError={setCameraError}
               onTimeUpdate={setPlaybackTime}
-              onDurationChange={setPlaybackDuration}
+              onDurationChange={d => {
+                setPlaybackDuration(d);
+                // Persist finite duration into the recordings list (fixes 00:00 for
+                // disk-backed recordings whose duration was unknown at load time).
+                if (isFinite(d) && d > 0) {
+                  setRecordings(prev => prev.map(r =>
+                    r.id === activeRecording?.id && r.duration === 0 ? { ...r, duration: d } : r,
+                  ));
+                }
+              }}
               onPlayStateChange={p => setPlaybackPaused(p)}
             />
             {splitMode && (

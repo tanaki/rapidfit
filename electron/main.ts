@@ -263,10 +263,14 @@ ipcMain.handle('sessions:save-capture', async (_e, {
 });
 
 ipcMain.handle('sessions:save-recording', async (_e, {
-  sessionFolderPath, filename, buffer,
-}: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => {
+  sessionFolderPath, filename, buffer, duration,
+}: { sessionFolderPath: string; filename: string; buffer: Uint8Array; duration: number }) => {
   const dest = path.join(sessionFolderPath, 'videos', filename);
   await fs.writeFile(dest, Buffer.from(buffer));
+  // Sidecar: store the duration (elapsed recording time) so we can display it
+  // in the library without relying on video.duration which is often Infinity
+  // for WebM files produced by MediaRecorder.
+  await fs.writeFile(`${dest}.info.json`, JSON.stringify({ duration }));
   return dest;
 });
 
@@ -317,7 +321,7 @@ ipcMain.handle('sessions:list-captures', async (_e, sessionFolderPath: string) =
         .map(async f => {
           const filePath = path.join(dir, f);
           const stat = await fs.stat(filePath);
-          return { name: f, path: filePath, createdAt: stat.birthtime.toISOString() };
+          return { name: f, path: filePath, createdAt: stat.birthtime.toISOString(), duration: 0 };
         }),
     );
     return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -334,7 +338,10 @@ ipcMain.handle('sessions:list-recordings', async (_e, sessionFolderPath: string)
         .map(async f => {
           const filePath = path.join(dir, f);
           const stat = await fs.stat(filePath);
-          return { name: f, path: filePath, createdAt: stat.birthtime.toISOString() };
+          // Read sidecar duration (written at record time via save-recording).
+          // Falls back to 0 if the file was recorded before this feature.
+          const info = await readJson<{ duration: number }>(`${filePath}.info.json`, { duration: 0 });
+          return { name: f, path: filePath, createdAt: stat.birthtime.toISOString(), duration: info.duration };
         }),
     );
     return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));

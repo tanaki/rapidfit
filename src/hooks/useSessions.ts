@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Client, Session, Discipline, Capture, Recording, PersistedSessionState } from '../types';
 import { uid } from '../utils/canvas';
 
-interface DiskFile { name: string; path: string; createdAt: string; }
+interface DiskFile { name: string; path: string; createdAt: string; duration: number; }
 
 /**
  * Encode a local file path for use as an HTTP request path.
@@ -28,7 +28,7 @@ type ElectronAPI = {
   sessionsCreateSession: (s: Session) => Promise<Session>;
   sessionsUpdateClient: (c: Client) => Promise<Client>;
   sessionsSaveCapture: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
-  sessionsSaveRecording: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
+  sessionsSaveRecording: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array; duration: number }) => Promise<string>;
   sessionsSaveState: (p: { sessionFolderPath: string; state: PersistedSessionState }) => Promise<void>;
   sessionsLoadState: (sessionFolderPath: string) => Promise<PersistedSessionState | null>;
   sessionsDeleteSession: (p: { sessionFolderPath: string }) => Promise<void>;
@@ -178,12 +178,12 @@ export function useSessions() {
   }, []);
 
   const saveRecording = useCallback(async (
-    session: Session, blob: Blob, filename: string,
+    session: Session, blob: Blob, filename: string, duration: number,
   ): Promise<void> => {
     const api = getAPI();
     if (!api || !session.folderPath) return;
     const buffer = new Uint8Array(await blob.arrayBuffer());
-    await api.sessionsSaveRecording({ sessionFolderPath: session.folderPath, filename, buffer });
+    await api.sessionsSaveRecording({ sessionFolderPath: session.folderPath, filename, buffer, duration });
   }, []);
 
   const saveSessionState = useCallback(async (
@@ -277,7 +277,7 @@ export function useSessions() {
       name: f.name,
       url: buildUrl(f.path),
       createdAt: new Date(f.createdAt),
-      duration: 0,
+      duration: f.duration,
     }));
 
     return { captures, recordings };

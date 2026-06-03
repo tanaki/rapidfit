@@ -143,16 +143,47 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       video.src = source.recording.url;
       video.load();
 
-      const onTime     = () => onTimeUpdate?.(video.currentTime);
-      const onDur      = () => { if (isFinite(video.duration) && video.duration > 0) onDurationChange?.(video.duration); };
-      const onPause    = () => onPlayStateChange?.(true);
-      const onPlay     = () => onPlayStateChange?.(false);
-      const onLoaded   = () => { onDur(); onPlayStateChange?.(video.paused); onTime(); updateVideoRect(); };
-      const onCanPlay  = () => {
-        onDur();
-        if (pendingSeekRef.current !== null) {
-          video.currentTime = pendingSeekRef.current;
-          pendingSeekRef.current = null;
+      const onTime  = () => onTimeUpdate?.(video.currentTime);
+      const onPause = () => onPlayStateChange?.(true);
+      const onPlay  = () => onPlayStateChange?.(false);
+
+      // WebM files recorded by MediaRecorder do not embed a duration in the
+      // header — video.duration is Infinity. The standard fix is to seek to a
+      // huge timestamp so the browser reads the last cluster and derives the
+      // real duration, then seek back to 0 (or the pending restore position).
+      let fixingDuration = false;
+      const onDur = () => {
+        if (isFinite(video.duration) && video.duration > 0) {
+          onDurationChange?.(video.duration);
+          if (fixingDuration) {
+            fixingDuration = false;
+            const seek = pendingSeekRef.current ?? 0;
+            pendingSeekRef.current = null;
+            video.currentTime = seek;
+          }
+        }
+      };
+
+      const onLoaded = () => {
+        onPlayStateChange?.(video.paused);
+        updateVideoRect();
+        if (!isFinite(video.duration) || video.duration <= 0) {
+          // Trigger the browser to seek to the end so it can determine duration.
+          fixingDuration = true;
+          video.currentTime = 1e101; // browser clamps to actual end
+        } else {
+          onDur();
+          onTime();
+        }
+      };
+
+      const onCanPlay = () => {
+        if (!fixingDuration) {
+          onDur();
+          if (pendingSeekRef.current !== null) {
+            video.currentTime = pendingSeekRef.current;
+            pendingSeekRef.current = null;
+          }
         }
       };
 
