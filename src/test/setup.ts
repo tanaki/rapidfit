@@ -2,14 +2,14 @@ import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
 // ── ResizeObserver ────────────────────────────────────────────────────────────
-global.ResizeObserver = class ResizeObserver {
+window.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
 };
 
 // ── MediaDevices ──────────────────────────────────────────────────────────────
-Object.defineProperty(global.navigator, 'mediaDevices', {
+Object.defineProperty(window.navigator, 'mediaDevices', {
   value: {
     getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [] }),
     enumerateDevices: vi.fn().mockResolvedValue([]),
@@ -20,20 +20,23 @@ Object.defineProperty(global.navigator, 'mediaDevices', {
 });
 
 // ── MediaStream ───────────────────────────────────────────────────────────────
-global.MediaStream = class MediaStream {
+window.MediaStream = class MediaStream {
   getTracks() { return []; }
 } as unknown as typeof MediaStream;
 
 // ── MediaRecorder ─────────────────────────────────────────────────────────────
-global.MediaRecorder = class MediaRecorder {
+window.MediaRecorder = class MediaRecorder {
   static isTypeSupported() { return false; }
 } as unknown as typeof MediaRecorder;
 
 // ── IndexedDB stub ────────────────────────────────────────────────────────────
-global.indexedDB = {
-  open: () => {
-    const req = {} as IDBOpenDBRequest;
-    setTimeout(() => req.onerror?.(new Event('error')));
-    return req;
-  },
-} as unknown as IDBFactory;
+Object.defineProperty(window, 'indexedDB', {
+  value: {
+    open: () => {
+      const req = {} as IDBOpenDBRequest;
+      setTimeout(() => req.onerror?.(new Event('error')));
+      return req;
+    },
+  } as unknown as IDBFactory,
+  configurable: true,
+});

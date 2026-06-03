@@ -1,8 +1,7 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
-/// <reference types="vitest" />
 
 const isElectron = process.env.ELECTRON === 'true';
 
@@ -44,5 +43,6 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    typecheck: { tsconfig: './tsconfig.test.json' },
   },
 });
