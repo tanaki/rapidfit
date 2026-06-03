@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('sessions:save-capture', payload),
   sessionsSaveRecording: (payload: unknown) =>
     ipcRenderer.invoke('sessions:save-recording', payload),
+  sessionsUpdateClient: (client: unknown) =>
+    ipcRenderer.invoke('sessions:update-client', client),
   sessionsGetLast: () =>
     ipcRenderer.invoke('sessions:get-last'),
   sessionsSetLast: (data: unknown) =>

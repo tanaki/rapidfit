@@ -150,8 +150,8 @@ interface Session {
 ### Reste à faire ⏳
 1. **Auto-save captures sur disque** : dans `handleCapture` (App.tsx), appeler `sessions.saveCapture()` si session active
 2. **Auto-save enregistrements** : dans `handleStopRecording`, appeler `sessions.saveRecording()`
-3. **Édition client/session** : modifier les infos depuis le header ou une modale dédiée
-4. **Suppression session/client** : IPC + UI
+3. **Suppression session/client** : IPC + UI
+4. **Bug caméra Electron non résolu** : voir section dédiée ci-dessous
 
 ### Plan d'action (suite)
 1. **Types** : `Client` + `Session` dans `src/types/index.ts`
@@ -256,6 +256,27 @@ Phase 2 (i18n)          ← peut commencer maintenant
 
 ---
 
+## 🐛 Bug caméra Electron (non résolu)
+
+### Symptôme
+`getUserMedia` ne fonctionne pas dans l'app Electron macOS — la webcam intégrée et les caméras externes ne s'ouvrent pas.
+
+### Ce qui a été tenté (sans succès)
+- `session.defaultSession.setPermissionRequestHandler` → grant `media`
+- `session.defaultSession.setPermissionCheckHandler` → return true pour `media`
+- Entitlements macOS : `com.apple.security.device.camera` dans `build/entitlements.mac.plist` + `entitlements.mac.inherit.plist`
+- `NSCameraUsageDescription` dans `extendInfo` (était déjà présent)
+
+### Pistes à explorer en prochaine session
+- Vérifier que le build Electron compile bien avec les nouveaux entitlements (tester `npm run dev:electron` avec les DevTools ouverts, onglet Console)
+- Tester si l'erreur est `NotAllowedError` ou `NotFoundError` (distingue un problème de permission d'un problème de détection)
+- Essayer `app.commandLine.appendSwitch('use-fake-ui-for-media-stream')` pour forcer l'accès en dev
+- Vérifier `webPreferences: { sandbox: false }` — le sandbox Electron peut bloquer `getUserMedia` sur certaines versions
+- Regarder si `navigator.mediaDevices` est `undefined` dans le renderer (signe que le contexte n'est pas sécurisé)
+- Solution alternative : passer par `desktopCapturer` d'Electron au lieu de `getUserMedia` natif
+
+---
+
 ## Décisions techniques prises
 
 | Sujet | Décision |
@@ -284,7 +305,8 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 ```
 Branche active : dev
 Dernière version taguée : v1.0.5
-Tags : v0.0.1 → v0.0.3, v1.0.0 → v1.0.5
-Commits non mergés sur dev : Phase 2 (i18n) + Phase 3 partielle (sessions)
-Prochain tag prévu : v1.1.0 (fin Phase 3)
+Commits sur dev non mergés sur main :
+  - feat: Phase 2 i18n FR/EN + Phase 3 clients & sessions (partiel)
+  - feat: Phase 3 suite — édition client, bugs capture + seekbar, caméra Electron
+Prochain tag prévu : v1.1.0 (fin Phase 3, bug caméra résolu)
 ```

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, nativeImage, session } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import fs from 'fs/promises';
@@ -69,6 +69,18 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // ── Camera / microphone permissions ────────────────────────────────────────
+  // Electron blocks getUserMedia by default. Grant media permissions explicitly
+  // so webcams and external cameras work on all platforms.
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => {
+    if (permission === 'media') return true;
+    return null;
+  });
+
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === 'media');
+  });
+
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -164,6 +176,15 @@ ipcMain.handle('sessions:save-recording', async (_e, {
   const dest = path.join(sessionFolderPath, 'videos', filename);
   await fs.writeFile(dest, Buffer.from(buffer));
   return dest;
+});
+
+ipcMain.handle('sessions:update-client', async (_e, client: Client) => {
+  await fs.writeFile(path.join(client.folderPath, 'client.json'), JSON.stringify(client, null, 2));
+  const clients = await readJson<Client[]>(clientsIndex(), []);
+  const idx = clients.findIndex(c => c.id === client.id);
+  if (idx >= 0) clients[idx] = client;
+  await fs.writeFile(clientsIndex(), JSON.stringify(clients, null, 2));
+  return client;
 });
 
 ipcMain.handle('sessions:get-last', async () => {

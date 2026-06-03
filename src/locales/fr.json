@@ -124,13 +124,17 @@
     "prenom": "Prénom",
     "email": "Email",
     "phone": "Téléphone",
+    "birthDate": "Date de naissance",
+    "age": "{{n}} ans",
     "discipline_route": "Route",
     "discipline_gravel": "Gravel",
     "discipline_clm": "CLM",
     "discipline_vtt": "VTT",
     "required": "Champ obligatoire",
     "sessionOf": "{{prenom}} {{nom}}",
-    "sessionLabel": "{{prenom}} {{nom}} — {{discipline}} — {{date}}"
+    "sessionLabel": "{{prenom}} {{nom}} — {{discipline}} — {{date}}",
+    "editClient": "Modifier le profil",
+    "saveClient": "Enregistrer"
   },
   "update": {
     "available": "Mise à jour v{{version}} disponible — téléchargement en cours…",

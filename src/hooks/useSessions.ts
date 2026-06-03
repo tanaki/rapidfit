@@ -14,6 +14,7 @@ type ElectronAPI = {
   sessionsList: () => Promise<{ clients: Client[]; sessionsByClient: Record<string, Session[]> }>;
   sessionsCreateClient: (c: Client) => Promise<Client>;
   sessionsCreateSession: (s: Session) => Promise<Session>;
+  sessionsUpdateClient: (c: Client) => Promise<Client>;
   sessionsSaveCapture: (p: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => Promise<string>;
   sessionsGetLast: () => Promise<{ clientId: string; sessionId: string } | null>;
   sessionsSetLast: (d: { clientId: string; sessionId: string } | null) => Promise<void>;
@@ -120,6 +121,21 @@ export function useSessions() {
     return saved;
   }, []);
 
+  const updateClient = useCallback(async (
+    updates: Partial<Omit<Client, 'id' | 'createdAt' | 'folderPath'>> & { id: string },
+  ): Promise<Client> => {
+    const api = getAPI();
+    const existing = state.clients.find(c => c.id === updates.id)!;
+    const updated: Client = { ...existing, ...updates };
+    const saved = api ? await api.sessionsUpdateClient(updated) : updated;
+    setState(s => ({
+      ...s,
+      clients: s.clients.map(c => c.id === saved.id ? saved : c),
+      activeClient: s.activeClient?.id === saved.id ? saved : s.activeClient,
+    }));
+    return saved;
+  }, [state.clients]);
+
   const setActiveSession = useCallback(async (client: Client, session: Session) => {
     setState(s => ({ ...s, activeClient: client, activeSession: session }));
     await getAPI()?.sessionsSetLast({ clientId: client.id, sessionId: session.id });
@@ -137,6 +153,7 @@ export function useSessions() {
   return {
     ...state,
     createClient,
+    updateClient,
     createSession,
     setActiveSession,
     saveCapture,

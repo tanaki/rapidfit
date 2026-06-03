@@ -124,13 +124,17 @@
     "prenom": "First name",
     "email": "Email",
     "phone": "Phone",
+    "birthDate": "Date of birth",
+    "age": "{{n}} y.o.",
     "discipline_route": "Road",
     "discipline_gravel": "Gravel",
     "discipline_clm": "TT",
     "discipline_vtt": "MTB",
     "required": "Required field",
     "sessionOf": "{{prenom}} {{nom}}",
-    "sessionLabel": "{{prenom}} {{nom}} — {{discipline}} — {{date}}"
+    "sessionLabel": "{{prenom}} {{nom}} — {{discipline}} — {{date}}",
+    "editClient": "Edit profile",
+    "saveClient": "Save"
   },
   "update": {
     "available": "Update v{{version}} available — downloading…",

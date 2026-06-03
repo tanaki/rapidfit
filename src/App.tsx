@@ -156,6 +156,15 @@ export default function App() {
     const fps = config.frameRate || 30;
     const activeRef = splitMode && activePaneIndex === 1 ? paneRef1 : paneRef0;
     activeRef.current?.stepFrame(dir, fps, frames);
+    // Force seekbar sync — 'seeked' event is not always reliable on first seek
+    // (e.g. Firefox with certain codecs, or seek from t=0). We read currentTime
+    // directly after one rAF to guarantee the UI updates.
+    if (!splitMode || activePaneIndex === 0) {
+      requestAnimationFrame(() => {
+        const t = paneRef0.current?.getTime();
+        if (t !== undefined) setPlaybackTime(t);
+      });
+    }
   }, [splitMode, activePaneIndex, config.frameRate]);
 
   const handlePlayPause = useCallback(() => paneRef0.current?.togglePlay(), []);
@@ -327,6 +336,7 @@ export default function App() {
               setActiveRecording(null);
             }}
             onNewSession={() => setShowNewSession(true)}
+            onEditClient={sessions.updateClient}
           />
           <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
           <span className="text-xs text-slate-400 bg-[#22223b] px-2 py-0.5 rounded-md border border-[#3d3d5c]">

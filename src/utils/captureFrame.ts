@@ -17,10 +17,9 @@ export async function capturePane(
   const video = videos.find(v => !v.classList.contains('hidden') && v.readyState >= 2) ?? null;
 
   // ── Find the annotation canvas ────────────────────────────────────────────
-  // The transform wrapper is the first child of the container.
-  // The annotation canvas (AnnotationCanvas) lives inside it.
-  const transformDiv = container.firstElementChild as HTMLDivElement | null;
-  const annotCanvas  = transformDiv?.querySelector('canvas') as HTMLCanvasElement | null;
+  // AnnotationCanvas is rendered as a direct sibling of the transform wrapper
+  // (outside the CSS zoom/pan transform), so we search the full container.
+  const annotCanvas = container.querySelector('canvas') as HTMLCanvasElement | null;
 
   // ── Composite ─────────────────────────────────────────────────────────────
   const out = document.createElement('canvas');

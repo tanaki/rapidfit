@@ -38,6 +38,7 @@ export function NewSessionModal({
   const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [birthDate, setBirthDate] = useState('');
 
   // Client existant
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id ?? '');
@@ -73,7 +74,7 @@ export function NewSessionModal({
       };
       if (mode === 'new-client') {
         await onCreateClientAndSession(
-          { nom: nom.trim(), prenom: prenom.trim(), email: email.trim() || undefined, phone: phone.trim() || undefined },
+          { nom: nom.trim(), prenom: prenom.trim(), email: email.trim() || undefined, phone: phone.trim() || undefined, birthDate: birthDate || undefined },
           sessionData,
         );
       } else {
@@ -154,6 +155,10 @@ export function NewSessionModal({
                 <div>
                   <label className="block text-xs text-slate-400 mb-1">{t('session.phone')}</label>
                   <input className={input} type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+33 6 00 00 00 00" />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">{t('session.birthDate')}</label>
+                  <input className={`${input} [color-scheme:dark]`} type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} />
                 </div>
               </div>
             </section>

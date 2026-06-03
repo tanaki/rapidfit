@@ -46,6 +46,7 @@ interface Props {
 export interface VideoPaneHandle {
   stepFrame: (dir: 1 | -1, fps?: number, frames?: number) => void;
   seekTo: (time: number) => void;
+  getTime: () => number;
   isPaused: () => boolean;
   togglePlay: () => void;
 }
@@ -195,6 +196,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       if (v.readyState >= 1) v.currentTime = time;
       else pendingSeekRef.current = time;
     },
+    getTime()    { return videoRef.current?.currentTime ?? 0; },
     isPaused()   { return videoRef.current?.paused ?? true; },
     togglePlay() { const v = videoRef.current; if (!v) return; v.paused ? v.play() : v.pause(); },
   }));
