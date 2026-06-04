@@ -254,6 +254,20 @@ src/App.tsx                            branché useCompany + chargement report.j
 
 **5.2 Envoi mail** — reporté à une version ultérieure
 
+### Fixes post-livraison (tous mergés sur dev)
+- Captures Avant/Après côte à côte dans le PDF
+- Discipline dans le nom de fichier PDF
+- Overlaps label/valeur dans le PDF (field() dynamique)
+- Canvas tainted → CORS headers + crossOrigin sur video
+- Perte de données compte rendu au changement de session (debounce + save-on-close)
+- Email + téléphone entreprise dans le header PDF
+- Header PDF redesigné (3 colonnes : logo | infos | date)
+- Hauteur image bike-diagram calculée sur les dimensions réelles du PNG
+- Image bike-diagram.png intégrée dans le PDF
+- `public/bike-diagram.png` à fournir par l'utilisateur (slot prêt, SVG en fallback)
+
+### Dernière version taguée : v1.3.0 — branche dev en avance (fixes non tagués)
+
 ### Plan d'action original (archivé)
 
 **5.1 PDF enrichi**
