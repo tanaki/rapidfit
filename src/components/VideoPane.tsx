@@ -247,6 +247,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           autoPlay={source.type === 'camera'}
           muted={source.type === 'camera'}
           playsInline
+          crossOrigin="anonymous"
           style={{ pointerEvents: isPanMode ? 'none' : undefined }}
           className={`absolute inset-0 w-full h-full object-contain ${isNone ? 'hidden' : ''}`}
         />

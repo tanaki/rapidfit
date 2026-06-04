@@ -51,6 +51,7 @@ function startFileServer(): Promise<number> {
             'Content-Range': `bytes ${start}-${end}/${total}`,
             'Accept-Ranges': 'bytes',
             'Content-Length': chunk,
+            'Access-Control-Allow-Origin': '*',
           });
           fsSync.createReadStream(filePath, { start, end }).pipe(res);
         } else {
@@ -58,6 +59,7 @@ function startFileServer(): Promise<number> {
             'Content-Type':   contentType,
             'Accept-Ranges':  'bytes',
             'Content-Length': total,
+            'Access-Control-Allow-Origin': '*',
           });
           fsSync.createReadStream(filePath).pipe(res);
         }
