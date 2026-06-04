@@ -50,8 +50,6 @@
     "moveDown": "Descendre",
     "delete": "Supprimer",
     "opacity": "Opacité",
-    "elements_one": "{{count}} élément",
-    "elements_other": "{{count}} éléments",
     "default": "Calque {{n}}",
     "initialA": "Calque 1",
     "initialB": "Calque B-1"
@@ -139,6 +137,28 @@
     "deleteSessionConfirm": "Supprimer la session du {{date}} ({{discipline}}) ? Cette action est irréversible.",
     "deleteClient": "Supprimer ce client",
     "deleteClientConfirm": "Supprimer {{prenom}} {{nom}} et toutes ses sessions ? Cette action est irréversible."
+  },
+  "guide": {
+    "title": "Guide des cotes",
+    "noSession": "Aucune session active",
+    "measuredAngles": "Angles mesurés",
+    "noAngles": "Tracez des angles sur le canvas pour voir la comparaison.",
+    "targetRange": "Cible",
+    "measured": "Mesuré",
+    "notApplicable": "—",
+    "checkReminder": "Vérification visuelle",
+    "kneeExtension": "Genou extension",
+    "ankleExtension": "Cheville extension",
+    "ankleKneeFlex": "Cheville genou fléchi",
+    "ankleKneeFlexNote": "Vérification",
+    "hipAngle": "Angle hanche",
+    "hipAngleNote": "Endurance · compétition : 50-55°",
+    "trunkAngle": "Angle tronc",
+    "trunkAngleNote": "Endurance · compétition : ~35°",
+    "shoulderAngle": "Angle épaule",
+    "shoulderAngleNote": "Endurance · compétition : <85°",
+    "elbowAngle": "Angle coude",
+    "tibialAlignment": "Alignement tubérosité tibiale"
   },
   "update": {
     "available": "Mise à jour v{{version}} disponible — téléchargement en cours…",

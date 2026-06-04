@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Recording, Capture, VideoConfig, PaneSource, Client, Session, Discipline, PersistedSessionState, Layer, AnnotationElement } from './types';
+import type { Recording, Capture, VideoConfig, PaneSource, Client, Session, Discipline, PersistedSessionState, Layer, AnnotationElement, AngleElement } from './types';
 import { uid } from './utils/canvas';
 import { useLayers } from './hooks/useLayers';
 import type { LayersState } from './hooks/useLayers';
@@ -101,6 +101,7 @@ export default function App() {
   // Overlay options
   const [showGuide, setShowGuide] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
+  const [activeCoteKey, setActiveCoteKey] = useState<string | null>(null);
   const [gridSize, setGridSize] = useState(50);
 
   // Captures (screenshots with annotations)
@@ -428,6 +429,10 @@ export default function App() {
 
   const activeLayerName = activeLayers.layers.find(l => l.id === activeLayers.activeLayerId)?.name ?? '—';
 
+  const measuredAngles = activeLayers.layers
+    .flatMap(l => l.elements)
+    .filter((e): e is AngleElement => e.type === 'angle');
+
   // ── Source pane A (single + split A) ─────────────────────────────────────
   // useMemo stabilises the object reference so VideoPane's useEffect([source])
   // only fires when the source actually changes — not on every re-render.
@@ -553,15 +558,6 @@ export default function App() {
             </div>
           )}
 
-          <div className="w-px h-4 bg-[#3d3d5c]" />
-
-          <button
-            onClick={() => setShowReport(true)}
-            className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 font-medium transition-colors"
-          >
-            {t('header.report')}
-          </button>
-
           <button
             onClick={() => {
               if (!splitMode && activeRecording) {
@@ -576,11 +572,20 @@ export default function App() {
           >
             {t('header.split')}
           </button>
-          <button onClick={() => setShowSettings(true)} className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300">
-            {t('header.settings')}
+
+          <div className="w-px h-4 bg-[#3d3d5c]" />
+
+          <button
+            onClick={() => setShowReport(true)}
+            className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 font-medium transition-colors"
+          >
+            {t('header.report')}
           </button>
-          <button onClick={() => setShowHelp(true)} className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300">
-            {t('header.help')}
+          <button onClick={() => setShowSettings(true)} title={t('header.settings')} className="w-8 h-7 flex items-center justify-center bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 text-sm">
+            ⚙
+          </button>
+          <button onClick={() => setShowHelp(true)} title={t('header.help')} className="w-8 h-7 flex items-center justify-center bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 text-sm">
+            ?
           </button>
         </div>
       </header>
@@ -670,12 +675,18 @@ export default function App() {
 
         </div>
 
-        {/* Layer panel shows active pane's layers */}
+        {/* Layer panel shows active pane's layers, with optional cotes section */}
         <LayerPanel
           layers={activeLayers.layers}
           activeLayerId={activeLayers.activeLayerId}
           onSelect={activeLayers.setActiveLayerId}
           {...activeLayers.layerActions}
+          cotesProps={sessions.activeSession ? {
+            discipline: sessions.activeSession.discipline,
+            activeCoteKey,
+            measuredAngles,
+            onSelectCote: setActiveCoteKey,
+          } : undefined}
         />
       </div>
 

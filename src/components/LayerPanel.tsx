@@ -1,6 +1,22 @@
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Layer } from '../types';
+import type { Discipline } from '../types';
+import type { AngleElement } from '../types';
+import {
+  REFERENCE_ROWS,
+  getRange,
+  findBestAngleForRow,
+  type ReferenceRange,
+  type AngleStatus,
+} from '../data/referenceAngles';
+
+interface CotesProps {
+  discipline: Discipline;
+  activeCoteKey: string | null;
+  measuredAngles: AngleElement[];
+  onSelectCote: (key: string | null) => void;
+}
 
 interface Props {
   layers: Layer[];
@@ -14,12 +30,102 @@ interface Props {
   onOpacity: (id: string, opacity: number) => void;
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
+  cotesProps?: CotesProps;
+}
+
+const STATUS_BG: Record<AngleStatus, string> = {
+  ok:    'bg-green-500/20 text-green-300 border-green-500/40',
+  warn:  'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+  error: 'bg-red-500/20 text-red-300 border-red-500/40',
+};
+
+const STATUS_DOT: Record<AngleStatus, string> = {
+  ok:    'bg-green-400',
+  warn:  'bg-yellow-400',
+  error: 'bg-red-500',
+};
+
+function formatRange(range: ReferenceRange): string {
+  if (range.approx && range.max - range.min <= 10) {
+    return `~${Math.round((range.min + range.max) / 2)}°`;
+  }
+  return `${range.min}–${range.max}°`;
+}
+
+function CotesSection({ discipline, activeCoteKey, measuredAngles, onSelectCote }: CotesProps) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="border-b border-[#22223b] overflow-y-auto" style={{ maxHeight: '55%' }}>
+      <div className="px-3 py-2 border-b border-[#22223b] shrink-0">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-yellow-400">
+          {t('guide.title')}
+        </span>
+        <span className="ml-2 text-[10px] text-slate-600">
+          {t(`session.discipline_${discipline}`)}
+        </span>
+      </div>
+
+      <div className="flex flex-col">
+        {REFERENCE_ROWS.map(row => {
+          const range = getRange(row, discipline);
+          const isActive = activeCoteKey === row.key;
+          const best = (isActive && !row.isCheck && range && measuredAngles.length > 0)
+            ? findBestAngleForRow(row.key, discipline, measuredAngles)
+            : null;
+
+          return (
+            <button
+              key={row.key}
+              onClick={() => onSelectCote(isActive ? null : row.key)}
+              className={`w-full text-left px-3 py-1.5 border-b border-[#1a1a2e] transition-colors
+                ${isActive ? 'bg-yellow-500/10' : 'hover:bg-[#22223b]'}`}
+            >
+              <div className="flex items-center justify-between gap-1 min-w-0">
+                {/* Left: dot indicator + label */}
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors
+                    ${isActive ? 'bg-yellow-400' : 'bg-[#3d3d5c]'}`}
+                  />
+                  <span className="text-[11px] text-slate-300 truncate leading-tight">
+                    {t(`guide.${row.key}`)}
+                  </span>
+                </div>
+
+                {/* Right: range or check label */}
+                <div className="shrink-0 flex items-center gap-1">
+                  {row.isCheck ? (
+                    <span className="text-[9px] text-slate-600 italic">{t('guide.checkReminder')}</span>
+                  ) : range ? (
+                    <span className="text-[10px] text-slate-500 font-mono tabular-nums">
+                      {formatRange(range)}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-700">—</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Measured value badge — shown when there's a matched angle */}
+              {best && (
+                <div className={`mt-1 ml-3 inline-flex items-center gap-1 rounded px-1.5 py-0.5 border text-[10px] font-mono font-semibold ${STATUS_BG[best.status]}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[best.status]}`} />
+                  {Math.round(best.angle)}°
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function LayerPanel({
   layers, activeLayerId,
   onSelect, onAdd, onDelete, onToggleVisible, onToggleLock,
   onRename, onOpacity, onMoveUp, onMoveDown,
+  cotesProps,
 }: Props) {
   const { t } = useTranslation();
   const renameRef = useRef<string | null>(null);
@@ -27,8 +133,11 @@ export function LayerPanel({
   const reversed = [...layers].reverse();
 
   return (
-    <aside className="flex flex-col bg-[#13131f] border-l border-[#22223b] w-56 min-w-[200px]">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[#22223b]">
+    <aside className="flex flex-col bg-[#13131f] border-l border-[#22223b] w-56 min-w-[200px] overflow-hidden">
+
+      {cotesProps && <CotesSection {...cotesProps} />}
+
+      <div className="flex items-center justify-between px-3 py-2 border-b border-[#22223b] shrink-0">
         <span className="text-sm font-semibold text-slate-300">{t('layers.title')}</span>
         <button
           onClick={onAdd}
@@ -105,12 +214,6 @@ export function LayerPanel({
                   title={`${t('layers.opacity')}: ${layer.opacity}%`}
                 />
                 <span className="text-[10px] text-slate-500 w-7 text-right">{layer.opacity}%</span>
-              </div>
-
-              <div className="pl-6 mt-0.5">
-                <span className="text-[10px] text-slate-600">
-                  {t('layers.elements', { count: layer.elements.length })}
-                </span>
               </div>
             </div>
           );

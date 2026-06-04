@@ -168,7 +168,7 @@ src/App.tsx                         intégrer sélecteur + démarrage
 
 ---
 
-## 🔄 Phase 4 — Aides visuelles (tableau des cotes) — PROCHAINE
+## ✅ Phase 4 — Aides visuelles (tableau des cotes) — TERMINÉE
 
 ### Objectif
 Tableau de référence des angles/cotes à mesurer selon la discipline du client actif.
@@ -192,7 +192,27 @@ Tableau de référence des angles/cotes à mesurer selon la discipline du client
 4. **Comparaison** : mesure réelle vs valeur cible → indicateur vert/orange/rouge
 5. **i18n** : labels FR/EN pour chaque mesure
 
-> **Action requise** : valider les valeurs de référence métier avant implémentation (fournies le 04/06/2026)
+### Ce qui est fait ✅
+- `src/data/referenceAngles.ts` : données par discipline (route/gravel/clm/vtt), `findClosestRow`, `getStatus`
+- `src/components/GuidePanel.tsx` : panneau latéral 256px, tableau cotes + section angles mesurés avec badge vert/orange/rouge
+- `src/App.tsx` : extraction `AngleElement` des calques actifs, `<GuidePanel>` togglé par le bouton Guides existant
+- i18n FR + EN : toutes les clés `guide.*`
+
+### Fichiers créés/modifiés
+```
+src/data/referenceAngles.ts     données de référence + logique de statut
+src/components/GuidePanel.tsx   composant panneau
+src/locales/fr.json             clés guide.*
+src/locales/en.json             clés guide.*
+src/App.tsx                     intégration (import AngleElement + GuidePanel)
+```
+
+### Notes métier intégrées
+- Gravel = valeurs route endurance
+- Hanche / Tronc / Épaule : valeurs endurance affichées, note compétition en sous-label
+- Cheville genou fléchi : `~110°` affiché comme plage 105–115° avec flag `approx`
+- Alignement tubérosité tibiale : ligne "vérification visuelle" (non mesurable)
+- Matching mesure réelle → par proximité de centre de plage sur la discipline active
 
 ---
 

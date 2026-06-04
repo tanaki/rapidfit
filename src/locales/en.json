@@ -50,8 +50,6 @@
     "moveDown": "Move down",
     "delete": "Delete",
     "opacity": "Opacity",
-    "elements_one": "{{count}} element",
-    "elements_other": "{{count}} elements",
     "default": "Layer {{n}}",
     "initialA": "Layer 1",
     "initialB": "Layer B-1"
@@ -139,6 +137,28 @@
     "deleteSessionConfirm": "Delete session {{date}} ({{discipline}})? This action is irreversible.",
     "deleteClient": "Delete this client",
     "deleteClientConfirm": "Delete {{prenom}} {{nom}} and all their sessions? This action is irreversible."
+  },
+  "guide": {
+    "title": "Angle Reference Guide",
+    "noSession": "No active session",
+    "measuredAngles": "Measured angles",
+    "noAngles": "Draw angles on the canvas to see the comparison.",
+    "targetRange": "Target",
+    "measured": "Measured",
+    "notApplicable": "—",
+    "checkReminder": "Visual check",
+    "kneeExtension": "Knee extension",
+    "ankleExtension": "Ankle extension",
+    "ankleKneeFlex": "Ankle (knee flexed)",
+    "ankleKneeFlexNote": "Verification",
+    "hipAngle": "Hip angle",
+    "hipAngleNote": "Endurance · competition: 50-55°",
+    "trunkAngle": "Trunk angle",
+    "trunkAngleNote": "Endurance · competition: ~35°",
+    "shoulderAngle": "Shoulder angle",
+    "shoulderAngleNote": "Endurance · competition: <85°",
+    "elbowAngle": "Elbow angle",
+    "tibialAlignment": "Tibial tuberosity alignment"
   },
   "update": {
     "available": "Update v{{version}} available — downloading…",
