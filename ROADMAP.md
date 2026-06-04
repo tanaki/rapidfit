@@ -266,7 +266,7 @@ src/App.tsx                            branché useCompany + chargement report.j
 - Image bike-diagram.png intégrée dans le PDF
 - `public/bike-diagram.png` à fournir par l'utilisateur (slot prêt, SVG en fallback)
 
-### Dernière version taguée : v1.3.0 — version courante sur dev : v1.4.0 (non tagué)
+### Dernière version taguée : v1.4.0 — version courante sur dev : v1.5.1 (non tagué)
 
 ### Plan d'action original (archivé)
 
@@ -468,10 +468,10 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 
 ```
 Branche active : dev
-Dernière version taguée : v1.3.0
-Version courante (non taguée) : v1.4.0 — prête à tagger
-Prochain tag prévu : v1.4.0 (stabilisation post-Phase 5 + polissage)
-Pour publier : git push origin dev && git tag v1.4.0 && git push origin v1.4.0
+Dernière version taguée : v1.4.0
+Version courante (non taguée) : v1.5.2 — prête à tagger
+Prochain tag prévu : v1.5.2 (fix __APP_VERSION__ global declaration)
+Pour publier : git push origin dev && git tag v1.5.2 && git push origin v1.5.2
 ```
 
 ## Décisions techniques Phase 3 (ajouts)
