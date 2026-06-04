@@ -266,7 +266,7 @@ src/App.tsx                            branché useCompany + chargement report.j
 - Image bike-diagram.png intégrée dans le PDF
 - `public/bike-diagram.png` à fournir par l'utilisateur (slot prêt, SVG en fallback)
 
-### Dernière version taguée : v1.3.0 — branche dev en avance (fixes non tagués)
+### Dernière version taguée : v1.3.0 — version courante sur dev : v1.4.0 (non tagué)
 
 ### Plan d'action original (archivé)
 
@@ -287,6 +287,46 @@ src/App.tsx                            branché useCompany + chargement report.j
 
 ---
 
+## ✅ Post-Phase 5 — Stabilisation & polissage (v1.4.0, non tagué)
+
+### Corrections de bugs
+
+- **Promise non résolue** : `useRecorder.stop()` ne résolvait jamais si `recorderRef` était null → retourne `null` proprement
+- **Chaîne FR codée en dur** : `useLayers.layerActions.onAdd` utilisait `"Calque X"` au lieu de `i18n.t('layers.default')` → corrigé
+- **Dead code** : `renderCaptureGroup` (32 lignes) supprimée de `ReportModal` — remplacée par `renderCol` mais jamais retirée ; props `captures`/`otherLabel` inutilisées dans `CaptureSlot`
+- **Erreurs TypeScript** : les 3 erreurs `TS6133` (unused) ci-dessus, maintenant zéro erreur
+- **`bike-diagram.png` absent du PDF packagé** : `window.location.origin = "null"` en `file://` → URL invalide. Fix : IPC `app:get-asset-path` + `getAppAssetUrl()` utilise le file server local en production
+- **Caméra non détectée sur autre ordinateur** (USB / iPhone Continuity Camera) :
+  - `{ exact: deviceId }` → `{ ideal: deviceId }` dans `useCamera.ts` (fallback si deviceId inconnu)
+  - `useDevices` : `enumerateDevices()` en premier (fonctionne en Electron sans probe), probe seulement si labels vides — l'ancienne probe `getUserMedia` comme seule stratégie échouait silencieusement
+  - `setPermissionCheckHandler` / `RequestHandler` élargis à `'camera'` et `'microphone'` (Electron 42 / Chromium 130)
+
+### Nouvelles fonctionnalités
+
+- **Source image dans les panes** : clic sur une miniature de capture → affichée dans la pane active (ou splitview B) ; import PNG/JPG/WebP → crée une Capture ; `SourceSelector` liste les captures comme source ; `VideoPane` rend `<img>` avec `object-contain` + canvas d'annotations au-dessus ; persistance dans `session-state.json`
+- **Zoom trackpad moins sensible** : détection trackpad (`deltaMode=0 && |deltaY|<40`) → delta proportionnel `×0.008` au lieu de saut fixe `±0.25` par event
+- **Renommage calque au clic sur cote** : clic sur une ligne du guide des cotes → `findBestAngleForRow` identifie l'angle le plus proche → calque renommé avec le libellé i18n de la cote (annulable Ctrl+Z)
+- **Bouton ↺ Actualiser les caméras** : dans chaque SourceSelector, permet de re-scanner sans redémarrer l'app (utile si caméra branchée après démarrage ou TCC accordé mid-session)
+
+### Fichiers principaux touchés
+```
+package.json                       version 1.1.0 → 1.4.0
+electron/main.ts                   IPC app:get-asset-path, permissions caméra élargies
+electron/preload.ts                expose appGetAssetPath
+src/hooks/useCamera.ts             exact→ideal, useDevices robuste
+src/hooks/useRecorder.ts           stop() résout null au lieu de pendre
+src/hooks/useLayers.ts             layerActions.onAdd i18n
+src/hooks/useZoomPan.ts            zoom trackpad proportionnel
+src/components/ReportModal.tsx     getAppAssetUrl(), dead code supprimé
+src/components/VideoPane.tsx       source image, SourceSelector + bouton ↺ + onRefreshDevices
+src/components/RecordingBar.tsx    onSelectCapture + bouton 👁
+src/types/index.ts                 PaneSource + SavedPaneSource + type image
+src/App.tsx                        activeImage state, handleSelectCapture, handleSelectCote renommage
+src/locales/fr.json + en.json      clé video.refreshCameras
+```
+
+---
+
 ## ⏳ Phase 6 — Features avancées
 
 À prioriser selon les retours utilisateurs :
@@ -296,6 +336,7 @@ src/App.tsx                            branché useCompany + chargement report.j
 - **Timecode synchronisé** : entre les deux panneaux en split
 - **Comparaison avant/après** : session N vs session N-1 pour un même client
 - **Export vidéo annotée** : rendu vidéo avec annotations incrustées
+- **Envoi mail PDF** : reporté depuis Phase 5 — `nodemailer` IPC, config SMTP dans Paramètres
 
 ---
 
@@ -349,9 +390,11 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 ## État Git
 
 ```
-Branche active : dev (= main, tout est mergé)
-Dernière version taguée : v1.1.0 (Phase 3 complète — build CI en cours)
-Prochain tag prévu : v1.2.0 (fin Phase 4)
+Branche active : dev
+Dernière version taguée : v1.3.0
+Version courante (non taguée) : v1.4.0 — prête à tagger
+Prochain tag prévu : v1.4.0 (stabilisation post-Phase 5 + polissage)
+Pour publier : git push origin dev && git tag v1.4.0 && git push origin v1.4.0
 ```
 
 ## Décisions techniques Phase 3 (ajouts)
