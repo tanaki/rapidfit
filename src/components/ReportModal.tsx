@@ -358,39 +358,6 @@ async function generatePDF(
   const beforeCaps = captures.filter(c => data.capturesBefore.includes(c.id));
   const afterCaps  = captures.filter(c => data.capturesAfter.includes(c.id));
 
-  const renderCaptureGroup = async (label: string, caps: Capture[]) => {
-    if (caps.length === 0) return;
-    needSpace(20);
-    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(60, 60, 80);
-    doc.text(label, margin, y); y += 6;
-    const gap = 5; const cols = 2;
-    const imgW = (pageW - margin * 2 - gap) / cols;
-    const imgH = imgW * (9 / 16);
-    let col = 0;
-    for (const cap of caps) {
-      needSpace(imgH + gap);
-      const x = margin + col * (imgW + gap);
-      try {
-        const dataUrl = await toDataUrl(cap.url);
-        doc.addImage(dataUrl, 'PNG', x, y, imgW, imgH);
-        if (cap.paneLabel) {
-          doc.setFillColor(79, 70, 229);
-          doc.roundedRect(x + 2, y + 2, 8, 5, 1, 1, 'F');
-          doc.setTextColor(255, 255, 255); doc.setFontSize(6); doc.setFont('helvetica', 'bold');
-          doc.text(cap.paneLabel, x + 6, y + 5.5, { align: 'center' });
-        }
-      } catch {
-        doc.setFillColor(240, 240, 245);
-        doc.rect(x, y, imgW, imgH, 'F');
-        doc.setTextColor(160, 160, 170); doc.setFontSize(8);
-        doc.text(i18n.t('report.pdfImageUnavailable'), x + imgW / 2, y + imgH / 2, { align: 'center' });
-      }
-      col++;
-      if (col >= cols) { col = 0; y += imgH + gap; }
-    }
-    if (col > 0) y += imgH + gap;
-  };
-
   if (beforeCaps.length + afterCaps.length > 0) {
     newPage();
     section(i18n.t('report.s7_title'));
@@ -497,14 +464,12 @@ function RadioGroup<T extends string>({ value, options, onChange }: {
 
 // ── CaptureSlot ───────────────────────────────────────────────────────────────
 
-function CaptureSlot({ label, captures, selected, all, onToggle, onMoveAll, otherLabel }: {
+function CaptureSlot({ label, selected, all, onToggle, onMoveAll }: {
   label: string;
-  captures: Capture[];
   selected: string[];
   all: Capture[];
   onToggle: (id: string, slot: 'before' | 'after') => void;
   onMoveAll: (slot: 'before' | 'after') => void;
-  otherLabel: string;
 }) {
   const slot = label === 'Avant' ? 'before' : 'after';
   const selectedCaps = all.filter(c => selected.includes(c.id));
@@ -916,22 +881,18 @@ export function ReportModal({ captures, client, session, company, initialData, o
               <div className="flex gap-4">
                 <CaptureSlot
                   label="Avant"
-                  captures={captures}
                   selected={data.capturesBefore}
                   all={captures}
                   onToggle={handleCapture}
                   onMoveAll={handleMoveAll}
-                  otherLabel="Après"
                 />
                 <div className="w-px bg-[#22223b] shrink-0" />
                 <CaptureSlot
                   label="Après"
-                  captures={captures}
                   selected={data.capturesAfter}
                   all={captures}
                   onToggle={handleCapture}
                   onMoveAll={handleMoveAll}
-                  otherLabel="Avant"
                 />
               </div>
             )}

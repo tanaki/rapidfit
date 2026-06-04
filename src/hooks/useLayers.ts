@@ -95,7 +95,7 @@ export function useLayers(initialName = 'Calque 1') {
 
   const layerActions = {
     onAdd: () => {
-      const l = makeLayer(`Calque ${layers.length + 1}`);
+      const l = makeLayer(i18n.t('layers.default', { n: layers.length + 1 }));
       setLayers(prev => [...prev, l]);
       setActiveLayerId(l.id);
     },

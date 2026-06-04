@@ -58,10 +58,10 @@ export function useRecorder() {
     timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
   }, []);
 
-  const stop = useCallback((): Promise<Recording> => {
+  const stop = useCallback((): Promise<Recording | null> => {
     return new Promise(resolve => {
       const rec = recorderRef.current;
-      if (!rec) return;
+      if (!rec) { resolve(null); return; }
       if (timerRef.current) clearInterval(timerRef.current);
 
       rec.onstop = () => {

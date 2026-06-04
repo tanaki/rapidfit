@@ -322,6 +322,7 @@ export default function App() {
 
   const handleStopRecording = useCallback(async () => {
     const rec = await recorder.stop();
+    if (!rec) return;
     setRecordings(prev => [rec, ...prev]);
     if (sessions.activeSession) {
       sessions.saveRecording(sessions.activeSession, rec.blob!, rec.name, rec.duration);
