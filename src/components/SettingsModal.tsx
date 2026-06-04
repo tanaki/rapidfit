@@ -150,6 +150,22 @@ export function SettingsModal({ config, onChange, onClose, devices, company, onC
               className="bg-[#22223b] text-slate-200 text-sm rounded-lg px-3 py-2 border border-[#3d3d5c] outline-none focus:border-indigo-500" />
           </label>
 
+          {/* ── Email ── */}
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-slate-400">{t('settings.companyEmail')}</span>
+            <input type="email" value={comp.email} onChange={e => updateComp({ email: e.target.value })}
+              placeholder="contact@monentreprise.fr"
+              className="bg-[#22223b] text-slate-200 text-sm rounded-lg px-3 py-2 border border-[#3d3d5c] outline-none focus:border-indigo-500" />
+          </label>
+
+          {/* ── Téléphone ── */}
+          <label className="flex flex-col gap-1">
+            <span className="text-sm text-slate-400">{t('settings.companyPhone')}</span>
+            <input type="tel" value={comp.phone} onChange={e => updateComp({ phone: e.target.value })}
+              placeholder="+33 6 00 00 00 00"
+              className="bg-[#22223b] text-slate-200 text-sm rounded-lg px-3 py-2 border border-[#3d3d5c] outline-none focus:border-indigo-500" />
+          </label>
+
           {/* ── Logo ── */}
           <div className="flex flex-col gap-2">
             <span className="text-sm text-slate-400">{t('settings.companyLogo')}</span>

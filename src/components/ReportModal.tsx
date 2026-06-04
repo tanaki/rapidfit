@@ -64,9 +64,18 @@ async function generatePDF(
     }
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9); doc.setFont('helvetica', 'bold');
-    if (companyLine) doc.text(companyLine, pageW / 2, 9, { align: 'center' });
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-    doc.text(`Étude posturale — ${dateStr}`, pageW / 2, 16, { align: 'center' });
+    if (companyLine) doc.text(companyLine, pageW / 2, 8, { align: 'center' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+    const contactParts = [company.email, company.phone].filter(Boolean);
+    const contactLine  = contactParts.length ? contactParts.join('  ·  ') : '';
+    const rightLine    = `Étude posturale — ${dateStr}`;
+    if (contactLine) {
+      // Contact left, date right
+      doc.text(contactLine, margin, 15);
+      doc.text(rightLine, pageW - margin, 15, { align: 'right' });
+    } else {
+      doc.text(rightLine, pageW / 2, 15, { align: 'center' });
+    }
     y = 28;
   };
 

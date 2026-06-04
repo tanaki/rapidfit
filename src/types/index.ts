@@ -177,10 +177,12 @@ export interface PersistedSessionState {
 export interface CompanySettings {
   name: string;
   subtitle: string;
+  email: string;
+  phone: string;
   logoDataUrl: string; // base64 data URL (resized at pick time)
 }
 
-export const DEFAULT_COMPANY: CompanySettings = { name: '', subtitle: '', logoDataUrl: '' };
+export const DEFAULT_COMPANY: CompanySettings = { name: '', subtitle: '', email: '', phone: '', logoDataUrl: '' };
 
 export interface ReportData {
   // Pratique

@@ -82,6 +82,8 @@
     "companyNamePlaceholder": "Posture & Bike Studio",
     "companySubtitle": "Subtitle / City",
     "companySubtitlePlaceholder": "Lyon — Bike fitting",
+    "companyEmail": "Email",
+    "companyPhone": "Phone",
     "companyLogo": "Logo",
     "companyLogoEmpty": "No logo",
     "companyLogoPick": "Choose…"

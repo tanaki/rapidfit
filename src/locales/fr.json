@@ -82,6 +82,8 @@
     "companyNamePlaceholder": "Cabinet Posture & Vélo",
     "companySubtitle": "Sous-titre / Ville",
     "companySubtitlePlaceholder": "Lyon — Étude posturale",
+    "companyEmail": "Email",
+    "companyPhone": "Téléphone",
     "companyLogo": "Logo",
     "companyLogoEmpty": "Aucun logo",
     "companyLogoPick": "Choisir…"
