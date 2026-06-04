@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Recording, Capture, VideoConfig, PaneSource, Client, Session, Discipline, PersistedSessionState, Layer, AnnotationElement, AngleElement } from './types';
 import { uid } from './utils/canvas';
+import { findBestAngleForRow } from './data/referenceAngles';
 import { useLayers } from './hooks/useLayers';
 import type { LayersState } from './hooks/useLayers';
 import { useDevices } from './hooks/useCamera';
@@ -758,7 +759,16 @@ export default function App() {
             discipline: sessions.activeSession.discipline,
             activeCoteKey,
             measuredAngles,
-            onSelectCote: setActiveCoteKey,
+            onSelectCote: (key: string | null) => {
+              setActiveCoteKey(key);
+              // Rename the matched layer when selecting a cote (not on deselect)
+              if (!key || !sessions.activeSession) return;
+              const best = findBestAngleForRow(key, sessions.activeSession.discipline, measuredAngles);
+              if (!best) return;
+              const layer = activeLayers.layers.find(l => l.elements.some(e => e.id === best.id));
+              if (!layer) return;
+              activeLayers.layerActions.onRename(layer.id, t(`guide.${key}`));
+            },
           } : undefined}
         />
       </div>
