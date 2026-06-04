@@ -288,5 +288,14 @@
     "layers_desc1_reorder": "▲▼",
     "layers_desc1_text": "Create · Hide · Lock · Reorder",
     "layers_desc2": "Opacity slider 0–100% per layer · each stroke automatically creates its own layer."
+  },
+  "media": {
+    "library": "Media",
+    "toggle": "Media library (captures & videos)",
+    "captures": "Captures",
+    "recordings": "Videos",
+    "noCaptures": "No captures",
+    "noRecordings": "No videos",
+    "doubleClickRename": "Double-click to rename"
   }
 }

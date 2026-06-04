@@ -288,5 +288,14 @@
     "layers_desc1_reorder": "▲▼",
     "layers_desc1_text": "Créer · Masquer · Verrouiller · Réordonner",
     "layers_desc2": "Slider opacité 0–100 % par calque · chaque tracé crée automatiquement son propre calque."
+  },
+  "media": {
+    "library": "Médias",
+    "toggle": "Bibliothèque médias (captures & vidéos)",
+    "captures": "Captures",
+    "recordings": "Vidéos",
+    "noCaptures": "Aucune capture",
+    "noRecordings": "Aucune vidéo",
+    "doubleClickRename": "Double-clic pour renommer"
   }
 }

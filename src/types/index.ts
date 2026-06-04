@@ -174,6 +174,11 @@ export interface SavedPaneState {
 export interface PersistedSessionState {
   paneA: SavedPaneState;
   paneB: SavedPaneState;
+  /** Display-name overrides for captures and recordings (keyed by id). */
+  mediaLabels?: {
+    captures:   Record<string, string>;
+    recordings: Record<string, string>;
+  };
 }
 
 export interface CompanySettings {

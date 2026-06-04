@@ -12,6 +12,7 @@ import type { Tool } from './types';
 import { Toolbar, COLORS } from './components/Toolbar';
 import { LayerPanel } from './components/LayerPanel';
 import { RecordingBar } from './components/RecordingBar';
+import { MediaPanel } from './components/MediaPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { ReportModal } from './components/ReportModal';
 import { SessionSelector } from './components/SessionSelector';
@@ -48,6 +49,8 @@ export default function App() {
   useEffect(() => {
     setReportData(null);
     setReportLoaded(false);
+    setCaptureLabels({});
+    setRecordingLabels({});
   }, [sessions.activeSession?.id]);
 
   const sessionLoadedRef = useRef(false);
@@ -108,6 +111,11 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showMediaPanel, setShowMediaPanel] = useState(false);
+
+  // Media display labels (rename overrides, keyed by id — separate from filename)
+  const [captureLabels,   setCaptureLabels]   = useState<Record<string, string>>({});
+  const [recordingLabels, setRecordingLabels] = useState<Record<string, string>>({});
 
   // Overlay options
   const [showGuide, setShowGuide] = useState(false);
@@ -122,6 +130,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const cap: Capture = { id: uid(), name, blob, url, createdAt: new Date(), paneLabel };
     setCaptures(prev => [cap, ...prev]);
+    setShowMediaPanel(true);
     if (sessions.activeSession) {
       sessions.saveCapture(sessions.activeSession, blob, name);
     }
@@ -221,6 +230,7 @@ export default function App() {
         layers:       paneLayers1.layers,
         activeLayerId: paneLayers1.activeLayerId,
       },
+      mediaLabels: { captures: captureLabels, recordings: recordingLabels },
     };
 
     await sessions.saveSessionState(sessions.activeSession.folderPath, state);
@@ -286,6 +296,10 @@ export default function App() {
     } else {
       setPaneBSource({ type: 'none' });
     }
+
+    // ── Media labels ────────────────────────────────────────────────────────
+    setCaptureLabels(state?.mediaLabels?.captures    ?? {});
+    setRecordingLabels(state?.mediaLabels?.recordings ?? {});
   }, [sessions, singleLayers, paneLayers1, makeDefaultLayer, t]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Change de session : sauvegarde l'état courant → charge la nouvelle */
@@ -332,6 +346,7 @@ export default function App() {
     const rec = await recorder.stop();
     if (!rec) return;
     setRecordings(prev => [rec, ...prev]);
+    setShowMediaPanel(true);
     if (sessions.activeSession) {
       sessions.saveRecording(sessions.activeSession, rec.blob!, rec.name, rec.duration);
     } else {
@@ -472,6 +487,14 @@ export default function App() {
   const measuredAngles = activeLayers.layers
     .flatMap(l => l.elements)
     .filter((e): e is AngleElement => e.type === 'angle');
+
+  const handleRenameCapture = useCallback((id: string, name: string) => {
+    setCaptureLabels(prev => ({ ...prev, [id]: name }));
+  }, []);
+
+  const handleRenameRecording = useCallback((id: string, name: string) => {
+    setRecordingLabels(prev => ({ ...prev, [id]: name }));
+  }, []);
 
   // Stable callbacks for ReportModal — must not be inline or they recreate on every render,
   // which breaks the debounce in the auto-save useEffect inside ReportModal.
@@ -775,12 +798,30 @@ export default function App() {
         />
       </div>
 
+      {/* ── Media library panel (collapsible) ── */}
+      {showMediaPanel && (
+        <MediaPanel
+          captures={captures}
+          recordings={recordings}
+          activeRecordingId={activeRecording?.id ?? null}
+          captureLabels={captureLabels}
+          recordingLabels={recordingLabels}
+          onSelectCapture={handleSelectCapture}
+          onSelectRecording={handleSelectRecording}
+          onDownloadCapture={handleDownloadCapture}
+          onDeleteCapture={handleDeleteCapture}
+          onDownloadRecording={handleDownloadRecording}
+          onDeleteRecording={handleDeleteRecording}
+          onRenameCapture={handleRenameCapture}
+          onRenameRecording={handleRenameRecording}
+        />
+      )}
+
       {/* ── Bottom bar ── */}
       <RecordingBar
         isRecording={recorder.isRecording}
         isPaused={recorder.isPaused}
         elapsed={recorder.elapsed}
-        recordings={recordings}
         activeRecordingId={activeRecording?.id ?? null}
         isLiveMode={isLiveMode}
         isPlaybackPaused={playbackPaused}
@@ -789,19 +830,16 @@ export default function App() {
         onStartRecording={handleStartRecording}
         onPauseRecording={recorder.isPaused ? recorder.resume : recorder.pause}
         onStopRecording={handleStopRecording}
-        onSelectRecording={handleSelectRecording}
-        onDeleteRecording={handleDeleteRecording}
-        onDownloadRecording={handleDownloadRecording}
         onImportVideo={() => importInputRef.current?.click()}
         onLiveMode={() => { setIsLiveMode(true); setActiveRecording(null); setActiveImage(null); }}
         onPlayPause={handlePlayPause}
         onSeek={handleSeek}
         onFramePrev={() => stepFrame(-1)}
         onFrameNext={() => stepFrame(1)}
-        captures={captures}
-        onDownloadCapture={handleDownloadCapture}
-        onDeleteCapture={handleDeleteCapture}
-        onSelectCapture={handleSelectCapture}
+        captureCount={captures.length}
+        recordingCount={recordings.length}
+        showMedia={showMediaPanel}
+        onToggleMedia={() => setShowMediaPanel(v => !v)}
       />
 
       <input ref={importInputRef} type="file" accept="video/*,.png,.jpg,.jpeg,.webp" className="hidden" onChange={handleImportFile} />
