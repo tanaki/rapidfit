@@ -502,12 +502,18 @@ export function ReportModal({ captures, client, session, company, initialData, o
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       set(key, e.target.value as ReportData[typeof key]), [set]);
 
+  // Keep a ref to always-current onSave so the debounce effect only depends on `data`.
+  // Without this, onSave recreating on every parent render would reset the 800ms timer
+  // continuously and the save would never fire during active re-renders.
+  const onSaveRef = useRef(onSave);
+  useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
+
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => onSave(data), 800);
+    saveTimer.current = setTimeout(() => onSaveRef.current(data), 800);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [data, onSave]);
+  }, [data]); // intentionally omit onSave — we use onSaveRef to avoid debounce resets
 
   const handleCapture = useCallback((id: string, slot: 'before' | 'after') => {
     setData(d => {
@@ -541,9 +547,20 @@ export function ReportModal({ captures, client, session, company, initialData, o
     });
   }, [onUpdateClient, localWeight, localHeight]);
 
+  // Flush pending debounce and save immediately — called on close and export
+  const flushSave = useCallback(() => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    onSaveRef.current(data);
+  }, [data]);
+
+  const handleClose = useCallback(() => {
+    flushSave();
+    onClose();
+  }, [flushSave, onClose]);
+
   const handleExport = async () => {
     setExporting(true);
-    onSave(data);
+    flushSave();
     try { await generatePDF(data, captures, client, session, company); }
     finally { setExporting(false); }
   };
@@ -556,7 +573,7 @@ export function ReportModal({ captures, client, session, company, initialData, o
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1000]"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      onClick={e => { if (e.target === e.currentTarget) handleClose(); }}>
       <div className="bg-[#13131f] border border-[#22223b] rounded-xl shadow-2xl w-[780px] max-h-[92vh] flex flex-col overflow-hidden">
 
         {/* Header */}
@@ -571,7 +588,7 @@ export function ReportModal({ captures, client, session, company, initialData, o
               </p>
             )}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+          <button onClick={handleClose} className="text-slate-400 hover:text-white text-xl leading-none">✕</button>
         </div>
 
         {/* Body */}
@@ -849,7 +866,7 @@ export function ReportModal({ captures, client, session, company, initialData, o
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-[#22223b] shrink-0 bg-[#0d0d14]">
-          <button onClick={onClose}
+          <button onClick={handleClose}
             className="px-4 py-2 text-sm text-slate-300 hover:text-white bg-[#22223b] hover:bg-[#2d2d48] rounded-lg transition-colors">
             {t('report.cancel')}
           </button>

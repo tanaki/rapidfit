@@ -443,6 +443,23 @@ export default function App() {
     .flatMap(l => l.elements)
     .filter((e): e is AngleElement => e.type === 'angle');
 
+  // Stable callbacks for ReportModal — must not be inline or they recreate on every render,
+  // which breaks the debounce in the auto-save useEffect inside ReportModal.
+  const handleReportSave = useCallback(async (data: import('./types').ReportData) => {
+    setReportData(data);
+    if (sessions.activeSession?.folderPath) {
+      await sessions.saveReport(sessions.activeSession.folderPath, data);
+    }
+  }, [sessions.activeSession?.folderPath, sessions.saveReport]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleReportUpdateClient = useCallback(async (
+    updates: Partial<Pick<import('./types').Client, 'weight' | 'height'>>,
+  ) => {
+    if (sessions.activeClient) {
+      await sessions.updateClient({ ...sessions.activeClient, ...updates });
+    }
+  }, [sessions.activeClient, sessions.updateClient]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Source pane A (single + split A) ─────────────────────────────────────
   // useMemo stabilises the object reference so VideoPane's useEffect([source])
   // only fires when the source actually changes — not on every re-render.
@@ -766,17 +783,8 @@ export default function App() {
           company={company}
           initialData={reportData}
           onClose={() => setShowReport(false)}
-          onUpdateClient={async (updates) => {
-            if (sessions.activeClient) {
-              await sessions.updateClient({ ...sessions.activeClient, ...updates });
-            }
-          }}
-          onSave={async (data) => {
-            setReportData(data);
-            if (sessions.activeSession?.folderPath) {
-              await sessions.saveReport(sessions.activeSession.folderPath, data);
-            }
-          }}
+          onUpdateClient={handleReportUpdateClient}
+          onSave={handleReportSave}
         />
       )}
 
