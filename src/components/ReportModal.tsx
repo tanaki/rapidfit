@@ -38,18 +38,25 @@ async function toDataUrl(url: string): Promise<string> {
   });
 }
 
-/** Load a URL as a base64 data URL, returns null on failure */
-async function loadImageDataUrl(url: string): Promise<string | null> {
+/** Load a URL as a base64 data URL + natural dimensions. Returns null on failure. */
+async function loadImageDataUrl(url: string): Promise<{ dataUrl: string; w: number; h: number } | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
-    return new Promise(resolve => {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload  = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
+      reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
+    const { w, h } = await new Promise<{ w: number; h: number }>(resolve => {
+      const img = new Image();
+      img.onload  = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve({ w: 700, h: 390 }); // fallback ratio
+      img.src = dataUrl;
+    });
+    return { dataUrl, w, h };
   } catch {
     return null;
   }
@@ -237,11 +244,11 @@ async function generatePDF(
 
   // Bike diagram image
   if (bikeImgDataUrl) {
-    const imgW = pageW - margin * 2;       // full content width
-    const imgH = imgW * (390 / 700);       // keep SVG viewBox ratio 700×390
+    const imgW = pageW - margin * 2;
+    const imgH = imgW * (bikeImgDataUrl.h / bikeImgDataUrl.w);   // exact PNG ratio
     needSpace(imgH + 6);
     try {
-      doc.addImage(bikeImgDataUrl, 'PNG', margin, y, imgW, imgH);
+      doc.addImage(bikeImgDataUrl.dataUrl, 'PNG', margin, y, imgW, imgH);
     } catch { /* skip if format unsupported */ }
     y += imgH + 6;
   }
