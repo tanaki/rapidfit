@@ -327,26 +327,103 @@ src/locales/fr.json + en.json      clé video.refreshCameras
 
 ---
 
-## ⏳ Phase 6 — Features avancées
+## ⏳ Phase 6 — Double caméra synchronisée
 
-À prioriser selon les retours utilisateurs :
+### Objectif
+Deux flux caméra live côte à côte, enregistrement **synchronisé** (même timestamp de départ), lecture synchronisée (scrubbing des deux panes en même temps).
 
-- **Double caméra simultanée** : 2 flux live côte à côte avec enregistrement synchronisé (mode Split existe déjà, mais enregistrements séparés)
-- **Mesure de distance** : outil px ou étalonnage réel (cm)
-- **Timecode synchronisé** : entre les deux panneaux en split
-- **Comparaison avant/après** : session N vs session N-1 pour un même client
-- **Export vidéo annotée** : rendu vidéo avec annotations incrustées
-- **Envoi mail PDF** : reporté depuis Phase 5 — `nodemailer` IPC, config SMTP dans Paramètres
+Le mode Split existe déjà mais les deux enregistrements sont indépendants — un fitter ne peut pas comparer avant/après pédalage si les vidéos ne sont pas calées.
+
+### Plan d'action
+1. **Sync démarrage** : un seul bouton "Enregistrer" démarre les deux `MediaRecorder` avec le même timestamp `t0` — stocker `t0` dans le sidecar `.info.json`
+2. **Sync lecture** : en mode Split, le scrubbing de la pane A pilote la pane B (même `currentTime`) — opt-in via un bouton "🔗 Sync"
+3. **Sync pause/lecture** : espace / Enter agit sur les deux panes quand le lien est actif
+4. **UI** : indicateur visuel "SYNC" dans la barre quand le lien est actif ; désactivable pour lecture indépendante
+5. **Persistance** : `session-state.json` mémorise si le sync était actif
+
+### Fichiers à créer/modifier
+```
+src/App.tsx                  état syncEnabled, handler scrubbing pane A → pane B
+src/components/RecordingBar.tsx   bouton 🔗 Sync + indicateur
+src/hooks/useRecorder.ts     start() retourne le timestamp t0
+electron/main.ts             sessions:save-recording → stocker syncT0 dans .info.json
+src/types/index.ts           Recording.syncT0?: number
+```
+
+---
+
+## ⏳ Phase 7 — Suivi de points (tracking)
+
+### Objectif
+Suivre le déplacement d'un point anatomique frame par frame sur une vidéo pour visualiser la trajectoire du mouvement — ex. pied/cheville sur un tour de pédalage complet, pour détecter si le pédalage est rond/ovale, régulier ou avec des compensations.
+
+### Ce que ça apporte au fitter
+- Tracé de la trajectoire réelle du pied en ellipse (ou pas)
+- Détection d'asymétrie gauche/droite (Split mode)
+- Visualisation de la régularité du pédalage tour par tour
+- Exportable en PNG dans le compte rendu PDF
+
+### Plan d'action
+1. **Outil "tracking"** : nouveau tool dans la Toolbar (icône ⊕ ou 🎯)
+2. **Pose d'un point** : clic sur la vidéo en pause → pose un marqueur `TrackPoint` sur le frame courant
+3. **Propagation semi-auto** : avance frame par frame → le fitter repositionne le point si nécessaire (pas d'IA, tracking manuel assisté)
+4. **Visualisation** : overlay de la trajectoire en temps réel pendant la lecture (courbe lissée sur les N derniers frames)
+5. **Analyse** : calcul de l'ellipse de régression (demi-axes, orientation), indicateur de régularité (variance de la trajectoire)
+6. **Export** : snapshot de la trajectoire en PNG → section dédiée dans le compte rendu PDF
+
+### Types à créer
+```typescript
+interface TrackPoint {
+  id: string;
+  frameTime: number;   // currentTime video en secondes
+  x: number; y: number; // coordonnées dans l'espace vidéo (VideoRect)
+  label?: string;      // "Pied G", "Cheville D"…
+}
+
+interface TrackSeries {
+  id: string;
+  label: string;
+  color: string;
+  points: TrackPoint[];
+}
+```
+
+---
+
+## ⏳ Phase 8 — Comparaison avant/après
+
+### Objectif
+Comparer deux sessions d'un même client côte à côte — session N (fitting du jour) vs session N-1 (fitting précédent) — pour montrer la progression ou valider les ajustements.
+
+### Plan d'action
+1. Sélecteur "Comparer avec…" dans le `SessionSelector` → charge une session archivée en pane B
+2. Chargement des captures/vidéos de la session historique via le file server existant
+3. Les annotations de la session historique sont en lecture seule (calques grisés)
+4. Export PDF : page de comparaison avec captures des deux sessions côte à côte
+
+---
+
+## ⏳ Phase 9 — Export vidéo annotée
+
+### Objectif
+Exporter une vidéo MP4 avec les annotations incrustées (calques dessinés frame par frame sur la vidéo).
+
+### Complexité
+Élevée — nécessite un rendu off-screen canvas frame par frame + encodage vidéo côté main process (ffmpeg via `@ffmpeg/ffmpeg` WASM ou binaire natif). À faire après les phases de tracking et comparaison qui auront stabilisé le modèle de calques.
 
 ---
 
 ## Dépendances entre phases
 ```
-Phase 2 (i18n)          ← peut commencer maintenant
-    └── Phase 3 (Clients)     ← nécessite Electron filesystem IPC
-            ├── Phase 4 (Cotes)      ← nécessite le profil discipline
-            └── Phase 5 (PDF/mail)   ← nécessite le profil client
-                        └── Phase 6 (features avancées)
+Phase 1 (Electron)
+  └── Phase 2 (i18n)
+        └── Phase 3 (Clients/Sessions)
+              ├── Phase 4 (Cotes)
+              └── Phase 5 (PDF)
+                    └── Phase 6 (Double caméra sync)   ← PROCHAINE
+                          └── Phase 7 (Tracking points)
+                                └── Phase 8 (Comparaison avant/après)
+                                      └── Phase 9 (Export vidéo annotée)
 ```
 
 ---
