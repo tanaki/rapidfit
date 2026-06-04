@@ -598,7 +598,6 @@ export function ReportModal({ captures, client, session, company, initialData, o
                   onChange={e => setLocalHeight(e.target.value)}
                   onBlur={handleSaveMetrics} />
               </div>
-              <span className="text-[10px] text-slate-600 pb-1.5">Sauvegardé automatiquement</span>
             </div>
           </Accordion>
 
