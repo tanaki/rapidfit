@@ -766,6 +766,11 @@ export default function App() {
           company={company}
           initialData={reportData}
           onClose={() => setShowReport(false)}
+          onUpdateClient={async (updates) => {
+            if (sessions.activeClient) {
+              await sessions.updateClient({ ...sessions.activeClient, ...updates });
+            }
+          }}
           onSave={async (data) => {
             setReportData(data);
             if (sessions.activeSession?.folderPath) {

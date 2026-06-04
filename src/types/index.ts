@@ -220,8 +220,9 @@ export interface ReportData {
   cotesP: string; cotesR: string; cotesS: string; cotesM: string;
   cotes1: string; cotes2: string; cotes3: string;
   cotes4: string; cotes5: string;
-  // Captures sélectionnées
-  selectedCaptureIds: string[];
+  // Captures
+  capturesBefore: string[];
+  capturesAfter: string[];
 }
 
 export const DEFAULT_REPORT: ReportData = {
@@ -235,7 +236,8 @@ export const DEFAULT_REPORT: ReportData = {
   veloModele: '', veloTaille: '', selleMateriel: '', pedales: '', chaussures: '',
   cotesA: '', cotesD: '', cotesC: '', cotesG: '', cotesP: '', cotesR: '', cotesS: '', cotesM: '',
   cotes1: '', cotes2: '', cotes3: '', cotes4: '', cotes5: '',
-  selectedCaptureIds: [],
+  capturesBefore: [],
+  capturesAfter: [],
 };
 
 export const RESOLUTIONS: Record<string, { width: number; height: number; label: string }> = {
