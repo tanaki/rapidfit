@@ -38,6 +38,23 @@ async function toDataUrl(url: string): Promise<string> {
   });
 }
 
+/** Load a URL as a base64 data URL, returns null on failure */
+async function loadImageDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function generatePDF(
   data: ReportData,
   captures: Capture[],
@@ -55,6 +72,11 @@ async function generatePDF(
 
   const dateStr = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
   const companyLine = [company.name, company.subtitle].filter(Boolean).join(' — ');
+
+  // Pre-load bike diagram (non-blocking — null if PNG absent)
+  const bikeImgDataUrl = await loadImageDataUrl(
+    `${window.location.origin}${import.meta.env.BASE_URL}bike-diagram.png`,
+  );
 
   const drawHeader = () => {
     doc.setFillColor(19, 19, 31);
@@ -212,6 +234,17 @@ async function generatePDF(
     y += 6;
   }
   y += 6;
+
+  // Bike diagram image
+  if (bikeImgDataUrl) {
+    const imgW = pageW - margin * 2;       // full content width
+    const imgH = imgW * (390 / 700);       // keep SVG viewBox ratio 700×390
+    needSpace(imgH + 6);
+    try {
+      doc.addImage(bikeImgDataUrl, 'PNG', margin, y, imgW, imgH);
+    } catch { /* skip if format unsupported */ }
+    y += imgH + 6;
+  }
 
   doc.setFont('helvetica', 'bold'); doc.setTextColor(60, 60, 80);
   doc.text(i18n.t('report.s6_cotes'), margin, y); y += 5;
