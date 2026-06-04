@@ -27,6 +27,23 @@ function migrate(raw: Partial<ReportData> & { selectedCaptureIds?: string[] }): 
 
 // ── PDF helpers ────────────────────────────────────────────────────────────────
 
+const getElectronAPI = () =>
+  (window as unknown as { electronAPI?: Record<string, (...a: unknown[]) => Promise<unknown>> }).electronAPI;
+
+/** Returns a URL suitable for fetch() to load a static app asset (e.g. bike-diagram.png).
+ *  In packaged Electron, window.location.origin is "null" (file://), so we use the
+ *  local file server with the absolute path from the main process instead. */
+async function getAppAssetUrl(name: string): Promise<string> {
+  const api = getElectronAPI();
+  if (api?.appGetAssetPath) {
+    const absPath = await api.appGetAssetPath(name) as string;
+    const port    = await api.getFileServerPort() as number;
+    return `http://127.0.0.1:${port}${absPath}`;
+  }
+  // Web / dev mode — assets served by Vite dev server
+  return `${window.location.origin}${import.meta.env.BASE_URL}${name}`;
+}
+
 async function toDataUrl(url: string): Promise<string> {
   const res = await fetch(url);
   const blob = await res.blob();
@@ -81,9 +98,7 @@ async function generatePDF(
   const companyLine = [company.name, company.subtitle].filter(Boolean).join(' — ');
 
   // Pre-load bike diagram (non-blocking — null if PNG absent)
-  const bikeImgDataUrl = await loadImageDataUrl(
-    `${window.location.origin}${import.meta.env.BASE_URL}bike-diagram.png`,
-  );
+  const bikeImgDataUrl = await loadImageDataUrl(await getAppAssetUrl('bike-diagram.png'));
 
   // Pre-calculate logo rendered size so drawHeader can offset text correctly
   const HDR_H    = 26;  // header band height (mm)

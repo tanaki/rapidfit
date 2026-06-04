@@ -194,6 +194,14 @@ ipcMain.on('install-update', () => {
 // ── File server port ──────────────────────────────────────────────────────────
 ipcMain.handle('get-file-server-port', () => fileServerPort);
 
+// ── App asset path ────────────────────────────────────────────────────────────
+// Returns the absolute filesystem path to a static asset inside dist/.
+// Used by the renderer to load app assets via the local file server in packaged
+// builds (where window.location.origin is "null" for file:// URLs).
+ipcMain.handle('app:get-asset-path', (_e, name: string) =>
+  path.join(app.getAppPath(), 'dist', name),
+);
+
 // ── Camera IPC ────────────────────────────────────────────────────────────────
 
 ipcMain.handle('camera:request-access', async () => {

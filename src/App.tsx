@@ -142,6 +142,7 @@ export default function App() {
   // Recordings
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [activeRecording, setActiveRecording] = useState<Recording | null>(null);
+  const [activeImage, setActiveImage] = useState<import('./types').Capture | null>(null);
 
   // En mode Electron, le disque est la source de vérité — on désactive IndexedDB.
   // En mode web (dev sans Electron), on garde IndexedDB pour survivre aux rechargements.
@@ -196,11 +197,14 @@ export default function App() {
       ? { type: 'camera', deviceId: config.deviceId }
       : activeRecording
         ? { type: 'recording', filename: activeRecording.name }
-        : { type: 'none' };
+        : activeImage
+          ? { type: 'image', captureId: activeImage.id }
+          : { type: 'none' };
 
     const paneBSrc: PersistedSessionState['paneB']['source'] =
       paneBSource.type === 'camera'    ? { type: 'camera',    deviceId: paneBSource.deviceId }
       : paneBSource.type === 'recording' ? { type: 'recording', filename: paneBSource.recording.name }
+      : paneBSource.type === 'image'     ? { type: 'image', captureId: paneBSource.capture.id }
       : { type: 'none' };
 
     const state: PersistedSessionState = {
@@ -247,9 +251,11 @@ export default function App() {
     if (srcA.type === 'camera') {
       setIsLiveMode(true);
       setActiveRecording(null);
+      setActiveImage(null);
     } else if (srcA.type === 'recording') {
       const rec = recs.find(r => r.name === srcA.filename) ?? null;
       setActiveRecording(rec);
+      setActiveImage(null);
       setIsLiveMode(false);
       if (rec && (state?.paneA.playbackTime ?? 0) > 0) {
         const t0 = state!.paneA.playbackTime;
@@ -258,6 +264,7 @@ export default function App() {
     } else {
       setIsLiveMode(false);
       setActiveRecording(null);
+      setActiveImage(null);
     }
 
     // ── Source pane B ────────────────────────────────────────────────────────
@@ -334,6 +341,7 @@ export default function App() {
 
   const handleSelectRecording = useCallback((rec: Recording) => {
     setActiveRecording(rec);
+    setActiveImage(null);
     setIsLiveMode(false);
     // Reset seekbar so it doesn't show stale values while the new video loads
     setPlaybackTime(0);
@@ -358,12 +366,32 @@ export default function App() {
     const file = e.target.files?.[0];
     if (!file) return;
     const url = URL.createObjectURL(file);
-    const rec: Recording = { id: uid(), name: file.name, blob: file, url, createdAt: new Date(), duration: 0 };
-    setRecordings(prev => [rec, ...prev]);
-    persistRecording(rec);
-    handleSelectRecording(rec);
+    const isImage = /\.(png|jpe?g|webp|gif)$/i.test(file.name);
+    if (isImage) {
+      // PNG/JPG → add as a capture, then display it in the active pane
+      const cap: import('./types').Capture = { id: uid(), name: file.name, blob: file, url, createdAt: new Date() };
+      setCaptures(prev => [cap, ...prev]);
+      if (sessions.activeSession) sessions.saveCapture(sessions.activeSession, file, file.name);
+      handleSelectCapture(cap);
+    } else {
+      const rec: Recording = { id: uid(), name: file.name, blob: file, url, createdAt: new Date(), duration: 0 };
+      setRecordings(prev => [rec, ...prev]);
+      persistRecording(rec);
+      handleSelectRecording(rec);
+    }
     e.target.value = '';
-  }, [handleSelectRecording, persistRecording]);
+  }, [handleSelectRecording, persistRecording, sessions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSelectCapture = useCallback((cap: import('./types').Capture) => {
+    if (splitMode && activePaneIndex === 1) {
+      setPaneBSource({ type: 'image', capture: cap });
+    } else {
+      setIsLiveMode(false);
+      setActiveRecording(null);
+      // singleSource is driven by isLiveMode + activeRecording — we need a dedicated image state
+      setActiveImage(cap);
+    }
+  }, [splitMode, activePaneIndex]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
@@ -465,10 +493,11 @@ export default function App() {
   // useMemo stabilises the object reference so VideoPane's useEffect([source])
   // only fires when the source actually changes — not on every re-render.
   const singleSource: PaneSource = useMemo(() => {
-    if (!isLiveMode && activeRecording) return { type: 'recording', recording: activeRecording };
     if (isLiveMode) return { type: 'camera', deviceId: config.deviceId };
+    if (activeRecording) return { type: 'recording', recording: activeRecording };
+    if (activeImage) return { type: 'image', capture: activeImage };
     return { type: 'none' };
-  }, [isLiveMode, activeRecording, config.deviceId]);
+  }, [isLiveMode, activeRecording, activeImage, config.deviceId]);
 
   const handleDeleteSession = useCallback(async (session: Session) => {
     const wasActive = await sessions.deleteSession(session);
@@ -499,11 +528,18 @@ export default function App() {
       if (s.deviceId !== config.deviceId) setConfig(c => ({ ...c, deviceId: s.deviceId }));
       setIsLiveMode(true);
       setActiveRecording(null);
+      setActiveImage(null);
     } else if (s.type === 'recording') {
       handleSelectRecording(s.recording);
+      setActiveImage(null);
+    } else if (s.type === 'image') {
+      setIsLiveMode(false);
+      setActiveRecording(null);
+      setActiveImage(s.capture);
     } else {
       setIsLiveMode(false);
       setActiveRecording(null);
+      setActiveImage(null);
     }
   }, [config.deviceId, handleSelectRecording]);
 
@@ -644,6 +680,7 @@ export default function App() {
             <div className={`flex items-center gap-2 px-3 py-1.5 ${splitMode ? 'flex-1 border-r border-[#22223b]' : 'w-full'}`}>
               <SourceSelector
                 source={singleSource} devices={devices} recordings={recordings}
+                captures={captures}
                 label={splitMode ? 'A' : t('video.sourceLabel')}
                 onChange={handleSingleSourceChange}
               />
@@ -652,6 +689,7 @@ export default function App() {
               <div className="flex-1 flex items-center gap-2 px-3 py-1.5">
                 <SourceSelector
                   source={paneBSource} devices={devices} recordings={recordings}
+                  captures={captures}
                   label="B" onChange={setPaneBSource}
                 />
               </div>
@@ -743,7 +781,7 @@ export default function App() {
         onDeleteRecording={handleDeleteRecording}
         onDownloadRecording={handleDownloadRecording}
         onImportVideo={() => importInputRef.current?.click()}
-        onLiveMode={() => { setIsLiveMode(true); setActiveRecording(null); }}
+        onLiveMode={() => { setIsLiveMode(true); setActiveRecording(null); setActiveImage(null); }}
         onPlayPause={handlePlayPause}
         onSeek={handleSeek}
         onFramePrev={() => stepFrame(-1)}
@@ -751,9 +789,10 @@ export default function App() {
         captures={captures}
         onDownloadCapture={handleDownloadCapture}
         onDeleteCapture={handleDeleteCapture}
+        onSelectCapture={handleSelectCapture}
       />
 
-      <input ref={importInputRef} type="file" accept="video/*" className="hidden" onChange={handleImportFile} />
+      <input ref={importInputRef} type="file" accept="video/*,.png,.jpg,.jpeg,.webp" className="hidden" onChange={handleImportFile} />
 
       {showNewSession && (
         <NewSessionModal

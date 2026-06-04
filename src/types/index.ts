@@ -114,10 +114,11 @@ export interface Capture {
 
 export type AppMode = 'capture' | 'playback';
 
-export type PaneSourceType = 'camera' | 'recording' | 'none';
+export type PaneSourceType = 'camera' | 'recording' | 'image' | 'none';
 export type PaneSource =
   | { type: 'camera'; deviceId: string }
   | { type: 'recording'; recording: Recording }
+  | { type: 'image'; capture: Capture }
   | { type: 'none' };
 
 export interface VideoConfig {
@@ -160,7 +161,8 @@ export interface Session {
 export type SavedPaneSource =
   | { type: 'none' }
   | { type: 'camera'; deviceId: string }
-  | { type: 'recording'; filename: string };
+  | { type: 'recording'; filename: string }
+  | { type: 'image'; captureId: string };
 
 export interface SavedPaneState {
   source: SavedPaneSource;

@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PaneSource, Recording, Layer, Tool } from '../types';
+import type { PaneSource, Recording, Capture, Layer, Tool } from '../types';
 import type { AnnotationElement } from '../types';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { useZoomPan } from '../hooks/useZoomPan';
@@ -63,11 +63,12 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
 ) {
   const { t } = useTranslation();
   const videoRef       = useRef<HTMLVideoElement>(null);
+  const imageRef       = useRef<HTMLImageElement>(null);
   const streamRef      = useRef<MediaStream | null>(null);
   const pendingSeekRef = useRef<number | null>(null);
   const isPanMode      = annotationProps?.tool === 'pan';
 
-  // Track the video display rect (object-contain letterbox)
+  // Track the video/image display rect (object-contain letterbox)
   const [videoRect, setVideoRect] = useState<VideoRect | null>(null);
 
   const stepVideoFrame = useCallback((dir: 1 | -1) => {
@@ -89,14 +90,26 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Video rect (letterbox) tracking ────────────────────────────────────────
+  const updateImageRect = useCallback(() => {
+    const img = imageRef.current;
+    const container = zoomState.containerRef.current;
+    if (!img || !container || !img.naturalWidth || !img.naturalHeight) return;
+    const aspect = img.naturalWidth / img.naturalHeight;
+    setVideoRect(computeVideoRect(container.clientWidth, container.clientHeight, aspect));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Video/image rect (letterbox) tracking ──────────────────────────────────
   useEffect(() => {
     const container = zoomState.containerRef.current;
     if (!container) return;
-    const obs = new ResizeObserver(updateVideoRect);
+    const obs = new ResizeObserver(() => {
+      if (source.type === 'image') updateImageRect(); else updateVideoRect();
+    });
     obs.observe(container);
     return () => obs.disconnect();
-  }, [updateVideoRect, zoomState.containerRef]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source.type, updateVideoRect, updateImageRect, zoomState.containerRef]);
 
   // ── Source management ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -206,6 +219,17 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       };
     }
 
+    if (source.type === 'image') {
+      // Stop any active camera/video
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+      onStreamChange?.(null);
+      video.srcObject = null;
+      video.src = '';
+      // Image rect computed in onLoad below via imageRef
+      return;
+    }
+
     // none
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
@@ -232,7 +256,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     togglePlay() { const v = videoRef.current; if (!v) return; v.paused ? v.play() : v.pause(); },
   }));
 
-  const isNone = source.type === 'none';
+  const isNone  = source.type === 'none';
+  const isImage = source.type === 'image';
 
   return (
     <div
@@ -240,7 +265,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       className={`relative flex-1 bg-black overflow-hidden ${active ? 'ring-2 ring-inset ring-indigo-500' : ''}`}
       onClick={onFocus}
     >
-      {/* Transform wrapper — video only */}
+      {/* Transform wrapper — video / image */}
       <div style={zoomState.transformStyle}>
         <video
           ref={videoRef}
@@ -249,8 +274,18 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           playsInline
           crossOrigin="anonymous"
           style={{ pointerEvents: isPanMode ? 'none' : undefined }}
-          className={`absolute inset-0 w-full h-full object-contain ${isNone ? 'hidden' : ''}`}
+          className={`absolute inset-0 w-full h-full object-contain ${(isNone || isImage) ? 'hidden' : ''}`}
         />
+        {isImage && (
+          <img
+            ref={imageRef}
+            src={(source as { type: 'image'; capture: { url: string } }).capture.url}
+            alt=""
+            onLoad={updateImageRect}
+            style={{ pointerEvents: isPanMode ? 'none' : undefined }}
+            className="absolute inset-0 w-full h-full object-contain"
+          />
+        )}
         {isNone && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-700 pointer-events-none">
             <span className="text-4xl">📷</span>
@@ -319,15 +354,17 @@ interface SourceSelectorProps {
   source: PaneSource;
   devices: MediaDeviceInfo[];
   recordings: Recording[];
+  captures?: Capture[];
   label: string;
   onChange: (s: PaneSource) => void;
 }
 
-export function SourceSelector({ source, devices, recordings, label, onChange }: SourceSelectorProps) {
+export function SourceSelector({ source, devices, recordings, captures = [], label, onChange }: SourceSelectorProps) {
   const { t } = useTranslation();
   const value =
     source.type === 'camera'    ? `cam:${source.deviceId}`
     : source.type === 'recording' ? `rec:${source.recording.id}`
+    : source.type === 'image'     ? `img:${source.capture.id}`
     : 'none';
 
   return (
@@ -342,6 +379,9 @@ export function SourceSelector({ source, devices, recordings, label, onChange }:
           else if (v.startsWith('rec:')) {
             const rec = recordings.find(r => r.id === v.slice(4));
             if (rec) onChange({ type: 'recording', recording: rec });
+          } else if (v.startsWith('img:')) {
+            const cap = captures.find(c => c.id === v.slice(4));
+            if (cap) onChange({ type: 'image', capture: cap });
           }
         }}
         className="flex-1 min-w-0 text-xs bg-[#22223b] text-slate-200 border border-[#3d3d5c] rounded-lg px-2 py-1 outline-none"
@@ -360,6 +400,13 @@ export function SourceSelector({ source, devices, recordings, label, onChange }:
           <optgroup label={t('video.recordings')}>
             {recordings.map(r => (
               <option key={r.id} value={`rec:${r.id}`}>{r.name}</option>
+            ))}
+          </optgroup>
+        )}
+        {captures.length > 0 && (
+          <optgroup label={t('video.captures', 'Captures')}>
+            {captures.map(c => (
+              <option key={c.id} value={`img:${c.id}`}>{c.name}</option>
             ))}
           </optgroup>
         )}

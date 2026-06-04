@@ -52,4 +52,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Report data ─────────────────────────────────────────────────────────────
   sessionsSaveReport: (payload: unknown) => ipcRenderer.invoke('sessions:save-report', payload),
   sessionsLoadReport: (sessionFolderPath: string) => ipcRenderer.invoke('sessions:load-report', sessionFolderPath),
+
+  // ── App assets ───────────────────────────────────────────────────────────────
+  appGetAssetPath: (name: string) => ipcRenderer.invoke('app:get-asset-path', name),
 });

@@ -109,6 +109,7 @@ interface Props {
   captures: Capture[];
   onDownloadCapture: (c: Capture) => void;
   onDeleteCapture: (id: string) => void;
+  onSelectCapture?: (c: Capture) => void;
 }
 
 export function RecordingBar({
@@ -117,7 +118,7 @@ export function RecordingBar({
   onStartRecording, onPauseRecording, onStopRecording,
   onSelectRecording, onDeleteRecording, onDownloadRecording,
   onImportVideo, onLiveMode, onPlayPause, onFramePrev, onFrameNext, onSeek,
-  captures, onDownloadCapture, onDeleteCapture,
+  captures, onDownloadCapture, onDeleteCapture, onSelectCapture,
 }: Props) {
   const { t } = useTranslation();
   return (
@@ -220,7 +221,12 @@ export function RecordingBar({
         {captures.length > 0 && (
           <div className="flex items-center gap-1.5 overflow-x-auto shrink-0 max-w-[40%] border-r border-[#22223b] pr-3 mr-1">
             {captures.map(cap => (
-              <div key={cap.id} className="group relative shrink-0 cursor-pointer" title={cap.name}>
+              <div
+                key={cap.id}
+                className="group relative shrink-0 cursor-pointer"
+                title={cap.name}
+                onClick={() => onSelectCapture?.(cap)}
+              >
                 <img
                   src={cap.url}
                   alt={cap.name}
@@ -232,6 +238,7 @@ export function RecordingBar({
                   </span>
                 )}
                 <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-1 bg-black/50 rounded">
+                  <button onClick={e => { e.stopPropagation(); onSelectCapture?.(cap); }} title={t('recording.view', 'Afficher')} className="text-xs text-white hover:text-indigo-300 px-1">👁</button>
                   <button onClick={e => { e.stopPropagation(); onDownloadCapture(cap); }} title={t('recording.download')} className="text-xs text-white hover:text-indigo-300 px-1">⬇</button>
                   <button onClick={e => { e.stopPropagation(); onDeleteCapture(cap.id); }} title={t('recording.delete')} className="text-xs text-red-400 hover:text-red-300 px-1">✕</button>
                 </div>
