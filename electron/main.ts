@@ -146,13 +146,17 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   // ── Camera / microphone permissions ────────────────────────────────────────
+  // 'media' covers getUserMedia in most Electron versions.
+  // 'camera' / 'microphone' are used in some Chromium codepaths (Electron 42+).
+  const ALLOWED_PERMISSIONS = new Set(['media', 'camera', 'microphone']);
+
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => {
-    if (permission === 'media') return true;
-    return null;
+    if (ALLOWED_PERMISSIONS.has(permission)) return true;
+    return null;   // default behaviour for everything else
   });
 
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(permission === 'media');
+    callback(ALLOWED_PERMISSIONS.has(permission));
   });
 
   // Start local file server (port assigned by OS)

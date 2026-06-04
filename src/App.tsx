@@ -94,7 +94,7 @@ export default function App() {
     setActiveRecording(null);
     setShowNewSession(false);
   }, [sessions]);
-  const { devices } = useDevices();
+  const { devices, refresh: refreshDevices } = useDevices();
   const recorder = useRecorder();
 
   // Camera state — fed by VideoPane A callbacks
@@ -684,6 +684,7 @@ export default function App() {
                 captures={captures}
                 label={splitMode ? 'A' : t('video.sourceLabel')}
                 onChange={handleSingleSourceChange}
+                onRefreshDevices={refreshDevices}
               />
             </div>
             {splitMode && (
@@ -692,6 +693,7 @@ export default function App() {
                   source={paneBSource} devices={devices} recordings={recordings}
                   captures={captures}
                   label="B" onChange={setPaneBSource}
+                  onRefreshDevices={refreshDevices}
                 />
               </div>
             )}

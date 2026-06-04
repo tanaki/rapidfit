@@ -357,9 +357,10 @@ interface SourceSelectorProps {
   captures?: Capture[];
   label: string;
   onChange: (s: PaneSource) => void;
+  onRefreshDevices?: () => void;
 }
 
-export function SourceSelector({ source, devices, recordings, captures = [], label, onChange }: SourceSelectorProps) {
+export function SourceSelector({ source, devices, recordings, captures = [], label, onChange, onRefreshDevices }: SourceSelectorProps) {
   const { t } = useTranslation();
   const value =
     source.type === 'camera'    ? `cam:${source.deviceId}`
@@ -411,6 +412,18 @@ export function SourceSelector({ source, devices, recordings, captures = [], lab
           </optgroup>
         )}
       </select>
+
+      {/* Refresh button — lets users re-scan after plugging in a camera or
+          after macOS TCC permission is granted mid-session */}
+      {onRefreshDevices && (
+        <button
+          onClick={onRefreshDevices}
+          title={t('video.refreshCameras', 'Actualiser les caméras')}
+          className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-slate-500 hover:text-slate-200 hover:bg-[#22223b] transition-colors text-sm"
+        >
+          ↺
+        </button>
+      )}
     </div>
   );
 }

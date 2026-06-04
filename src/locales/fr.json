@@ -64,7 +64,8 @@
     "captureTitle": "Capturer l'image avec les calques",
     "cameraLabel": "Caméra {{id}}",
     "cameraError": "Erreur caméra",
-    "sourceLabel": "Source"
+    "sourceLabel": "Source",
+    "refreshCameras": "Actualiser les caméras"
   },
   "settings": {
     "title": "Paramètres vidéo",

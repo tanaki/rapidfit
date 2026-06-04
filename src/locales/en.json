@@ -64,7 +64,8 @@
     "captureTitle": "Capture frame with layers",
     "cameraLabel": "Camera {{id}}",
     "cameraError": "Camera error",
-    "sourceLabel": "Source"
+    "sourceLabel": "Source",
+    "refreshCameras": "Refresh cameras"
   },
   "settings": {
     "title": "Video settings",
