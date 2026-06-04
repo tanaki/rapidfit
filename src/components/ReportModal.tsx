@@ -83,10 +83,12 @@ async function generatePDF(
     y += 5;
   };
 
-  const field = (label: string, value: string, x: number, vx: number) => {
+  const field = (label: string, value: string, x: number, vxHint: number) => {
     needSpace(7);
     doc.setFontSize(8.5); doc.setFont('helvetica', 'bold'); doc.setTextColor(90, 90, 110);
     doc.text(label, x, y);
+    // Ensure value never overlaps label
+    const vx = Math.max(vxHint, x + doc.getTextWidth(label) + 3);
     doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 30);
     doc.text(value || '—', vx, y);
   };
@@ -240,7 +242,7 @@ async function generatePDF(
   };
 
   needSpace(8 * coteRows.length + 10);
-  tableHeader(margin); tableHeader(col2x); y += 4;
+  tableHeader(margin); tableHeader(col2x); y += 6;
 
   const drawRow = (x: number, ref: string, des: string, val: string, isGroupHeader = false) => {
     if (isGroupHeader) {
@@ -308,8 +310,51 @@ async function generatePDF(
   if (beforeCaps.length + afterCaps.length > 0) {
     newPage();
     section(i18n.t('report.s7_title'));
-    await renderCaptureGroup('Avant', beforeCaps);
-    await renderCaptureGroup('Après', afterCaps);
+
+    const capColGap = 6;
+    const capColW   = (pageW - margin * 2 - capColGap) / 2;
+    const capImgH   = capColW * (9 / 16);
+    const capImgGap = 3;
+    const capCol2x  = margin + capColW + capColGap;
+
+    // Column headers
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(60, 60, 80);
+    if (beforeCaps.length > 0) doc.text('Avant', margin, y);
+    if (afterCaps.length  > 0) doc.text('Après', capCol2x, y);
+    y += 7;
+
+    const capStartY = y;
+
+    // Helper — render one column of captures
+    const renderCol = async (caps: Capture[], x: number): Promise<number> => {
+      let cy = capStartY;
+      for (const cap of caps) {
+        if (cy + capImgH > pageH - margin) break; // avoid overflow (add page if needed later)
+        try {
+          const dataUrl = await toDataUrl(cap.url);
+          doc.addImage(dataUrl, 'PNG', x, cy, capColW, capImgH);
+          if (cap.paneLabel) {
+            doc.setFillColor(79, 70, 229);
+            doc.roundedRect(x + 2, cy + 2, 8, 5, 1, 1, 'F');
+            doc.setTextColor(255, 255, 255); doc.setFontSize(6); doc.setFont('helvetica', 'bold');
+            doc.text(cap.paneLabel, x + 6, cy + 5.5, { align: 'center' });
+          }
+        } catch {
+          doc.setFillColor(240, 240, 245);
+          doc.rect(x, cy, capColW, capImgH, 'F');
+          doc.setTextColor(160, 160, 170); doc.setFontSize(8);
+          doc.text(i18n.t('report.pdfImageUnavailable'), x + capColW / 2, cy + capImgH / 2, { align: 'center' });
+        }
+        cy += capImgH + capImgGap;
+      }
+      return cy;
+    };
+
+    const [yLeft, yRight] = await Promise.all([
+      renderCol(beforeCaps, margin),
+      renderCol(afterCaps,  capCol2x),
+    ]);
+    y = Math.max(yLeft, yRight);
   }
 
   // ── Page numbers ─────────────────────────────────────────────────────────────
@@ -322,8 +367,9 @@ async function generatePDF(
   }
 
   const slug = [client?.nom, client?.prenom].filter(Boolean).join('_') || 'session';
+  const discSlug = session?.discipline?.toUpperCase() || '';
   const prefix = i18n.language === 'fr' ? 'Compte_rendu' : 'Report';
-  doc.save(`${prefix}_${slug}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`${prefix}_${slug}${discSlug ? '_' + discSlug : ''}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 // ── Accordion ─────────────────────────────────────────────────────────────────
