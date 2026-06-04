@@ -24,6 +24,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "electron-log": "^5.4.4",
     "electron-updater": "^6.8.3",
     "i18next": "^26.3.1",
     "jspdf": "^4.2.1",
@@ -83,6 +84,13 @@
       "target": [
         {
           "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
           "arch": [
             "x64",
             "arm64"

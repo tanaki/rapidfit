@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-available', (_e, info) => cb(info)),
   onUpdateDownloaded: (cb: (info: unknown) => void) =>
     ipcRenderer.on('update-downloaded', (_e, info) => cb(info)),
+  onUpdateError: (cb: (message: string) => void) =>
+    ipcRenderer.on('update-error', (_e, message) => cb(message)),
   installUpdate: () => ipcRenderer.send('install-update'),
 
   // ── File server ─────────────────────────────────────────────────────────────

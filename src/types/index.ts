@@ -1,3 +1,5 @@
+declare const __APP_VERSION__: string;
+
 export type Point = { x: number; y: number };
 
 export type Tool =

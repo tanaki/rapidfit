@@ -1,5 +1,8 @@
 import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPreferences, globalShortcut } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import log from 'electron-log';
+
+declare const __GH_UPDATE_TOKEN__: string;
 import path from 'path';
 import fs from 'fs/promises';
 import fsSync from 'fs';
@@ -173,7 +176,14 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-  if (!isDev) autoUpdater.checkForUpdatesAndNotify();
+  if (!isDev) {
+    autoUpdater.logger = log;
+    (autoUpdater.logger as typeof log).transports.file.level = 'info';
+    if (__GH_UPDATE_TOKEN__) {
+      autoUpdater.requestHeaders = { Authorization: `token ${__GH_UPDATE_TOKEN__}` };
+    }
+    autoUpdater.checkForUpdatesAndNotify();
+  }
 });
 
 app.on('window-all-closed', () => {
@@ -189,7 +199,8 @@ autoUpdater.on('update-downloaded', (info) => {
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-downloaded', info);
 });
 autoUpdater.on('error', (err) => {
-  console.error('AutoUpdater error:', err);
+  log.error('AutoUpdater error:', err);
+  BrowserWindow.getAllWindows()[0]?.webContents.send('update-error', err.message);
 });
 ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall();
