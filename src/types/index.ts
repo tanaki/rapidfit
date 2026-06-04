@@ -174,6 +174,70 @@ export interface PersistedSessionState {
   paneB: SavedPaneState;
 }
 
+export interface CompanySettings {
+  name: string;
+  subtitle: string;
+  logoDataUrl: string; // base64 data URL (resized at pick time)
+}
+
+export const DEFAULT_COMPANY: CompanySettings = { name: '', subtitle: '', logoDataUrl: '' };
+
+export interface ReportData {
+  // Pratique
+  practiceLevel: '' | 'loisir' | 'sport' | 'competition' | 'pro';
+  practiceYears: string;
+  weeklyVolume: string;
+  annualVolume: string;
+  // Diagnostic
+  motif: string;
+  douleurs: string;
+  anciennesBlessures: string;
+  blessuresRecentes: string;
+  veloDepuis: string;
+  veloPrecedent: string;
+  autresSports: string;
+  // Tests physios
+  piedAllure: '' | 'neutre' | 'varus' | 'valgus';
+  piedNote: string;
+  genouAllure: '' | 'neutre' | 'dedans' | 'dehors';
+  genouNote: string;
+  souplesseChaine: '' | 'bonne' | 'moyenne' | 'limitee';
+  souplesseNote: string;
+  squat: '' | 'bon' | 'moyen' | 'compensations';
+  squatNote: string;
+  fente: '' | 'bonne' | 'moyenne' | 'asymetrique';
+  fenteNote: string;
+  // Bilan
+  bilan: string;
+  // Matériel
+  veloModele: string;
+  veloTaille: string;
+  selleMateriel: string;
+  pedales: string;
+  chaussures: string;
+  // Cotes (cm)
+  cotesA: string; cotesD: string; cotesC: string; cotesG: string;
+  cotesP: string; cotesR: string; cotesS: string; cotesM: string;
+  cotes1: string; cotes2: string; cotes3: string;
+  cotes4: string; cotes5: string;
+  // Captures sélectionnées
+  selectedCaptureIds: string[];
+}
+
+export const DEFAULT_REPORT: ReportData = {
+  practiceLevel: '', practiceYears: '', weeklyVolume: '', annualVolume: '',
+  motif: '', douleurs: '', anciennesBlessures: '', blessuresRecentes: '',
+  veloDepuis: '', veloPrecedent: '', autresSports: '',
+  piedAllure: '', piedNote: '', genouAllure: '', genouNote: '',
+  souplesseChaine: '', souplesseNote: '', squat: '', squatNote: '',
+  fente: '', fenteNote: '',
+  bilan: '',
+  veloModele: '', veloTaille: '', selleMateriel: '', pedales: '', chaussures: '',
+  cotesA: '', cotesD: '', cotesC: '', cotesG: '', cotesP: '', cotesR: '', cotesS: '', cotesM: '',
+  cotes1: '', cotes2: '', cotes3: '', cotes4: '', cotes5: '',
+  selectedCaptureIds: [],
+};
+
 export const RESOLUTIONS: Record<string, { width: number; height: number; label: string }> = {
   '480p':  { width: 854,  height: 480,  label: '480p  (854×480)' },
   '720p':  { width: 1280, height: 720,  label: '720p  (1280×720)' },

@@ -19,6 +19,7 @@ import { VideoPane, SourceSelector, type VideoPaneHandle } from './components/Vi
 import { useStorage } from './hooks/useStorage';
 import { saveRecordingToFile } from './utils/saveFile';
 import { UpdateBanner } from './components/UpdateBanner';
+import { useCompany } from './hooks/useCompany';
 
 const DEFAULT_CONFIG: VideoConfig = {
   deviceId: '',
@@ -35,10 +36,19 @@ export default function App() {
 
   // ── Sessions ───────────────────────────────────────────────────────────────
   const sessions = useSessions();
+  const { company, save: saveCompany } = useCompany();
+  const [reportData, setReportData] = useState<import('./types').ReportData | null>(null);
+  const [reportLoaded, setReportLoaded] = useState(false);
   const [showNewSession, setShowNewSession] = useState(false);
 
   // Ouvre automatiquement la modal si aucune session après chargement.
   // Si une session active est restaurée, charge ses assets depuis le disque.
+  // Reset report data when active session changes
+  useEffect(() => {
+    setReportData(null);
+    setReportLoaded(false);
+  }, [sessions.activeSession?.id]);
+
   const sessionLoadedRef = useRef(false);
   useEffect(() => {
     if (sessions.isLoading) return;
@@ -576,7 +586,14 @@ export default function App() {
           <div className="w-px h-4 bg-[#3d3d5c]" />
 
           <button
-            onClick={() => setShowReport(true)}
+            onClick={async () => {
+              if (!reportLoaded && sessions.activeSession?.folderPath) {
+                const saved = await sessions.loadReport(sessions.activeSession.folderPath);
+                setReportData(saved);
+                setReportLoaded(true);
+              }
+              setShowReport(true);
+            }}
             className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 font-medium transition-colors"
           >
             {t('header.report')}
@@ -736,13 +753,25 @@ export default function App() {
           onChange={c => { setConfig(c); setShowSettings(false); }}
           onClose={() => setShowSettings(false)}
           devices={devices}
+          company={company}
+          onCompany={saveCompany}
         />
       )}
 
       {showReport && (
         <ReportModal
           captures={captures}
+          client={sessions.activeClient}
+          session={sessions.activeSession}
+          company={company}
+          initialData={reportData}
           onClose={() => setShowReport(false)}
+          onSave={async (data) => {
+            setReportData(data);
+            if (sessions.activeSession?.folderPath) {
+              await sessions.saveReport(sessions.activeSession.folderPath, data);
+            }
+          }}
         />
       )}
 

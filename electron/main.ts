@@ -369,3 +369,23 @@ ipcMain.handle('sessions:set-last', async (_e, data: { clientId: string; session
     try { await fs.unlink(lastSessionFile()); } catch { /* already gone */ }
   }
 });
+
+// ── Company settings ──────────────────────────────────────────────────────────
+const companySettingsFile = () => path.join(app.getPath('userData'), 'company-settings.json');
+
+ipcMain.handle('company:get', async () => {
+  return readJson(companySettingsFile(), { name: '', subtitle: '', logoDataUrl: '' });
+});
+
+ipcMain.handle('company:save', async (_e, settings: unknown) => {
+  await fs.writeFile(companySettingsFile(), JSON.stringify(settings, null, 2), 'utf-8');
+});
+
+// ── Report data ───────────────────────────────────────────────────────────────
+ipcMain.handle('sessions:save-report', async (_e, { sessionFolderPath, data }: { sessionFolderPath: string; data: unknown }) => {
+  await fs.writeFile(path.join(sessionFolderPath, 'report.json'), JSON.stringify(data, null, 2), 'utf-8');
+});
+
+ipcMain.handle('sessions:load-report', async (_e, sessionFolderPath: string) => {
+  return readJson(path.join(sessionFolderPath, 'report.json'), null);
+});

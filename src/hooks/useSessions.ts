@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Client, Session, Discipline, Capture, Recording, PersistedSessionState } from '../types';
+import type { Client, Session, Discipline, Capture, Recording, PersistedSessionState, ReportData } from '../types';
 import { uid } from '../utils/canvas';
 
 interface DiskFile { name: string; path: string; createdAt: string; duration: number; }
@@ -37,6 +37,8 @@ type ElectronAPI = {
   sessionsListRecordings: (sessionFolderPath: string) => Promise<DiskFile[]>;
   sessionsGetLast: () => Promise<{ clientId: string; sessionId: string } | null>;
   sessionsSetLast: (d: { clientId: string; sessionId: string } | null) => Promise<void>;
+  sessionsSaveReport: (p: { sessionFolderPath: string; data: ReportData }) => Promise<void>;
+  sessionsLoadReport: (sessionFolderPath: string) => Promise<ReportData | null>;
 };
 
 function getAPI(): ElectronAPI | null {
@@ -297,5 +299,13 @@ export function useSessions() {
     deleteClient,
     loadSessionAssets,
     reload: load,
+
+    saveReport: useCallback(async (folderPath: string, data: ReportData) => {
+      await getAPI()?.sessionsSaveReport({ sessionFolderPath: folderPath, data });
+    }, []),
+
+    loadReport: useCallback(async (folderPath: string): Promise<ReportData | null> => {
+      return getAPI()?.sessionsLoadReport(folderPath) ?? null;
+    }, []),
   };
 }

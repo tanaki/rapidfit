@@ -44,4 +44,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('sessions:get-last'),
   sessionsSetLast: (data: unknown) =>
     ipcRenderer.invoke('sessions:set-last', data),
+
+  // ── Company settings ────────────────────────────────────────────────────────
+  companyGet: () => ipcRenderer.invoke('company:get'),
+  companySave: (settings: unknown) => ipcRenderer.invoke('company:save', settings),
+
+  // ── Report data ─────────────────────────────────────────────────────────────
+  sessionsSaveReport: (payload: unknown) => ipcRenderer.invoke('sessions:save-report', payload),
+  sessionsLoadReport: (sessionFolderPath: string) => ipcRenderer.invoke('sessions:load-report', sessionFolderPath),
 });

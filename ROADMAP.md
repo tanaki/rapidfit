@@ -216,12 +216,45 @@ src/App.tsx                     intégration (import AngleElement + GuidePanel)
 
 ---
 
-## ⏳ Phase 5 — Compte rendu amélioré (PDF + mail)
+## ✅ Phase 5 — Compte rendu amélioré (PDF) — TERMINÉE
 
 ### Objectif
 Export PDF structuré + envoi mail direct depuis l'app + paramètres entreprise.
 
-### Plan d'action
+### Ce qui est fait ✅
+
+**5.3 Paramètres entreprise**
+- Nom, sous-titre, logo (upload → resize → base64) stockés dans `userData/company-settings.json`
+- Éditable depuis ⚙ Paramètres (section Entreprise en bas)
+- Logo affiché dans l'en-tête PDF, nom + "Étude posturale — date" répété sur chaque page
+
+**5.1 PDF enrichi (7 sections en accordéon)**
+- Section 1 : Informations client (pré-remplies depuis session)
+- Section 2 : Profil de pratique (niveau, ancienneté, volume hebdo/annuel)
+- Section 3 : Diagnostic (motif, douleurs, vélo, blessures, autres sports)
+- Section 4 : Tests physiologiques (pieds, genoux, souplesse, squat, fente avant — boutons radio + commentaire)
+- Section 5 : Bilan de l'étude (champ libre)
+- Section 6 : Fiche de cotes (matériel + diagramme SVG vélo + tableaux A-M et 1-5 éditables)
+- Section 7 : Captures (sélection)
+- Persistance : `report.json` par session (auto-save débounced 800ms)
+- Génération PDF jsPDF : 3 pages structurées + pages captures
+
+**Fichiers créés/modifiés**
+```
+src/types/index.ts                     CompanySettings, ReportData, DEFAULT_REPORT
+electron/main.ts                       IPC company:get/save, sessions:save/load-report
+electron/preload.ts                    exposition des 4 nouveaux IPC
+src/hooks/useCompany.ts                hook load/save paramètres entreprise
+src/hooks/useSessions.ts               saveReport, loadReport
+src/components/SettingsModal.tsx       section Entreprise (nom, sous-titre, logo)
+src/components/BikeMeasurementDiagram.tsx  SVG vélo avec annotations A-M + insets cintre/potence
+src/components/ReportModal.tsx         redesign complet (7 sections accordéon + PDF)
+src/App.tsx                            branché useCompany + chargement report.json
+```
+
+**5.2 Envoi mail** — reporté à une version ultérieure
+
+### Plan d'action original (archivé)
 
 **5.1 PDF enrichi**
 - Template : infos client, date, discipline, tableau des mesures, captures avec légendes
