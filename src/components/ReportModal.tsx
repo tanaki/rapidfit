@@ -85,27 +85,62 @@ async function generatePDF(
     `${window.location.origin}${import.meta.env.BASE_URL}bike-diagram.png`,
   );
 
+  // Pre-calculate logo rendered size so drawHeader can offset text correctly
+  const HDR_H    = 26;  // header band height (mm)
+  const LOGO_H   = 18;  // max logo display height (mm)
+  let   logoRenderW = 0;
+  if (company.logoDataUrl) {
+    const dims = await new Promise<{ w: number; h: number }>(resolve => {
+      const img = new Image();
+      img.onload  = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve({ w: 1, h: 1 });
+      img.src = company.logoDataUrl;
+    });
+    logoRenderW = Math.min(48, LOGO_H * (dims.w / dims.h)); // cap at 48 mm
+  }
+
   const drawHeader = () => {
     doc.setFillColor(19, 19, 31);
-    doc.rect(0, 0, pageW, 20, 'F');
-    if (company.logoDataUrl) {
-      try { doc.addImage(company.logoDataUrl, 'PNG', margin, 2, 0, 16); } catch { /* skip */ }
-    }
+    doc.rect(0, 0, pageW, HDR_H, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
-    if (companyLine) doc.text(companyLine, pageW / 2, 8, { align: 'center' });
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
-    const contactParts = [company.email, company.phone].filter(Boolean);
-    const contactLine  = contactParts.length ? contactParts.join('  ·  ') : '';
-    const rightLine    = `Étude posturale — ${dateStr}`;
-    if (contactLine) {
-      // Contact left, date right
-      doc.text(contactLine, margin, 15);
-      doc.text(rightLine, pageW - margin, 15, { align: 'right' });
-    } else {
-      doc.text(rightLine, pageW / 2, 15, { align: 'center' });
+
+    // ── Logo (left) ──────────────────────────────────────────────────────────
+    if (company.logoDataUrl && logoRenderW > 0) {
+      try {
+        const logoY = (HDR_H - LOGO_H) / 2;
+        doc.addImage(company.logoDataUrl, 'PNG', margin, logoY, logoRenderW, LOGO_H);
+      } catch { /* skip */ }
     }
-    y = 28;
+
+    // ── Company info (centre-left, after logo) ────────────────────────────────
+    const infoX   = company.logoDataUrl ? margin + logoRenderW + 5 : margin;
+    const dateW   = 38; // reserve for date column (mm)
+    const infoMaxW = pageW - infoX - dateW - margin;
+
+    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+    if (company.name) {
+      doc.text(company.name, infoX, 9, { maxWidth: infoMaxW });
+    }
+
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    if (company.subtitle) {
+      doc.text(company.subtitle, infoX, 15, { maxWidth: infoMaxW });
+    }
+
+    const contactParts = [company.email, company.phone].filter(Boolean);
+    if (contactParts.length) {
+      doc.setFontSize(7);
+      doc.text(contactParts.join('  ·  '), infoX, 21, { maxWidth: infoMaxW });
+    }
+
+    // ── Date (right) ─────────────────────────────────────────────────────────
+    const rightX = pageW - margin;
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+    doc.text('Étude posturale', rightX, 9, { align: 'right' });
+    doc.setFontSize(7);
+    doc.text(dateStr, rightX, 15, { align: 'right' });
+
+    y = HDR_H + 8;
   };
 
   const newPage = () => { doc.addPage(); drawHeader(); };
