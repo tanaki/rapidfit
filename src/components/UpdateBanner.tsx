@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-type UpdateState = 'idle' | 'downloading' | 'ready' | 'error';
+type UpdateState = 'idle' | 'available-mac' | 'downloading' | 'ready' | 'error';
+
+interface ElectronAPI {
+  onUpdateAvailable:  (cb: (info: { version: string; isMac?: boolean }) => void) => void;
+  onUpdateDownloaded: (cb: (info: { version: string }) => void) => void;
+  onUpdateError:      (cb: (message: string) => void) => void;
+  installUpdate:      () => void;
+  openReleasePage:    () => void;
+}
 
 export function UpdateBanner() {
   const { t } = useTranslation();
@@ -10,22 +18,18 @@ export function UpdateBanner() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    const api = (window as unknown as { electronAPI?: {
-      onUpdateAvailable:  (cb: (info: { version: string }) => void) => void;
-      onUpdateDownloaded: (cb: (info: { version: string }) => void) => void;
-      onUpdateError:      (cb: (message: string) => void) => void;
-      installUpdate:      () => void;
-    } }).electronAPI;
-
+    const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI;
     if (!api) return;
 
-    api.onUpdateAvailable((info)  => { setVersion(info.version); setState('downloading'); });
+    api.onUpdateAvailable((info) => {
+      setVersion(info.version);
+      setState(info.isMac ? 'available-mac' : 'downloading');
+    });
     api.onUpdateDownloaded((info) => { setVersion(info.version); setState('ready'); });
     api.onUpdateError((msg)       => { setErrorMsg(msg); setState('error'); });
   }, []);
 
-  const install = () =>
-    (window as unknown as { electronAPI: { installUpdate: () => void } }).electronAPI.installUpdate();
+  const api = () => (window as unknown as { electronAPI: ElectronAPI }).electronAPI;
 
   if (state === 'idle') return null;
 
@@ -43,7 +47,24 @@ export function UpdateBanner() {
     );
   }
 
-  // ── Téléchargement en cours ───────────────────────────────────────────────
+  // ── Mac : téléchargement manuel ───────────────────────────────────────────
+  if (state === 'available-mac') {
+    return (
+      <button
+        onClick={() => api().openReleasePage()}
+        className="fixed bottom-6 right-6 z-[2000] flex items-center gap-3 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs rounded-xl px-4 py-3 shadow-2xl transition-all duration-150 cursor-pointer group"
+      >
+        <span className="text-base leading-none">↓</span>
+        <div className="text-left">
+          <p className="font-semibold">{t('update.available')}</p>
+          <p className="text-indigo-200 text-[10px]">v{version} — {t('update.clickToDownload')}</p>
+        </div>
+        <button onClick={e => { e.stopPropagation(); setState('idle'); }} className="text-indigo-300 hover:text-white ml-1 leading-none">✕</button>
+      </button>
+    );
+  }
+
+  // ── Téléchargement en cours (Windows) ────────────────────────────────────
   if (state === 'downloading') {
     return (
       <div className="fixed bottom-6 right-6 z-[2000] flex items-center gap-3 bg-[#1a1a2e]/95 border border-[#3d3d5c] text-slate-300 text-xs rounded-xl px-4 py-3 shadow-2xl backdrop-blur-sm">
@@ -53,10 +74,10 @@ export function UpdateBanner() {
     );
   }
 
-  // ── Prête à installer ─────────────────────────────────────────────────────
+  // ── Prête à installer (Windows) ───────────────────────────────────────────
   return (
     <button
-      onClick={install}
+      onClick={() => api().installUpdate()}
       className="fixed bottom-6 right-6 z-[2000] flex items-center gap-3 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white text-xs rounded-xl px-4 py-3 shadow-2xl transition-all duration-150 cursor-pointer group"
     >
       <span className="text-base leading-none group-hover:rotate-180 transition-transform duration-300">↻</span>

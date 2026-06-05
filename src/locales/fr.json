@@ -240,6 +240,8 @@
     "tibialAlignment": "Alignement tubérosité tibiale"
   },
   "update": {
+    "available": "Mise à jour disponible",
+    "clickToDownload": "Cliquer pour télécharger",
     "downloading": "Mise à jour v{{version}} en téléchargement…",
     "ready": "Mise à jour prête",
     "clickToRestart": "Cliquer pour relancer"

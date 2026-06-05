@@ -184,12 +184,13 @@ app.whenReady().then(async () => {
     // utilise l'API (api.github.com) au lieu du flux Atom public (releases.atom).
     if (__GH_UPDATE_TOKEN__) {
       process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
-      // App non signée (pas de certificat Apple Developer) — désactive la
-      // vérification de signature de ShipIt pour permettre l'installation.
-      autoUpdater.verifyUpdateCodeSignature = false;
+      // Sur Mac, l'app n'est pas signée → ShipIt refuse d'installer le zip.
+      // On désactive le téléchargement automatique et on redirige l'utilisateur
+      // vers la page GitHub Releases pour qu'il télécharge lui-même le DMG.
+      if (process.platform === 'darwin') autoUpdater.autoDownload = false;
       log.info(`[updater] token présent (${__GH_UPDATE_TOKEN__.slice(0, 6)}…), lancement checkForUpdates`);
       log.info(`[updater] version courante : ${app.getVersion()}`);
-      autoUpdater.checkForUpdatesAndNotify();
+      autoUpdater.checkForUpdates();
     } else {
       log.warn('[updater] GH_UPDATE_TOKEN absent — auto-update désactivé');
     }
@@ -203,7 +204,10 @@ app.on('window-all-closed', () => {
 // ── Auto-updater ──────────────────────────────────────────────────────────────
 
 autoUpdater.on('update-available', (info) => {
-  BrowserWindow.getAllWindows()[0]?.webContents.send('update-available', info);
+  BrowserWindow.getAllWindows()[0]?.webContents.send('update-available', {
+    ...info,
+    isMac: process.platform === 'darwin',
+  });
 });
 autoUpdater.on('update-downloaded', (info) => {
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-downloaded', info);
@@ -222,6 +226,9 @@ autoUpdater.on('error', (err) => {
 });
 ipcMain.on('install-update', () => {
   autoUpdater.quitAndInstall();
+});
+ipcMain.on('open-release-page', () => {
+  shell.openExternal('https://github.com/tanaki/rapidfit/releases/latest');
 });
 
 // ── File server port ──────────────────────────────────────────────────────────

@@ -240,6 +240,8 @@
     "tibialAlignment": "Tibial tuberosity alignment"
   },
   "update": {
+    "available": "Update available",
+    "clickToDownload": "Click to download",
     "downloading": "Downloading update v{{version}}…",
     "ready": "Update ready",
     "clickToRestart": "Click to restart"

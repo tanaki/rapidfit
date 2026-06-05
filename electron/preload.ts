@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateError: (cb: (message: string) => void) =>
     ipcRenderer.on('update-error', (_e, message) => cb(message)),
   installUpdate: () => ipcRenderer.send('install-update'),
+  openReleasePage: () => ipcRenderer.send('open-release-page'),
 
   // ── File server ─────────────────────────────────────────────────────────────
   getFileServerPort: () => ipcRenderer.invoke('get-file-server-port'),
