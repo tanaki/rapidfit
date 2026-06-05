@@ -184,6 +184,9 @@ app.whenReady().then(async () => {
     // utilise l'API (api.github.com) au lieu du flux Atom public (releases.atom).
     if (__GH_UPDATE_TOKEN__) {
       process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
+      // App non signée (pas de certificat Apple Developer) — désactive la
+      // vérification de signature de ShipIt pour permettre l'installation.
+      autoUpdater.verifyUpdateCodeSignature = false;
       log.info(`[updater] token présent (${__GH_UPDATE_TOKEN__.slice(0, 6)}…), lancement checkForUpdates`);
       log.info(`[updater] version courante : ${app.getVersion()}`);
       autoUpdater.checkForUpdatesAndNotify();
