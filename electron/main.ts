@@ -184,9 +184,11 @@ app.whenReady().then(async () => {
     // utilise l'API (api.github.com) au lieu du flux Atom public (releases.atom).
     if (__GH_UPDATE_TOKEN__) {
       process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
+      log.info(`[updater] token présent (${__GH_UPDATE_TOKEN__.slice(0, 6)}…), lancement checkForUpdates`);
+      log.info(`[updater] version courante : ${app.getVersion()}`);
       autoUpdater.checkForUpdatesAndNotify();
     } else {
-      log.warn('GH_UPDATE_TOKEN not baked in — auto-update disabled');
+      log.warn('[updater] GH_UPDATE_TOKEN absent — auto-update désactivé');
     }
   }
 });
@@ -203,8 +205,16 @@ autoUpdater.on('update-available', (info) => {
 autoUpdater.on('update-downloaded', (info) => {
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-downloaded', info);
 });
+autoUpdater.on('checking-for-update', () => {
+  log.info('[updater] vérification en cours…');
+});
+autoUpdater.on('update-not-available', () => {
+  log.info('[updater] aucune mise à jour disponible');
+});
 autoUpdater.on('error', (err) => {
-  log.error('AutoUpdater error:', err);
+  log.error('[updater] erreur complète :', err);
+  log.error('[updater] stack :', err.stack);
+  log.error('[updater] GH_TOKEN défini :', !!process.env.GH_TOKEN);
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-error', err.message);
 });
 ipcMain.on('install-update', () => {
