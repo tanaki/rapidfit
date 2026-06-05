@@ -2,10 +2,18 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 
 const isElectron = process.env.ELECTRON === 'true';
 const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'));
+
+// Charge .env.local pour les builds locaux (le CI injecte via secrets)
+if (existsSync('.env.local')) {
+  for (const line of readFileSync('.env.local', 'utf-8').split('\n')) {
+    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)=(.*)$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
+  }
+}
 
 export default defineConfig({
   plugins: [
