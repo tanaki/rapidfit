@@ -237,9 +237,9 @@
     "tibialAlignment": "Alignement tubérosité tibiale"
   },
   "update": {
-    "available": "Mise à jour v{{version}} disponible — téléchargement en cours…",
-    "downloaded": "Mise à jour v{{version}} prête à installer.",
-    "install": "Installer et relancer"
+    "downloading": "Mise à jour v{{version}} en téléchargement…",
+    "ready": "Mise à jour prête",
+    "clickToRestart": "Cliquer pour relancer"
   },
   "help": {
     "title": "Guide d'utilisation",

@@ -237,9 +237,9 @@
     "tibialAlignment": "Tibial tuberosity alignment"
   },
   "update": {
-    "available": "Update v{{version}} available — downloading…",
-    "downloaded": "Update v{{version}} ready to install.",
-    "install": "Install and relaunch"
+    "downloading": "Downloading update v{{version}}…",
+    "ready": "Update ready",
+    "clickToRestart": "Click to restart"
   },
   "help": {
     "title": "User guide",
