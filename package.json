@@ -77,7 +77,8 @@
       "provider": "github",
       "owner": "tanaki",
       "repo": "rapidfit",
-      "private": true
+      "private": true,
+      "releaseType": "release"
     },
     "mac": {
       "category": "public.app-category.sports",
