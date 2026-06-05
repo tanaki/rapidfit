@@ -179,11 +179,6 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
   if (!isDev) {
-    autoUpdater.logger = log;
-    (autoUpdater.logger as typeof log).transports.file.level = 'info';
-    // GH_TOKEN est la variable standard lue par electron-updater pour les repos privés.
-    // Elle doit être définie AVANT checkForUpdates pour que le provider GitHub
-    // utilise l'API (api.github.com) au lieu du flux Atom public (releases.atom).
     if (__GH_UPDATE_TOKEN__) {
       log.info(`[updater] token présent (${__GH_UPDATE_TOKEN__.slice(0, 6)}…)`);
       log.info(`[updater] version courante : ${app.getVersion()}`);
@@ -366,9 +361,6 @@ ipcMain.on('install-update', () => {
   } else {
     autoUpdater.quitAndInstall();
   }
-});
-ipcMain.on('open-release-page', () => {
-  shell.openExternal('https://github.com/tanaki/rapidfit/releases/latest');
 });
 
 // ── File server port ──────────────────────────────────────────────────────────
