@@ -7,6 +7,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import http from 'http';
+import https from 'https';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import type { Client, Session } from '../src/types/index.js';
@@ -184,13 +185,16 @@ app.whenReady().then(async () => {
     // Elle doit être définie AVANT checkForUpdates pour que le provider GitHub
     // utilise l'API (api.github.com) au lieu du flux Atom public (releases.atom).
     if (__GH_UPDATE_TOKEN__) {
-      process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
-      // Sur Mac, l'app n'est pas signée donc ShipIt (Squirrel) refuse d'installer.
-      // On laisse electron-updater télécharger normalement, mais on intercepte
-      // l'installation avec un script bash maison (voir installWithScript).
-      log.info(`[updater] token présent (${__GH_UPDATE_TOKEN__.slice(0, 6)}…), lancement checkForUpdates`);
+      log.info(`[updater] token présent (${__GH_UPDATE_TOKEN__.slice(0, 6)}…)`);
       log.info(`[updater] version courante : ${app.getVersion()}`);
-      autoUpdater.checkForUpdates();
+      if (process.platform === 'darwin') {
+        // Sur Mac, electron-updater utilise MacUpdater/ShipIt qui exige une
+        // signature Apple. On bypasse complètement avec un updater custom.
+        checkForUpdatesMac(__GH_UPDATE_TOKEN__);
+      } else {
+        process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
+        autoUpdater.checkForUpdates();
+      }
     } else {
       log.warn('[updater] GH_UPDATE_TOKEN absent — auto-update désactivé');
     }
@@ -201,43 +205,135 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-// ── Auto-updater ──────────────────────────────────────────────────────────────
+// ── Auto-updater Windows (electron-updater) ───────────────────────────────────
 
-// Chemin du zip téléchargé sur Mac — stocké pour l'install script
-let macDownloadedZip: string | null = null;
-
-autoUpdater.on('checking-for-update', () => {
-  log.info('[updater] vérification en cours…');
-});
-autoUpdater.on('update-not-available', () => {
-  log.info('[updater] aucune mise à jour disponible');
-});
-autoUpdater.on('update-available', (info) => {
-  log.info(`[updater] nouvelle version disponible : ${info.version}`);
+autoUpdater.logger = log;
+(autoUpdater.logger as typeof log).transports.file.level = 'info';
+autoUpdater.on('checking-for-update',  () => log.info('[updater-win] vérification…'));
+autoUpdater.on('update-not-available', () => log.info('[updater-win] à jour'));
+autoUpdater.on('update-available',  (info) => {
+  log.info(`[updater-win] disponible : ${info.version}`);
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-available', info);
 });
 autoUpdater.on('update-downloaded', (info) => {
-  log.info(`[updater] téléchargement terminé : ${(info as unknown as { downloadedFile: string }).downloadedFile}`);
-  if (process.platform === 'darwin') {
-    macDownloadedZip = (info as unknown as { downloadedFile: string }).downloadedFile;
-  }
+  log.info(`[updater-win] téléchargé : ${info.version}`);
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-downloaded', info);
 });
 autoUpdater.on('error', (err) => {
-  log.error('[updater] erreur :', err.message);
-  log.error('[updater] GH_TOKEN défini :', !!process.env.GH_TOKEN);
+  log.error('[updater-win] erreur :', err.message);
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-error', err.message);
 });
 
-// ── Installation update Mac (bypass ShipIt) ───────────────────────────────────
-// Sur Mac sans signature Apple, ShipIt refuse d'installer le zip.
-// On écrit un script bash qui attend la fermeture de l'app, extrait le zip,
-// remplace le bundle .app, supprime la quarantaine et relance.
+// ── Auto-updater Mac custom (bypass MacUpdater/ShipIt) ────────────────────────
+// electron-updater utilise Squirrel.Mac (ShipIt) qui exige une signature Apple.
+// On bypasse entièrement : appel direct à l'API GitHub, téléchargement du zip,
+// installation via script bash (remplace le bundle .app sans passer par ShipIt).
+
+let macDownloadedZip: string | null = null;
+
+function githubApiGet(apiPath: string, token: string): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.github.com',
+      path: apiPath,
+      headers: {
+        Authorization: `token ${token}`,
+        'User-Agent': 'RapidFit-Updater',
+        Accept: 'application/vnd.github.v3+json',
+      },
+    }, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) reject(new Error(`GitHub API ${res.statusCode}: ${data}`));
+        else resolve(JSON.parse(data));
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+function downloadFile(url: string, token: string, dest: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    function follow(u: string, withAuth: boolean) {
+      const parsed = new URL(u);
+      const headers: Record<string, string> = { 'User-Agent': 'RapidFit-Updater' };
+      if (withAuth) {
+        headers.Authorization = `token ${token}`;
+        headers.Accept = 'application/octet-stream';
+      }
+      https.request({ hostname: parsed.hostname, path: parsed.pathname + parsed.search, headers }, res => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          follow(res.headers.location!, false); // CDN redirect, pas d'auth
+          return;
+        }
+        if (res.statusCode !== 200) { reject(new Error(`Download ${res.statusCode}`)); return; }
+        const file = fsSync.createWriteStream(dest);
+        res.pipe(file);
+        file.on('finish', () => { file.close(); resolve(); });
+        file.on('error', reject);
+      }).on('error', reject).end();
+    }
+    follow(url, true);
+  });
+}
+
+function isNewer(latest: string, current: string): boolean {
+  const [lMaj, lMin, lPat] = latest.split('.').map(Number);
+  const [cMaj, cMin, cPat] = current.split('.').map(Number);
+  if (lMaj !== cMaj) return lMaj > cMaj;
+  if (lMin !== cMin) return lMin > cMin;
+  return lPat > cPat;
+}
+
+async function checkForUpdatesMac(token: string) {
+  const win = () => BrowserWindow.getAllWindows()[0];
+  try {
+    log.info('[updater-mac] vérification…');
+    const release = await githubApiGet('/repos/tanaki/rapidfit/releases/latest', token) as {
+      tag_name: string;
+      assets: { id: number; name: string }[];
+    };
+    const latest = release.tag_name.replace(/^v/, '');
+    const current = app.getVersion();
+    log.info(`[updater-mac] latest=${latest} current=${current}`);
+
+    if (!isNewer(latest, current)) {
+      log.info('[updater-mac] déjà à jour');
+      return;
+    }
+
+    const assetName = `RapidFit-${latest}-arm64-mac.zip`;
+    const asset = release.assets.find(a => a.name === assetName);
+    if (!asset) {
+      log.warn(`[updater-mac] asset introuvable : ${assetName}`);
+      return;
+    }
+
+    log.info(`[updater-mac] nouvelle version ${latest}, téléchargement…`);
+    win()?.webContents.send('update-available', { version: latest });
+
+    const zipPath = path.join(app.getPath('temp'), assetName);
+    await downloadFile(
+      `https://api.github.com/repos/tanaki/rapidfit/releases/assets/${asset.id}`,
+      token, zipPath,
+    );
+
+    macDownloadedZip = zipPath;
+    log.info(`[updater-mac] prêt à installer : ${zipPath}`);
+    win()?.webContents.send('update-downloaded', { version: latest });
+
+  } catch (err) {
+    log.error('[updater-mac] erreur :', (err as Error).message);
+    win()?.webContents.send('update-error', (err as Error).message);
+  }
+}
+
 function installWithScript(zipPath: string) {
-  // process.execPath = .../RapidFit.app/Contents/MacOS/RapidFit → 3 niveaux au-dessus
   const appBundle = path.resolve(process.execPath, '..', '..', '..');
   const appParent = path.dirname(appBundle);
-  const appName   = path.basename(appBundle); // RapidFit.app
+  const appName   = path.basename(appBundle);
   const tmpScript = path.join(app.getPath('temp'), 'rapidfit-update.sh');
 
   const script = [
@@ -257,17 +353,15 @@ function installWithScript(zipPath: string) {
   ].join('\n');
 
   fsSync.writeFileSync(tmpScript, script, { mode: 0o755 });
-  log.info(`[updater] script installé : ${tmpScript}`);
-  log.info(`[updater] bundle cible : ${appBundle}`);
-
-  const child = spawn('bash', [tmpScript], { detached: true, stdio: 'ignore' });
-  child.unref();
+  log.info(`[updater-mac] script : ${tmpScript}`);
+  log.info(`[updater-mac] bundle : ${appBundle}`);
+  spawn('bash', [tmpScript], { detached: true, stdio: 'ignore' }).unref();
   app.quit();
 }
 
 ipcMain.on('install-update', () => {
   if (process.platform === 'darwin' && macDownloadedZip) {
-    log.info('[updater] installation Mac via script bash');
+    log.info('[updater-mac] installation via script bash');
     installWithScript(macDownloadedZip);
   } else {
     autoUpdater.quitAndInstall();
