@@ -468,9 +468,9 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 
 ```
 Branche active : dev
-Dernière version taguée : v1.5.14
-Version courante sur dev : v1.5.14
-Pour publier : git push origin dev && git tag v1.5.14 && git push origin v1.5.14
+Dernière version taguée : v1.5.15
+Version courante sur dev : v1.5.15
+Pour publier : git push origin dev && git tag v1.5.15 && git push origin v1.5.15
 ```
 
 ## Décisions techniques Phase 3 (ajouts)
