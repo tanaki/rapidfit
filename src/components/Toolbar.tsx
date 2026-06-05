@@ -20,7 +20,6 @@ interface Props {
   onColor: (c: string) => void;
   onUndo: () => void;
   onRedo: () => void;
-  onClear: () => void;
   canUndo: boolean;
   canRedo: boolean;
 }
@@ -28,7 +27,7 @@ interface Props {
 export function Toolbar({
   tool, color,
   onTool, onColor,
-  onUndo, onRedo, onClear, canUndo, canRedo,
+  onUndo, onRedo, canUndo, canRedo,
 }: Props) {
   const { t } = useTranslation();
 
@@ -64,8 +63,6 @@ export function Toolbar({
         className="w-10 h-10 rounded-lg bg-[#22223b] text-slate-300 hover:bg-[#2d2d48] disabled:opacity-30 text-sm">↩</button>
       <button title={t('toolbar.redo')} onClick={onRedo} disabled={!canRedo}
         className="w-10 h-10 rounded-lg bg-[#22223b] text-slate-300 hover:bg-[#2d2d48] disabled:opacity-30 text-sm">↪</button>
-      <button title={t('toolbar.clear')} onClick={onClear}
-        className="w-10 h-10 rounded-lg bg-[#22223b] text-red-400 hover:bg-red-900/30 text-sm">🗑</button>
 
       <div className="w-8 border-t border-[#22223b]" />
 

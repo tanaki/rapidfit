@@ -170,11 +170,16 @@ export default function App() {
 
   // ── Source pane A ─────────────────────────────────────────────────────────
   const singleSource: PaneSource = useMemo(() => {
-    if (isLiveMode) return { type: 'camera', deviceId: config.deviceId };
+    if (isLiveMode) {
+      // Si aucun device configuré, on prend le premier disponible pour que
+      // le SourceSelector affiche la bonne caméra dans la liste.
+      const deviceId = config.deviceId || devices[0]?.deviceId || '';
+      return { type: 'camera', deviceId };
+    }
     if (media.activeRecording) return { type: 'recording', recording: media.activeRecording };
     if (media.activeImage) return { type: 'image', capture: media.activeImage };
     return { type: 'none' };
-  }, [isLiveMode, media.activeRecording, media.activeImage, config.deviceId]);
+  }, [isLiveMode, media.activeRecording, media.activeImage, config.deviceId, devices]);
 
   // ── Shared annotation props factory ───────────────────────────────────────
   function makeAnnotationProps(ls: LayersState) {
@@ -360,7 +365,6 @@ export default function App() {
           tool={tool} color={color}
           onTool={setTool} onColor={setColor}
           onUndo={activeLayers.undo} onRedo={activeLayers.redo}
-          onClear={activeLayers.clearActiveLayer}
           canUndo={activeLayers.history.length > 0}
           canRedo={activeLayers.future.length > 0}
         />
@@ -493,8 +497,9 @@ export default function App() {
         onStopRecording={handleStopRecording}
         onImportVideo={() => importInputRef.current?.click()}
         onLiveMode={() => {
+          const deviceId = config.deviceId || devices[0]?.deviceId || '';
           if (splitMode && activePaneIndex === 1) {
-            setPaneBSource({ type: 'camera', deviceId: config.deviceId });
+            setPaneBSource({ type: 'camera', deviceId });
           } else {
             setIsLiveMode(true); media.setActiveRecording(null); media.setActiveImage(null);
           }
