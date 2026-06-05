@@ -184,8 +184,10 @@ app.whenReady().then(async () => {
     // utilise l'API (api.github.com) au lieu du flux Atom public (releases.atom).
     if (__GH_UPDATE_TOKEN__) {
       process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
+      autoUpdater.checkForUpdatesAndNotify();
+    } else {
+      log.warn('GH_UPDATE_TOKEN not baked in — auto-update disabled');
     }
-    autoUpdater.checkForUpdatesAndNotify();
   }
 });
 

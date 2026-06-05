@@ -61,5 +61,6 @@ jobs:
       - name: Package & publish Windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
           ELECTRON: 'true'
         run: npx electron-builder --win --publish always
