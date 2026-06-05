@@ -13,7 +13,10 @@ export function HelpModal({ onClose }: Props) {
     >
       <div className="bg-[#13131f] border border-[#22223b] rounded-xl p-6 w-[720px] max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-semibold text-slate-100">{t('help.title')}</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-100">{t('help.title')}</h2>
+            <span className="text-[10px] text-slate-500 font-mono select-text">v{__APP_VERSION__}</span>
+          </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl">✕</button>
         </div>
 
@@ -108,53 +111,48 @@ export function HelpModal({ onClose }: Props) {
           </div>
         </section>
 
-        {/* ── Guide des cotes + Split (2 colonnes) ── */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
-          <section>
-            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.cotes')}</h3>
-            <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
-              <p>• {t('help.cotes_desc1')}</p>
-              <p>• {t('help.cotes_desc2')}</p>
-              <p>• {t('help.cotes_desc3')}</p>
-            </div>
-          </section>
+        {/* ── Guide des cotes ── */}
+        <section className="mb-5">
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.cotes')}</h3>
+          <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
+            <p>• {t('help.cotes_desc1')}</p>
+            <p>• {t('help.cotes_desc2')}</p>
+            <p>• {t('help.cotes_desc3')}</p>
+          </div>
+        </section>
 
-          <section>
-            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.split')}</h3>
-            <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
-              <p>• {t('help.split_desc1')}</p>
-              <p>• {t('help.split_desc2')}</p>
-              <p>• {t('help.split_desc3')}</p>
-            </div>
-          </section>
-        </div>
+        {/* ── Split ── */}
+        <section className="mb-5">
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.split')}</h3>
+          <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
+            <p>• {t('help.split_desc1')}</p>
+            <p>• {t('help.split_desc2')}</p>
+            <p>• {t('help.split_desc3')}</p>
+          </div>
+        </section>
 
-        {/* ── Calques + Compte rendu (2 colonnes) ── */}
-        <div className="grid grid-cols-2 gap-4">
-          <section>
-            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.layers')}</h3>
-            <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
-              <p>• <span className="text-slate-300 font-mono">{t('help.layers_desc1_create')}</span> {t('help.layers_desc1_text').split(' · ')[0]} · <span className="text-slate-300 font-mono">{t('help.layers_desc1_hide')}</span> {t('help.layers_desc1_text').split(' · ')[1]} · <span className="text-slate-300 font-mono">{t('help.layers_desc1_lock')}</span> {t('help.layers_desc1_text').split(' · ')[2]} · <span className="text-slate-300 font-mono">{t('help.layers_desc1_reorder')}</span> {t('help.layers_desc1_text').split(' · ')[3]}</p>
-              <p>• {t('help.layers_desc2')}</p>
-            </div>
-          </section>
+        {/* ── Calques ── */}
+        <section className="mb-5">
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.layers')}</h3>
+          <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
+            <p>• <span className="text-slate-300 font-mono">{t('help.layers_desc1_create')}</span> {t('help.layers_desc1_text').split(' · ')[0]} · <span className="text-slate-300 font-mono">{t('help.layers_desc1_hide')}</span> {t('help.layers_desc1_text').split(' · ')[1]} · <span className="text-slate-300 font-mono">{t('help.layers_desc1_lock')}</span> {t('help.layers_desc1_text').split(' · ')[2]} · <span className="text-slate-300 font-mono">{t('help.layers_desc1_reorder')}</span> {t('help.layers_desc1_text').split(' · ')[3]}</p>
+            <p>• {t('help.layers_desc2')}</p>
+          </div>
+        </section>
 
-          <section>
-            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.report')}</h3>
-            <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
-              <p>• {t('help.report_desc1')}</p>
-              <p>• {t('help.report_desc2')}</p>
-              <p>• {t('help.report_desc3')}</p>
-            </div>
-          </section>
-        </div>
+        {/* ── Compte rendu ── */}
+        <section className="mb-5">
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.report')}</h3>
+          <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
+            <p>• {t('help.report_desc1')}</p>
+            <p>• {t('help.report_desc2')}</p>
+            <p>• {t('help.report_desc3')}</p>
+          </div>
+        </section>
 
-        <div className="mt-6 flex items-center justify-between gap-4">
-          <span className="text-[10px] text-slate-600 font-mono select-text">v{__APP_VERSION__}</span>
-          <button onClick={onClose} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors">
-            {t('help.close')}
-          </button>
-        </div>
+        <button onClick={onClose} className="mt-2 w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors">
+          {t('help.close')}
+        </button>
       </div>
     </div>
   );

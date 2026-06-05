@@ -179,8 +179,11 @@ app.whenReady().then(async () => {
   if (!isDev) {
     autoUpdater.logger = log;
     (autoUpdater.logger as typeof log).transports.file.level = 'info';
+    // GH_TOKEN est la variable standard lue par electron-updater pour les repos privés.
+    // Elle doit être définie AVANT checkForUpdates pour que le provider GitHub
+    // utilise l'API (api.github.com) au lieu du flux Atom public (releases.atom).
     if (__GH_UPDATE_TOKEN__) {
-      autoUpdater.requestHeaders = { Authorization: `token ${__GH_UPDATE_TOKEN__}` };
+      process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
     }
     autoUpdater.checkForUpdatesAndNotify();
   }

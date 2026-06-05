@@ -7,7 +7,7 @@
     "email": "contact@escampette.bike"
   },
   "private": true,
-  "version": "1.5.2",
+  "version": "1.5.3",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -75,6 +75,8 @@
     ],
     "publish": {
       "provider": "github",
+      "owner": "tanaki",
+      "repo": "rapidfit",
       "private": true
     },
     "mac": {
