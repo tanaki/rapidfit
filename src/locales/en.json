@@ -68,7 +68,10 @@
     "refreshCameras": "Refresh cameras"
   },
   "settings": {
-    "title": "Video settings",
+    "title": "Settings",
+    "tabVideo": "Video",
+    "tabCompany": "Company",
+    "tabInterface": "Interface",
     "camera": "Camera",
     "defaultCamera": "Default camera",
     "resolution": "Resolution",

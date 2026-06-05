@@ -42,11 +42,11 @@ export function HelpModal({ onClose }: Props) {
           </div>
         </section>
 
-        {/* ── Raccourcis + Souris (2 colonnes) ── */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
+        {/* ── Raccourcis clavier + Trackpad ── */}
+        <div className="grid grid-cols-2 gap-x-6 mb-5">
           <section>
             <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.shortcuts')}</h3>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1">
               {[
                 ['H',                           t('help.shortcut_pan')],
                 ['V',                           t('help.shortcut_select')],
@@ -60,9 +60,9 @@ export function HelpModal({ onClose }: Props) {
                 [t('help.shortcut_arrows_key'), t('help.shortcut_arrows')],
                 [t('help.shortcut_shift_key'),  t('help.shortcut_shift')],
               ].map(([key, label]) => (
-                <div key={key} className="flex items-center gap-2 min-w-0">
-                  <kbd className="shrink-0 bg-[#3d3d5c] rounded px-1.5 py-0.5 text-[10px] font-mono text-slate-300 whitespace-nowrap">{key}</kbd>
-                  <span className="text-slate-400 text-xs">{label}</span>
+                <div key={key} className="flex items-center gap-2 h-6">
+                  <kbd className="shrink-0 bg-[#3d3d5c] rounded px-1.5 py-0.5 text-[10px] font-mono text-slate-300 whitespace-nowrap leading-none">{key}</kbd>
+                  <span className="text-slate-400 text-xs truncate">{label}</span>
                 </div>
               ))}
             </div>
@@ -70,7 +70,7 @@ export function HelpModal({ onClose }: Props) {
 
           <section>
             <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.mouse')}</h3>
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-1">
               {[
                 [t('help.mouse_zoom_key'),         t('help.mouse_zoom')],
                 [t('help.mouse_pinch_key'),        t('help.mouse_pinch')],
@@ -82,9 +82,9 @@ export function HelpModal({ onClose }: Props) {
                 [t('help.mouse_handle_key'),       t('help.mouse_handle')],
                 [t('help.mouse_element_key'),      t('help.mouse_element')],
               ].map(([key, label]) => (
-                <div key={key} className="flex items-start gap-2">
-                  <span className="shrink-0 text-[10px] font-mono bg-[#22223b] text-slate-400 rounded px-1.5 py-0.5 whitespace-nowrap leading-tight mt-px">{key}</span>
-                  <span className="text-slate-400 text-xs leading-relaxed">{label}</span>
+                <div key={key} className="flex items-center gap-2 h-6">
+                  <span className="shrink-0 text-[10px] font-mono bg-[#22223b] text-slate-400 rounded px-1.5 py-0.5 whitespace-nowrap leading-none">{key}</span>
+                  <span className="text-slate-400 text-xs truncate">{label}</span>
                 </div>
               ))}
             </div>
