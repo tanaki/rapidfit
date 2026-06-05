@@ -74,7 +74,7 @@ export function HelpModal({ onClose }: Props) {
                   <button
                     onClick={handleCheck}
                     disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-[#22223b] hover:bg-[#2d2d48] disabled:opacity-40 text-slate-400 hover:text-slate-200 transition-colors font-medium"
+                    className="text-[10px] px-2.5 py-1 rounded bg-[#22223b] hover:bg-[#2d2d48] disabled:opacity-40 text-slate-400 hover:text-slate-200 transition-colors font-medium"
                   >
                     {updateStatus === 'checking' ? 'Vérification…' : 'Vérifier les mises à jour'}
                   </button>
@@ -87,7 +87,7 @@ export function HelpModal({ onClose }: Props) {
                   {updateStatus === 'ready' && (
                     <button
                       onClick={() => api.installUpdate()}
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium animate-pulse"
+                      className="text-[10px] px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium animate-pulse"
                     >
                       ✓ v{updateVersion} prête — Installer
                     </button>
