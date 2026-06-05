@@ -266,7 +266,7 @@ src/App.tsx                            branché useCompany + chargement report.j
 - Image bike-diagram.png intégrée dans le PDF
 - `public/bike-diagram.png` à fournir par l'utilisateur (slot prêt, SVG en fallback)
 
-### Dernière version taguée : v1.5.2 — version courante sur dev : v1.5.2
+### Dernière version taguée : v1.5.6 — version courante sur dev : v1.5.6
 
 ### Plan d'action original (archivé)
 
@@ -468,10 +468,9 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 
 ```
 Branche active : dev
-Dernière version taguée : v1.5.2
-Version courante (non taguée) : v1.5.5 — prête à tagger
-Prochain tag prévu : v1.5.5 (fix auto-update : checkForUpdates conditionnel au token + GH_UPDATE_TOKEN ajouté au job Windows CI)
-Pour publier : git push origin dev && git tag v1.5.5 && git push origin v1.5.5
+Dernière version taguée : v1.5.6
+Version courante sur dev : v1.5.6
+Pour publier : git push origin dev && git tag v1.5.6 && git push origin v1.5.6
 ```
 
 ## Décisions techniques Phase 3 (ajouts)
