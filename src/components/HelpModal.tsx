@@ -67,7 +67,37 @@ export function HelpModal({ onClose }: Props) {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-lg font-semibold text-slate-100">{t('help.title')}</h2>
-            <span className="text-[10px] text-slate-500 font-mono select-text">v{__APP_VERSION__}</span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[10px] text-slate-500 font-mono select-text">v{__APP_VERSION__}</span>
+              {api && (
+                <>
+                  <button
+                    onClick={handleCheck}
+                    disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-[#22223b] hover:bg-[#2d2d48] disabled:opacity-40 text-slate-400 hover:text-slate-200 transition-colors font-medium"
+                  >
+                    {updateStatus === 'checking' ? 'Vérification…' : 'Vérifier les mises à jour'}
+                  </button>
+                  {updateStatus === 'up-to-date' && (
+                    <span className="text-[10px] text-green-400">✓ à jour</span>
+                  )}
+                  {updateStatus === 'downloading' && (
+                    <span className="text-[10px] text-indigo-300">⬇ v{updateVersion}…</span>
+                  )}
+                  {updateStatus === 'ready' && (
+                    <button
+                      onClick={() => api.installUpdate()}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium animate-pulse"
+                    >
+                      ✓ v{updateVersion} prête — Installer
+                    </button>
+                  )}
+                  {updateStatus === 'error' && (
+                    <span className="text-[10px] text-red-400" title={updateError ?? ''}>⚠ Erreur</span>
+                  )}
+                </>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl">✕</button>
         </div>
@@ -201,52 +231,6 @@ export function HelpModal({ onClose }: Props) {
             <p>• {t('help.report_desc3')}</p>
           </div>
         </section>
-
-        {/* ── Mises à jour ── */}
-        {api && (
-          <section className="mb-5 border border-[#22223b] rounded-lg p-4">
-            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">Mises à jour</h3>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleCheck}
-                disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
-                className="shrink-0 px-3 py-1.5 bg-[#22223b] hover:bg-[#2d2d48] disabled:opacity-40 text-slate-200 rounded-lg text-xs font-medium transition-colors"
-              >
-                {updateStatus === 'checking' ? 'Vérification…' : 'Vérifier les mises à jour'}
-              </button>
-
-              <span className="text-xs">
-                {updateStatus === 'idle' && (
-                  <span className="text-slate-500">Version actuelle : <span className="font-mono text-slate-400">v{__APP_VERSION__}</span></span>
-                )}
-                {updateStatus === 'checking' && (
-                  <span className="text-slate-400">Connexion à GitHub…</span>
-                )}
-                {updateStatus === 'up-to-date' && (
-                  <span className="text-green-400">✓ Vous avez la dernière version</span>
-                )}
-                {updateStatus === 'downloading' && (
-                  <span className="text-indigo-300">⬇ Téléchargement de la v{updateVersion}…</span>
-                )}
-                {updateStatus === 'ready' && (
-                  <span className="text-yellow-300">✓ v{updateVersion} prête — redémarrage requis</span>
-                )}
-                {updateStatus === 'error' && (
-                  <span className="text-red-400" title={updateError ?? ''}>⚠ Erreur lors de la vérification</span>
-                )}
-              </span>
-
-              {updateStatus === 'ready' && (
-                <button
-                  onClick={() => api.installUpdate()}
-                  className="shrink-0 ml-auto px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors"
-                >
-                  Installer et redémarrer
-                </button>
-              )}
-            </div>
-          </section>
-        )}
 
         <button onClick={onClose} className="mt-2 w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors">
           {t('help.close')}
