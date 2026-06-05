@@ -226,6 +226,7 @@
     "measured": "Measured",
     "notApplicable": "—",
     "checkReminder": "Visual check",
+    "noAngle": "no angle measured yet",
     "kneeExtension": "Knee extension",
     "ankleExtension": "Ankle extension",
     "ankleKneeFlex": "Ankle (knee flexed)",

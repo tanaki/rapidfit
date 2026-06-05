@@ -6,15 +6,15 @@ import type { AngleElement } from '../types';
 import {
   REFERENCE_ROWS,
   getRange,
-  findBestAngleForRow,
+  getStatus,
   type ReferenceRange,
   type AngleStatus,
 } from '../data/referenceAngles';
 
 interface CotesProps {
   discipline: Discipline;
-  activeCoteKey: string | null;
-  measuredAngles: AngleElement[];
+  layers: Layer[];
+  activeLayerId: string;
   onSelectCote: (key: string | null) => void;
 }
 
@@ -52,8 +52,22 @@ function formatRange(range: ReferenceRange): string {
   return `${range.min}–${range.max}°`;
 }
 
-function CotesSection({ discipline, activeCoteKey, measuredAngles, onSelectCote }: CotesProps) {
+// Retourne la meilleure valeur mesurée depuis les éléments d'un calque donné
+function getBestAngle(layer: Layer | undefined, range: ReferenceRange | null) {
+  if (!layer || !range) return null;
+  const angles = layer.elements.filter((e): e is AngleElement => e.type === 'angle');
+  if (!angles.length) return null;
+  const center = (range.min + range.max) / 2;
+  const best = angles.reduce((a, b) =>
+    Math.abs(a.angle - center) <= Math.abs(b.angle - center) ? a : b
+  );
+  return { angle: best.angle, color: best.color, status: getStatus(best.angle, range) };
+}
+
+function CotesSection({ discipline, layers, activeLayerId, onSelectCote }: CotesProps) {
   const { t } = useTranslation();
+  const activeLayer = layers.find(l => l.id === activeLayerId);
+  const activeCoteKey = activeLayer?.coteKey ?? null;
 
   return (
     <div className="border-b border-[#22223b] overflow-y-auto" style={{ maxHeight: '55%' }}>
@@ -69,30 +83,31 @@ function CotesSection({ discipline, activeCoteKey, measuredAngles, onSelectCote 
       <div className="flex flex-col">
         {REFERENCE_ROWS.map(row => {
           const range = getRange(row, discipline);
+          // Calque lié à cette cote (n'importe quel calque, pas juste l'actif)
+          const linkedLayer = layers.find(l => l.coteKey === row.key);
+          const measured = !row.isCheck && range ? getBestAngle(linkedLayer, range) : null;
+          // Mise en surbrillance : le calque actif est lié à cette cote
           const isActive = activeCoteKey === row.key;
-          const best = (isActive && !row.isCheck && range && measuredAngles.length > 0)
-            ? findBestAngleForRow(row.key, discipline, measuredAngles)
-            : null;
 
           return (
             <button
               key={row.key}
-              onClick={() => onSelectCote(isActive ? null : row.key)}
+              onClick={() => onSelectCote(row.key)}
               className={`w-full text-left px-3 py-1.5 border-b border-[#1a1a2e] transition-colors
                 ${isActive ? 'bg-yellow-500/10' : 'hover:bg-[#22223b]'}`}
             >
               <div className="flex items-center justify-between gap-1 min-w-0">
-                {/* Left: dot indicator + label */}
+                {/* Indicateur + label */}
                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors
-                    ${isActive ? 'bg-yellow-400' : 'bg-[#3d3d5c]'}`}
+                    ${isActive ? 'bg-yellow-400' : linkedLayer ? 'bg-indigo-400' : 'bg-[#3d3d5c]'}`}
                   />
                   <span className="text-[11px] text-slate-300 truncate leading-tight">
                     {t(`guide.${row.key}`)}
                   </span>
                 </div>
 
-                {/* Right: range or check label */}
+                {/* Plage de référence */}
                 <div className="shrink-0 flex items-center gap-1">
                   {row.isCheck ? (
                     <span className="text-[9px] text-slate-600 italic">{t('guide.checkReminder')}</span>
@@ -106,11 +121,23 @@ function CotesSection({ discipline, activeCoteKey, measuredAngles, onSelectCote 
                 </div>
               </div>
 
-              {/* Measured value badge — shown when there's a matched angle */}
-              {best && (
-                <div className={`mt-1 ml-3 inline-flex items-center gap-1 rounded px-1.5 py-0.5 border text-[10px] font-mono font-semibold ${STATUS_BG[best.status]}`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[best.status]}`} />
-                  {Math.round(best.angle)}°
+              {/* Badge valeur mesurée — toujours visible si un calque est lié */}
+              {measured && (
+                <div className={`mt-1 ml-3 inline-flex items-center gap-1 rounded px-1.5 py-0.5 border text-[10px] font-mono font-semibold ${STATUS_BG[measured.status]}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[measured.status]}`} />
+                  {Math.round(measured.angle)}°
+                  {linkedLayer && !isActive && (
+                    <span className="text-[9px] opacity-60 ml-0.5 font-normal truncate max-w-[50px]">
+                      {linkedLayer.name}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Calque lié mais sans angle : petit hint */}
+              {linkedLayer && !measured && !row.isCheck && range && (
+                <div className="mt-1 ml-3 text-[9px] text-slate-600 italic">
+                  {linkedLayer.name} — {t('guide.noAngle')}
                 </div>
               )}
             </button>
@@ -204,6 +231,15 @@ export function LayerPanel({
                   >✕</button>
                 )}
               </div>
+
+              {/* Badge cote liée */}
+              {layer.coteKey && (
+                <div className="mt-0.5 ml-10 flex items-center gap-1">
+                  <span className="text-[9px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded px-1.5 py-px truncate max-w-[120px]">
+                    {t(`guide.${layer.coteKey}`)}
+                  </span>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 mt-1 pl-6">
                 <input

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { VideoConfig, PaneSource, AnnotationElement, AngleElement } from './types';
-import { findBestAngleForRow } from './data/referenceAngles';
+import type { VideoConfig, PaneSource, AnnotationElement } from './types';
 import { useLayers } from './hooks/useLayers';
 import type { LayersState } from './hooks/useLayers';
 import { useDevices } from './hooks/useCamera';
@@ -58,7 +57,6 @@ export default function App() {
   // Overlay options
   const [showGuide, setShowGuide] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
-  const [activeCoteKey, setActiveCoteKey] = useState<string | null>(null);
   const [gridSize, setGridSize] = useState(50);
 
   // Pane refs + split source for pane B only
@@ -203,10 +201,6 @@ export default function App() {
   }
 
   const activeLayerName = activeLayers.layers.find(l => l.id === activeLayers.activeLayerId)?.name ?? '—';
-
-  const measuredAngles = activeLayers.layers
-    .flatMap(l => l.elements)
-    .filter((e): e is AngleElement => e.type === 'angle');
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
@@ -449,16 +443,16 @@ export default function App() {
           {...activeLayers.layerActions}
           cotesProps={sessions.activeSession ? {
             discipline: sessions.activeSession.discipline,
-            activeCoteKey,
-            measuredAngles,
+            layers: activeLayers.layers,
+            activeLayerId: activeLayers.activeLayerId,
             onSelectCote: (key: string | null) => {
-              setActiveCoteKey(key);
-              if (!key || !sessions.activeSession) return;
-              const best = findBestAngleForRow(key, sessions.activeSession.discipline, measuredAngles);
-              if (!best) return;
-              const layer = activeLayers.layers.find(l => l.elements.some(e => e.id === best.id));
-              if (!layer) return;
-              activeLayers.layerActions.onRename(layer.id, t(`guide.${key}`));
+              const id = activeLayers.activeLayerId;
+              if (!id) return;
+              // Toggle : si déjà lié à cette cote → délier
+              const already = activeLayers.layers.find(l => l.id === id)?.coteKey === key;
+              const newKey = already ? null : key;
+              activeLayers.layerActions.onLinkCote(id, newKey);
+              if (newKey) activeLayers.layerActions.onRename(id, t(`guide.${newKey}`));
             },
           } : undefined}
         />

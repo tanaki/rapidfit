@@ -92,6 +92,7 @@ export interface Layer {
   opacity: number;
   locked: boolean;
   elements: AnnotationElement[];
+  coteKey?: string; // lien persistant vers une cote du guide (clé i18n guide.<key>)
 }
 
 export interface Recording {

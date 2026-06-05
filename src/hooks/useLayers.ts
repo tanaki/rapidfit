@@ -112,6 +112,8 @@ export function useLayers(initialName = 'Calque 1') {
       setLayers(prev => prev.map(l => l.id === id ? { ...l, locked: !l.locked } : l)),
     onRename: (id: string, name: string) =>
       setLayers(prev => prev.map(l => l.id === id ? { ...l, name } : l)),
+    onLinkCote: (id: string, coteKey: string | null) =>
+      setLayers(prev => prev.map(l => l.id === id ? { ...l, coteKey: coteKey ?? undefined } : l)),
     onOpacity: (id: string, opacity: number) =>
       setLayers(prev => prev.map(l => l.id === id ? { ...l, opacity } : l)),
     onMoveUp: (id: string) => {
