@@ -469,9 +469,9 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 ```
 Branche active : dev
 Dernière version taguée : v1.5.2
-Version courante (non taguée) : v1.5.4 — prête à tagger
-Prochain tag prévu : v1.5.4 (fix auto-update repo privé — owner/repo + GH_TOKEN)
-Pour publier : git push origin dev && git tag v1.5.4 && git push origin v1.5.4
+Version courante (non taguée) : v1.5.5 — prête à tagger
+Prochain tag prévu : v1.5.5 (fix auto-update repo privé — owner/repo + GH_TOKEN)
+Pour publier : git push origin dev && git tag v1.5.5 && git push origin v1.5.5
 ```
 
 ## Décisions techniques Phase 3 (ajouts)
