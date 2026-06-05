@@ -9,6 +9,8 @@ export type Tool =
   | 'rect'
   | 'ellipse'
   | 'angle'
+  | 'h-angle'
+  | 'v-angle'
   | 'eraser';
 
 export interface PathElement {
@@ -76,6 +78,17 @@ export interface AngleElement {
   angle: number; // degrees
 }
 
+export interface HVAngleElement {
+  type: 'hv-angle';
+  id: string;
+  p1: Point; // origin
+  p2: Point; // end of measured line
+  color: string;
+  strokeWidth: number;
+  angle: number; // degrees from fixed axis
+  mode: 'h' | 'v'; // h = horizontal reference, v = vertical reference
+}
+
 export type AnnotationElement =
   | PathElement
   | LineElement
@@ -83,7 +96,8 @@ export type AnnotationElement =
   | RectElement
   | EllipseElement
   | TextElement
-  | AngleElement;
+  | AngleElement
+  | HVAngleElement;
 
 export interface Layer {
   id: string;
@@ -98,19 +112,21 @@ export interface Layer {
 export interface Recording {
   id: string;
   name: string;
-  blob?: Blob;        // undefined for disk-backed recordings (loaded from filesystem)
-  url: string;        // object URL (fresh) or localfile:// URL (disk-backed)
+  blob?: Blob;
+  url: string;
   createdAt: Date;
   duration: number;
+  filePath?: string;  // absolute path on disk (disk-backed only)
 }
 
 export interface Capture {
   id: string;
   name: string;
-  blob?: Blob;        // undefined for disk-backed captures (loaded from filesystem)
-  url: string;        // object URL (fresh) or localfile:// URL (disk-backed)
+  blob?: Blob;
+  url: string;
   createdAt: Date;
-  paneLabel?: string; // 'A' | 'B' | undefined (single mode)
+  paneLabel?: string;
+  filePath?: string;  // absolute path on disk (disk-backed only)
 }
 
 export type AppMode = 'capture' | 'playback';

@@ -19,6 +19,7 @@ import { ReportModal } from './components/ReportModal';
 import { SessionSelector } from './components/SessionSelector';
 import { NewSessionModal } from './components/NewSessionModal';
 import { VideoPane, SourceSelector, type VideoPaneHandle } from './components/VideoPane';
+import { PanePlayer } from './components/PanePlayer';
 import { useStorage } from './hooks/useStorage';
 import { UpdateBanner } from './components/UpdateBanner';
 import { useCompany } from './hooks/useCompany';
@@ -62,8 +63,21 @@ export default function App() {
   // Pane refs + split source for pane B only
   const paneRef0 = useRef<VideoPaneHandle>(null);
   const paneRef1 = useRef<VideoPaneHandle>(null);
-  const [paneBSource, setPaneBSource] = useState<PaneSource>({ type: 'none' });
+  const [paneBSource, setPaneBSourceRaw] = useState<PaneSource>({ type: 'none' });
   const [activePaneIndex, setActivePaneIndex] = useState<0 | 1>(0);
+
+  // Playback state B — declared early so setPaneBSource can reference the setters
+  const [playbackPausedB, setPlaybackPausedB] = useState(true);
+  const [playbackTimeB, setPlaybackTimeB] = useState(0);
+  const [playbackDurationB, setPlaybackDurationB] = useState(0);
+
+  const setPaneBSource = useCallback((s: PaneSource) => {
+    setPaneBSourceRaw(s);
+    // Reset pane B player state when source changes
+    setPlaybackTimeB(0);
+    setPlaybackDurationB(0);
+    setPlaybackPausedB(true);
+  }, []);
 
   // Tools (shared across all canvases)
   const [tool, setTool] = useState<Tool>('angle');
@@ -106,32 +120,29 @@ export default function App() {
     setCaptureLabels: media.setCaptureLabels, setRecordingLabels: media.setRecordingLabels,
   });
 
-  // Playback state — fed by VideoPane A callbacks
+  // Playback state — pane A
   const [playbackPaused, setPlaybackPaused] = useState(true);
   const [playbackTime, setPlaybackTime] = useState(0);
   const [playbackDuration, setPlaybackDuration] = useState(0);
+
+  const activePaneIsB = splitMode && activePaneIndex === 1;
 
   const importInputRef = useRef<HTMLInputElement>(null);
 
   // ── Frame-by-frame ──────────────────────────────────────────────────────────
   const stepFrame = useCallback((dir: 1 | -1, frames = 1) => {
     const fps = config.frameRate || 30;
-    const activeRef = splitMode && activePaneIndex === 1 ? paneRef1 : paneRef0;
-    activeRef.current?.stepFrame(dir, fps, frames);
-    if (!splitMode || activePaneIndex === 0) {
-      requestAnimationFrame(() => {
-        const t = paneRef0.current?.getTime();
-        if (t !== undefined) setPlaybackTime(t);
-      });
-    }
-  }, [splitMode, activePaneIndex, config.frameRate]);
+    if (activePaneIsB) paneRef1.current?.stepFrame(dir, fps, frames);
+    else paneRef0.current?.stepFrame(dir, fps, frames);
+    // Time update comes from the 'seeked' event in VideoPane → onTimeUpdate,
+    // so we don't read currentTime here (would be before the frame is decoded).
+  }, [activePaneIsB, config.frameRate]);
 
-  const handlePlayPause = useCallback(() => paneRef0.current?.togglePlay(), []);
+  const handlePlayPause = useCallback(() => {
+    if (activePaneIsB) paneRef1.current?.togglePlay();
+    else paneRef0.current?.togglePlay();
+  }, [activePaneIsB]);
 
-  const handleSeek = useCallback((t: number) => {
-    paneRef0.current?.seekTo(t);
-    setPlaybackTime(t);
-  }, []);
 
   // ── Recording ──────────────────────────────────────────────────────────────
   const handleStartRecording = useCallback(() => {
@@ -188,7 +199,7 @@ export default function App() {
       tool, color, strokeWidth: 2, filled: false,
       onAddElement: (_: string, el: AnnotationElement) => {
         ls.addElementOnNewLayer(el);
-        if (el.type === 'line' || el.type === 'arrow' || el.type === 'angle' || el.type === 'path') {
+        if (el.type === 'line' || el.type === 'arrow' || el.type === 'angle' || el.type === 'hv-angle' || el.type === 'path') {
           advanceColor();
         }
       },
@@ -203,6 +214,15 @@ export default function App() {
   const activeLayerName = activeLayers.layers.find(l => l.id === activeLayers.activeLayerId)?.name ?? '—';
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  // Refs to avoid stale closures — always reflect current values without
+  // re-registering the listener on every render.
+  const isLiveModeRef    = useRef(isLiveMode);
+  const activePaneIsBRef = useRef(activePaneIsB);
+  const paneBSourceRef   = useRef(paneBSource);
+  isLiveModeRef.current    = isLiveMode;
+  activePaneIsBRef.current = activePaneIsB;
+  paneBSourceRef.current   = paneBSource;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -212,15 +232,19 @@ export default function App() {
         if (k === 'y') { e.preventDefault(); activeLayers.redo(); }
         return;
       }
-      if (!isLiveMode && k === 'Enter') { e.preventDefault(); handlePlayPause(); return; }
-      if (!isLiveMode && k === 'ArrowLeft')  { e.preventDefault(); stepFrame(-1, e.shiftKey ? 10 : 1); return; }
-      if (!isLiveMode && k === 'ArrowRight') { e.preventDefault(); stepFrame(1,  e.shiftKey ? 10 : 1); return; }
+      // Use active-pane live state, not pane A only
+      const activeIsLiveNow = activePaneIsBRef.current
+        ? paneBSourceRef.current.type === 'camera'
+        : isLiveModeRef.current;
+      if (!activeIsLiveNow && k === 'Enter') { e.preventDefault(); handlePlayPause(); return; }
+      if (!activeIsLiveNow && k === 'ArrowLeft')  { e.preventDefault(); stepFrame(-1, e.shiftKey ? 10 : 1); return; }
+      if (!activeIsLiveNow && k === 'ArrowRight') { e.preventDefault(); stepFrame(1,  e.shiftKey ? 10 : 1); return; }
       const map: Partial<Record<string, Tool>> = { h: 'pan', v: 'select', l: 'line', g: 'angle' };
       if (map[k.toLowerCase()]) setTool(map[k.toLowerCase()]!);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [activeLayers, isLiveMode, stepFrame, handlePlayPause]);
+  }, [activeLayers, stepFrame, handlePlayPause]);
 
   // ── Space bar — temporary pan ──────────────────────────────────────────────
   const toolRef      = useRef<Tool>(tool);
@@ -390,40 +414,80 @@ export default function App() {
 
           {/* Panes */}
           <div className="flex flex-1 overflow-hidden relative">
-            <VideoPane
-              ref={paneRef0}
-              source={singleSource} devices={devices} recordings={media.recordings}
-              active={splitMode && activePaneIndex === 0}
-              label={splitMode ? 'A' : undefined}
-              onFocus={splitMode ? () => setActivePaneIndex(0) : undefined}
-              showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
-              onCapture={(blob, name) => media.handleCapture(blob, name, splitMode ? 'A' : undefined)}
-              annotationProps={makeAnnotationProps(singleLayers)}
-              onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
-              onCameraError={setCameraError}
-              onTimeUpdate={setPlaybackTime}
-              onDurationChange={d => {
-                setPlaybackDuration(d);
-                if (isFinite(d) && d > 0) {
-                  media.setRecordings(prev => prev.map(r =>
-                    r.id === media.activeRecording?.id && r.duration === 0 ? { ...r, duration: d } : r,
-                  ));
-                }
-              }}
-              onPlayStateChange={p => setPlaybackPaused(p)}
-            />
+            {/* Pane A column */}
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <VideoPane
+                ref={paneRef0}
+                source={singleSource} devices={devices} recordings={media.recordings}
+                active={splitMode && activePaneIndex === 0}
+                label={splitMode ? 'A' : undefined}
+                onFocus={splitMode ? () => setActivePaneIndex(0) : undefined}
+                showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
+                onCapture={(blob, name) => media.handleCapture(blob, name, splitMode ? 'A' : undefined)}
+                annotationProps={makeAnnotationProps(singleLayers)}
+                onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
+                onCameraError={setCameraError}
+                onTimeUpdate={setPlaybackTime}
+                onDurationChange={d => {
+                  setPlaybackDuration(d);
+                  if (isFinite(d) && d > 0) {
+                    media.setRecordings(prev => prev.map(r =>
+                      r.id === media.activeRecording?.id && r.duration === 0 ? { ...r, duration: d } : r,
+                    ));
+                  }
+                }}
+                onPlayStateChange={p => setPlaybackPaused(p)}
+              />
+              <PanePlayer
+                label={splitMode ? 'A' : ''}
+                isLiveMode={isLiveMode}
+                isPaused={playbackPaused}
+                time={playbackTime}
+                duration={playbackDuration}
+                onPlayPause={() => paneRef0.current?.togglePlay()}
+                onSeek={t => { paneRef0.current?.seekTo(t); setPlaybackTime(t); }}
+                onFramePrev={() => paneRef0.current?.stepFrame(-1, config.frameRate || 30)}
+                onFrameNext={() => paneRef0.current?.stepFrame(1, config.frameRate || 30)}
+              />
+            </div>
+
             {splitMode && (
               <>
                 <div className="w-px bg-[#22223b] shrink-0" />
-                <VideoPane
-                  ref={paneRef1}
-                  source={paneBSource} devices={devices} recordings={media.recordings}
-                  active={activePaneIndex === 1} label="B"
-                  onFocus={() => setActivePaneIndex(1)}
-                  showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
-                  onCapture={(blob, name) => media.handleCapture(blob, name, 'B')}
-                  annotationProps={makeAnnotationProps(paneLayers1)}
-                />
+                {/* Pane B column */}
+                <div className="flex flex-col flex-1 overflow-hidden">
+                  <VideoPane
+                    ref={paneRef1}
+                    source={paneBSource} devices={devices} recordings={media.recordings}
+                    active={activePaneIndex === 1} label="B"
+                    onFocus={() => setActivePaneIndex(1)}
+                    showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
+                    onCapture={(blob, name) => media.handleCapture(blob, name, 'B')}
+                    annotationProps={makeAnnotationProps(paneLayers1)}
+                    onTimeUpdate={setPlaybackTimeB}
+                    onDurationChange={d => {
+                      setPlaybackDurationB(d);
+                      if (isFinite(d) && d > 0 && paneBSource.type === 'recording') {
+                        media.setRecordings(prev => prev.map(r =>
+                          r.id === (paneBSource as { type: 'recording'; recording: { id: string } }).recording.id && r.duration === 0
+                            ? { ...r, duration: d } : r,
+                        ));
+                      }
+                    }}
+                    onPlayStateChange={p => setPlaybackPausedB(p)}
+                  />
+                  <PanePlayer
+                    label="B"
+                    isLiveMode={paneBSource.type === 'camera'}
+                    isPaused={playbackPausedB}
+                    time={playbackTimeB}
+                    duration={playbackDurationB}
+                    onPlayPause={() => paneRef1.current?.togglePlay()}
+                    onSeek={t => { paneRef1.current?.seekTo(t); setPlaybackTimeB(t); }}
+                    onFramePrev={() => paneRef1.current?.stepFrame(-1, config.frameRate || 30)}
+                    onFrameNext={() => paneRef1.current?.stepFrame(1, config.frameRate || 30)}
+                  />
+                </div>
               </>
             )}
 
@@ -485,27 +549,12 @@ export default function App() {
         isRecording={recorder.isRecording}
         isPaused={recorder.isPaused}
         elapsed={recorder.elapsed}
-        activeRecordingId={media.activeRecording?.id ?? null}
-        isLiveMode={splitMode && activePaneIndex === 1 ? paneBSource.type === 'camera' : isLiveMode}
-        isPlaybackPaused={playbackPaused}
-        playbackTime={playbackTime}
-        playbackDuration={playbackDuration}
+        isLiveMode={isLiveMode}
         onStartRecording={handleStartRecording}
         onPauseRecording={recorder.isPaused ? recorder.resume : recorder.pause}
         onStopRecording={handleStopRecording}
         onImportVideo={() => importInputRef.current?.click()}
-        onLiveMode={() => {
-          const deviceId = config.deviceId || devices[0]?.deviceId || '';
-          if (splitMode && activePaneIndex === 1) {
-            setPaneBSource({ type: 'camera', deviceId });
-          } else {
-            setIsLiveMode(true); media.setActiveRecording(null); media.setActiveImage(null);
-          }
-        }}
-        onPlayPause={handlePlayPause}
-        onSeek={handleSeek}
-        onFramePrev={() => stepFrame(-1)}
-        onFrameNext={() => stepFrame(1)}
+        onLiveMode={() => { setIsLiveMode(true); media.setActiveRecording(null); media.setActiveImage(null); }}
         captureCount={media.captures.length}
         recordingCount={media.recordings.length}
         showMedia={media.showMediaPanel}

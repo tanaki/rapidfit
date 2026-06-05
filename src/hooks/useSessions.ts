@@ -272,6 +272,7 @@ export function useSessions() {
       name: f.name,
       url: buildUrl(f.path),
       createdAt: new Date(f.createdAt),
+      filePath: f.path,
     }));
 
     const recordings: Recording[] = recordingFiles.map(f => ({
@@ -280,6 +281,7 @@ export function useSessions() {
       url: buildUrl(f.path),
       createdAt: new Date(f.createdAt),
       duration: f.duration,
+      filePath: f.path,
     }));
 
     return { captures, recordings };

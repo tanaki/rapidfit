@@ -70,6 +70,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
 
   // Track the video/image display rect (object-contain letterbox)
   const [videoRect, setVideoRect] = useState<VideoRect | null>(null);
+  const [imgDims, setImgDims] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
 
   const stepVideoFrame = useCallback((dir: 1 | -1) => {
     if (source.type !== 'recording') return;
@@ -87,6 +88,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     if (!video || !container || !video.videoWidth || !video.videoHeight) return;
     const aspect = video.videoWidth / video.videoHeight;
     setVideoRect(computeVideoRect(container.clientWidth, container.clientHeight, aspect));
+    setImgDims({ w: video.videoWidth, h: video.videoHeight });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -96,6 +98,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     if (!img || !container || !img.naturalWidth || !img.naturalHeight) return;
     const aspect = img.naturalWidth / img.naturalHeight;
     setVideoRect(computeVideoRect(container.clientWidth, container.clientHeight, aspect));
+    setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -242,8 +245,12 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   useImperativeHandle(ref, () => ({
     stepFrame(dir, fps = 30, frames = 1) {
       const v = videoRef.current;
-      if (!v || !v.paused) return;
+      if (!v) return;
+      if (!v.paused) v.pause();
       v.currentTime = Math.max(0, Math.min(v.duration || Infinity, v.currentTime + dir * frames / fps));
+      // Chromium bug: paused video doesn't always repaint on currentTime change.
+      // play() → pause() forces frame decode and display.
+      v.play().then(() => v.pause()).catch(() => {});
     },
     seekTo(time: number) {
       const v = videoRef.current;
@@ -312,6 +319,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           onBeginDrag={annotationProps.onBeginDrag}
           onRescaleElements={annotationProps.onRescaleElements}
           videoRect={videoRect}
+          imgW={imgDims.w}
+          imgH={imgDims.h}
           style={annotationProps.tool === 'pan' ? { pointerEvents: 'none' } : undefined}
         />
       )}
@@ -326,7 +335,12 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
             e.stopPropagation();
             const container = zoomState.containerRef.current;
             if (!container) return;
-            const { blob, name } = await capturePane(container, label);
+            const { blob, name } = await capturePane(
+              container,
+              label,
+              annotationProps?.layers,
+              videoRect,
+            );
             onCapture(blob, name);
           }}
           title={t('video.captureTitle')}

@@ -464,13 +464,51 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 
 ---
 
+## ✅ Post-Phase 5 — Session bugfix & polish (v1.5.16+, non tagué)
+
+### Fixes split view / player
+- **PanePlayer** : nouveau composant player indépendant par pane (seekbar + play/pause + frame step). En mode normal et split, chaque pane a son propre player sous la vidéo. La RecordingBar ne contient plus de player.
+- **États player séparés** : `playbackTime/Duration/Paused` (pane A) + `playbackTimeB/DurationB/PausedB` (pane B). `setPaneBSource` réinitialise les états B.
+- **Flèches clavier** : handler clavier utilise des refs pour `isLiveMode`/`activePaneIsB`/`paneBSource` → plus de closures périmées. Vérifie le live mode de la pane **active** (pas toujours pane A).
+- **Auto-pause sur step** : `VideoPane.stepFrame` fait `v.pause()` si nécessaire avant de changer `currentTime`.
+- **Frame non mise à jour** : workaround bug Chromium — `v.play().then(() => v.pause())` après `currentTime = X` force le rendu de la frame.
+- **Seekbar vs frame** : suppression des `requestAnimationFrame` prématurés dans `stepFrame` App + handlers PanePlayer. La seekbar se met à jour via l'event `seeked` → `onTimeUpdate`, en même temps que la frame.
+
+### Fix captures
+- **Résolution native** : `capturePane` génère maintenant au format natif de la source (`video.videoWidth × videoHeight` ou `img.naturalWidth × naturalHeight`) au lieu de la taille CSS du conteneur.
+- **Annotations alignées** : re-rendu des calques à zoom=1 sur un canvas intermédiaire `videoRect.w × videoRect.h`, puis scaling vers la résolution native. Aucun décalage quel que soit le zoom courant.
+
+### Compte rendu
+- **Lightbox captures** : dans CaptureSlot, cliquer sur une miniature ouvre un aperçu plein écran (overlay). Bouton ✕ séparé pour retirer.
+- **Exclusion mutuelle** : prop `excluded` sur CaptureSlot — une capture déjà dans "Avant" disparaît de la liste disponible de "Après" et vice versa.
+- **Dates** : utilitaire `src/utils/formatDate.ts` → `formatDateFR(iso)`. Appliqué dans `reportPdf.ts` (birthDate, bikeFitDate) et `ReportModal.tsx`.
+
+### Suppression fichiers disque
+- `Capture.filePath` et `Recording.filePath` ajoutés au type, populés depuis `list-captures` / `list-recordings`.
+- IPC `sessions:delete-capture` + `sessions:delete-recording` (unlink + sidecar `.info.json`).
+- Confirmation inline dans `CaptureCard` et `RecordingRow` avant suppression effective.
+
+### Mises à jour manuelles
+- IPC `updater:check-now` → déclenche `checkForUpdatesMac` ou `autoUpdater.checkForUpdates()`.
+- Event `update-not-available` ajouté (Mac + Windows).
+- Section "Mises à jour" dans `HelpModal` : états `idle / checking / up-to-date / downloading / ready / error`, bouton "Installer et redémarrer" quand prêt.
+
+### Nouvel outil : Angle H/V
+- Type `HVAngleElement` (`type: 'hv-angle'`, `p1`, `p2`, `angle`).
+- Interaction : clic-glisser (identique à `line`).
+- Rendu : ligne pleine + ligne de référence pointillée (H si angle ≤ 45°, V sinon) + arc + label en degrés.
+- Intégré dans `hitTestElement`, `getHandles`, `applyHandleDrag`, `moveElement`, `drawElement`.
+- Bouton ⊾ dans la Toolbar, clés i18n FR/EN.
+
+---
+
 ## État Git
 
 ```
 Branche active : dev
 Dernière version taguée : v1.5.16
-Version courante sur dev : v1.5.16
-Pour publier : git push origin dev && git tag v1.5.16 && git push origin v1.5.16
+Version courante sur dev : v1.5.16+ (non tagué)
+Pour publier : bump version dans package.json → git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
 ## Décisions techniques Phase 3 (ajouts)

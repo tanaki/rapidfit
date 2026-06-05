@@ -17,6 +17,7 @@
     "select": "Sélection (V)",
     "line": "Trait (L)",
     "angle": "Angle (G)",
+    "hv_angle": "Angle H/V",
     "undo": "Annuler (Ctrl+Z)",
     "redo": "Rétablir (Ctrl+Y)",
     "clear": "Effacer le calque actif"

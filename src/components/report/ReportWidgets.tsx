@@ -42,19 +42,45 @@ export function RadioGroup<T extends string>({ value, options, onChange }: {
 
 // ── CaptureSlot ───────────────────────────────────────────────────────────────
 
-export function CaptureSlot({ label, selected, all, onToggle, onMoveAll }: {
+function CaptureLightbox({ cap, onClose }: { cap: Capture; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] cursor-zoom-out"
+      onClick={onClose}
+    >
+      <img
+        src={cap.url}
+        alt={cap.name}
+        className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      />
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-lg"
+      >✕</button>
+    </div>
+  );
+}
+
+export function CaptureSlot({ label, selected, all, excluded = [], onToggle, onMoveAll }: {
   label: string;
   selected: string[];
   all: Capture[];
+  excluded?: string[];
   onToggle: (id: string, slot: 'before' | 'after') => void;
   onMoveAll: (slot: 'before' | 'after') => void;
 }) {
   const slot = label === 'Avant' ? 'before' : 'after';
+  const [preview, setPreview] = useState<Capture | null>(null);
+
   const selectedCaps = all.filter(c => selected.includes(c.id));
-  const available    = all.filter(c => !selected.includes(c.id));
+  // Exclude captures that are already in the other slot
+  const available = all.filter(c => !selected.includes(c.id) && !excluded.includes(c.id));
 
   return (
     <div className="flex-1 min-w-0">
+      {preview && <CaptureLightbox cap={preview} onClose={() => setPreview(null)} />}
+
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">{label}</span>
         <button onClick={() => onMoveAll(slot)}
@@ -62,37 +88,55 @@ export function CaptureSlot({ label, selected, all, onToggle, onMoveAll }: {
           Tout mettre ici
         </button>
       </div>
+
+      {/* Selected captures */}
       <div className="min-h-[80px] bg-[#0d0d14] rounded-lg border border-[#22223b] p-2 flex flex-wrap gap-2 mb-2">
         {selectedCaps.length === 0 ? (
           <span className="text-[10px] text-slate-700 m-auto">{label}</span>
         ) : selectedCaps.map(cap => (
-          <button key={cap.id} onClick={() => onToggle(cap.id, slot)}
-            title="Retirer"
-            className="relative rounded overflow-hidden border-2 border-indigo-500 w-24 aspect-video">
-            <img src={cap.url} alt={cap.name} className="w-full h-full object-cover" />
+          <div key={cap.id} className="relative rounded overflow-hidden border-2 border-indigo-500 w-24 aspect-video group">
+            <img
+              src={cap.url} alt={cap.name}
+              className="w-full h-full object-cover cursor-zoom-in"
+              onClick={() => setPreview(cap)}
+            />
             {cap.paneLabel && (
-              <span className="absolute top-0.5 left-0.5 text-[8px] font-bold bg-indigo-600/90 text-white px-1 rounded">
+              <span className="absolute top-0.5 left-0.5 text-[8px] font-bold bg-indigo-600/90 text-white px-1 rounded pointer-events-none">
                 {cap.paneLabel}
               </span>
             )}
-            <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500/80 rounded-full flex items-center justify-center text-[9px] text-white">✕</span>
-          </button>
+            <button
+              onClick={() => onToggle(cap.id, slot)}
+              title="Retirer"
+              className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500/80 rounded-full flex items-center justify-center text-[9px] text-white opacity-0 group-hover:opacity-100 transition-opacity"
+            >✕</button>
+          </div>
         ))}
       </div>
+
+      {/* Available captures (not in either slot) */}
       {available.length > 0 && (
         <div>
           <p className="text-[10px] text-slate-600 mb-1">Cliquer pour ajouter ici :</p>
           <div className="flex flex-wrap gap-1.5">
             {available.map(cap => (
-              <button key={cap.id} onClick={() => onToggle(cap.id, slot)}
-                className="relative rounded overflow-hidden border border-[#3d3d5c] hover:border-indigo-400 w-20 aspect-video opacity-60 hover:opacity-100 transition-all">
-                <img src={cap.url} alt={cap.name} className="w-full h-full object-cover" />
+              <div key={cap.id} className="relative rounded overflow-hidden border border-[#3d3d5c] hover:border-indigo-400 w-20 aspect-video opacity-60 hover:opacity-100 transition-all group">
+                <img
+                  src={cap.url} alt={cap.name}
+                  className="w-full h-full object-cover cursor-pointer"
+                  onClick={() => onToggle(cap.id, slot)}
+                />
                 {cap.paneLabel && (
-                  <span className="absolute top-0.5 left-0.5 text-[8px] font-bold bg-indigo-600/90 text-white px-1 rounded">
+                  <span className="absolute top-0.5 left-0.5 text-[8px] font-bold bg-indigo-600/90 text-white px-1 rounded pointer-events-none">
                     {cap.paneLabel}
                   </span>
                 )}
-              </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setPreview(cap); }}
+                  title="Aperçu"
+                  className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-black/60 rounded flex items-center justify-center text-[9px] text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                >🔍</button>
+              </div>
             ))}
           </div>
         </div>

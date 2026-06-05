@@ -43,7 +43,13 @@ export function useAppMedia({
   const handleDeleteCapture = useCallback((id: string) => {
     setCaptures(prev => {
       const cap = prev.find(c => c.id === id);
-      if (cap) URL.revokeObjectURL(cap.url);
+      if (cap) {
+        URL.revokeObjectURL(cap.url);
+        if (cap.filePath) {
+          const api = (window as unknown as { electronAPI?: { sessionsDeleteCapture: (p: unknown) => Promise<void> } }).electronAPI;
+          api?.sessionsDeleteCapture({ filePath: cap.filePath });
+        }
+      }
       return prev.filter(c => c.id !== id);
     });
   }, []);
@@ -74,7 +80,13 @@ export function useAppMedia({
   const handleDeleteRecording = useCallback((id: string) => {
     setRecordings(prev => {
       const rec = prev.find(r => r.id === id);
-      if (rec) URL.revokeObjectURL(rec.url);
+      if (rec) {
+        URL.revokeObjectURL(rec.url);
+        if (rec.filePath) {
+          const api = (window as unknown as { electronAPI?: { sessionsDeleteRecording: (p: unknown) => Promise<void> } }).electronAPI;
+          api?.sessionsDeleteRecording({ filePath: rec.filePath });
+        }
+      }
       return prev.filter(r => r.id !== id);
     });
     setActiveRecording(r => (r?.id === id ? null : r));

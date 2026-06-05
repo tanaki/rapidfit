@@ -17,6 +17,7 @@
     "select": "Select (V)",
     "line": "Line (L)",
     "angle": "Angle (G)",
+    "hv_angle": "H/V Angle",
     "undo": "Undo (Ctrl+Z)",
     "redo": "Redo (Ctrl+Y)",
     "clear": "Clear active layer"

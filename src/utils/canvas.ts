@@ -1,6 +1,24 @@
-import type { Point, AnnotationElement, AngleElement, Layer } from '../types';
+import type { Point, AnnotationElement, AngleElement, HVAngleElement, Layer } from '../types';
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
+
+/** Angle (0–180°) between a line p1→p2 and the given fixed axis. */
+export function computeHVAngle(p1: Point, p2: Point, mode: 'h' | 'v' = 'h'): number {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  if (dx === 0 && dy === 0) return 0;
+  const rad = Math.atan2(dy, dx);
+  const deg = rad * 180 / Math.PI;
+  if (mode === 'h') {
+    const a = Math.abs(deg);
+    return Math.round((a > 90 ? 180 - a : a) * 10) / 10;
+  } else {
+    // Angle to vertical axis: 90° - angle-to-horizontal
+    const toH = Math.abs(deg);
+    const acuteH = toH > 90 ? 180 - toH : toH;
+    return Math.round((90 - acuteH) * 10) / 10;
+  }
+}
 
 export function computeAngle(p0: Point, vertex: Point, p2: Point): number {
   const v1 = { x: p0.x - vertex.x, y: p0.y - vertex.y };
@@ -53,6 +71,8 @@ export function hitTestElement(el: AnnotationElement, p: Point, tol = 8): boolea
     }
     case 'text':
       return p.x >= el.x - tol && p.y >= el.y - tol && p.x <= el.x + 200 && p.y <= el.y + el.fontSize * 1.5;
+    case 'hv-angle':
+      return distToSegment(p, el.p1, el.p2) < tol;
     case 'angle':
       return distToSegment(p, el.p0, el.p1) < tol || distToSegment(p, el.p1, el.p2) < tol;
   }
@@ -64,6 +84,7 @@ export type Handle = { x: number; y: number; index: number; cursor: string };
 
 export function getHandles(el: AnnotationElement): Handle[] {
   switch (el.type) {
+    case 'hv-angle':
     case 'line':
     case 'arrow':
       return [
@@ -115,6 +136,8 @@ export function hitTestHandle(handles: Handle[], p: Point, radius = 8): Handle |
 
 export function applyHandleDrag(el: AnnotationElement, handleIndex: number, newPt: Point): AnnotationElement {
   switch (el.type) {
+    case 'hv-angle':
+      return { ...(handleIndex === 0 ? { ...el, p1: newPt } : { ...el, p2: newPt }), angle: computeHVAngle(handleIndex === 0 ? newPt : el.p1, handleIndex === 0 ? el.p2 : newPt, el.mode) };
     case 'line':
     case 'arrow':
       return handleIndex === 0 ? { ...el, p1: newPt } : { ...el, p2: newPt };
@@ -153,6 +176,7 @@ export function moveElement(el: AnnotationElement, dx: number, dy: number): Anno
   const m = (p: Point): Point => ({ x: p.x + dx, y: p.y + dy });
   switch (el.type) {
     case 'path':    return { ...el, points: el.points.map(m) };
+    case 'hv-angle':
     case 'line':
     case 'arrow':   return { ...el, p1: m(el.p1), p2: m(el.p2) };
     case 'rect':    return { ...el, x: el.x + dx, y: el.y + dy };
@@ -217,7 +241,84 @@ function drawAngleArc(ctx: CanvasRenderingContext2D, el: AngleElement, zoom: num
   ctx.fillText(label, lx, ly);
 }
 
-function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom = 1) {
+function drawHVAngle(
+  ctx: CanvasRenderingContext2D,
+  el: HVAngleElement,
+  zoom: number,
+  imgW = 0,
+  imgH = 0,
+) {
+  const { p1, p2, color, strokeWidth, mode } = el;
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const lineLen = Math.hypot(dx, dy);
+  if (lineLen < 1) return;
+
+  const rawRad = Math.atan2(dy, dx);
+
+  // Fixed axis reference angle and full-span endpoints
+  // For H: horizontal line across full image width at p1.y
+  // For V: vertical line across full image height at p1.x
+  const refAnglePos = mode === 'h' ? 0 : Math.PI / 2;         // rightward or downward
+  const refAngleNeg = mode === 'h' ? Math.PI : -Math.PI / 2;  // leftward or upward
+
+  // Choose same-side reference so arc is drawn on the correct side
+  const refAngle = mode === 'h'
+    ? (dx >= 0 ? refAnglePos : refAngleNeg)
+    : (dy >= 0 ? refAnglePos : refAngleNeg);
+
+  // Full-span dashed reference line
+  const refStart = mode === 'h'
+    ? { x: imgW > 0 ? 0 : p1.x - 2000, y: p1.y }
+    : { x: p1.x, y: imgH > 0 ? 0 : p1.y - 2000 };
+  const refEnd = mode === 'h'
+    ? { x: imgW > 0 ? imgW : p1.x + 2000, y: p1.y }
+    : { x: p1.x, y: imgH > 0 ? imgH : p1.y + 2000 };
+
+  // Angle between measured line and fixed axis (0–90°)
+  const displayAngle = el.angle;
+
+  // ── Dashed reference line (full span) ──
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = Math.max(1, strokeWidth * 0.7) / zoom;
+  ctx.globalAlpha = 0.55;
+  ctx.lineCap     = 'round';
+  ctx.setLineDash([6 / zoom, 4 / zoom]);
+  ctx.beginPath(); ctx.moveTo(refStart.x, refStart.y); ctx.lineTo(refEnd.x, refEnd.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  // ── Main (measured) line ──
+  ctx.lineWidth = strokeWidth / zoom;
+  ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+
+  // ── Arc ──
+  const radius = 36 / zoom;
+  let diff = rawRad - refAngle;
+  while (diff >  Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+  const anticlockwise = diff < 0;
+  ctx.beginPath(); ctx.arc(p1.x, p1.y, radius, refAngle, rawRad, anticlockwise); ctx.stroke();
+
+  // ── Label ──
+  const midAngle  = refAngle + diff / 2;
+  const labelDist = radius + 16 / zoom;
+  const lx        = p1.x + Math.cos(midAngle) * labelDist;
+  const ly        = p1.y + Math.sin(midAngle) * labelDist;
+  const label     = `${displayAngle}°`;
+  const fontSize  = (12 + strokeWidth) / zoom;
+  ctx.font        = `bold ${fontSize}px system-ui`;
+  ctx.textAlign   = 'center';
+  ctx.textBaseline = 'middle';
+  const w  = ctx.measureText(label).width + 8 / zoom;
+  const bh = 22 / zoom;
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.beginPath(); ctx.roundRect(lx - w / 2, ly - bh / 2, w, bh, 4 / zoom); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.fillText(label, lx, ly);
+}
+
+function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom = 1, imgW = 0, imgH = 0) {
   ctx.save();
   switch (el.type) {
     case 'path':
@@ -252,6 +353,9 @@ function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom 
     case 'text':
       ctx.fillStyle = el.color; ctx.font = `${el.fontSize}px system-ui`; ctx.textBaseline = 'top';
       el.text.split('\n').forEach((line, i) => ctx.fillText(line, el.x, el.y + i * el.fontSize * 1.3));
+      break;
+    case 'hv-angle':
+      drawHVAngle(ctx, el, zoom, imgW, imgH);
       break;
     case 'angle':
       ctx.strokeStyle = el.color; ctx.lineWidth = el.strokeWidth / zoom; ctx.lineCap = 'round';
@@ -327,6 +431,8 @@ export function renderLayers(
   layers: Layer[],
   zoom = 1,
   pan = { x: 0, y: 0 },
+  imgW = 0,
+  imgH = 0,
 ) {
   const { width: W, height: H } = ctx.canvas;
   const { tx, ty } = contentTransform(zoom, pan, W, H);
@@ -337,7 +443,7 @@ export function renderLayers(
     if (!layer.visible) continue;
     ctx.save();
     ctx.globalAlpha = layer.opacity / 100;
-    for (const el of layer.elements) drawElement(ctx, el, zoom);
+    for (const el of layer.elements) drawElement(ctx, el, zoom, imgW, imgH);
     ctx.restore();
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -351,6 +457,8 @@ export function renderLayersWithDraft(
   selectedElementId?: string,
   zoom = 1,
   pan = { x: 0, y: 0 },
+  imgW = 0,
+  imgH = 0,
 ) {
   const { width: W, height: H } = ctx.canvas;
   const { tx, ty } = contentTransform(zoom, pan, W, H);
@@ -365,7 +473,7 @@ export function renderLayersWithDraft(
     ctx.save();
     ctx.globalAlpha = layer.opacity / 100;
     for (const el of layer.elements) {
-      drawElement(ctx, el, zoom);
+      drawElement(ctx, el, zoom, imgW, imgH);
       if (layer.id === selectedLayerId && el.id === selectedElementId) {
         ctx.globalAlpha = 1;
         drawSelectionHandles(ctx, el, zoom);
@@ -373,7 +481,7 @@ export function renderLayersWithDraft(
     }
     ctx.restore();
   }
-  if (draftElement) drawElement(ctx, draftElement, zoom);
+  if (draftElement) drawElement(ctx, draftElement, zoom, imgW, imgH);
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }

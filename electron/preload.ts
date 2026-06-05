@@ -6,9 +6,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-available', (_e, info) => cb(info)),
   onUpdateDownloaded: (cb: (info: unknown) => void) =>
     ipcRenderer.on('update-downloaded', (_e, info) => cb(info)),
+  onUpdateNotAvailable: (cb: (info: unknown) => void) =>
+    ipcRenderer.on('update-not-available', (_e, info) => cb(info)),
   onUpdateError: (cb: (message: string) => void) =>
     ipcRenderer.on('update-error', (_e, message) => cb(message)),
   installUpdate: () => ipcRenderer.send('install-update'),
+  checkForUpdates: () => ipcRenderer.invoke('updater:check-now'),
 
   // ── File server ─────────────────────────────────────────────────────────────
   getFileServerPort: () => ipcRenderer.invoke('get-file-server-port'),
@@ -36,6 +39,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('sessions:delete-session', payload),
   sessionsDeleteClient: (payload: unknown) =>
     ipcRenderer.invoke('sessions:delete-client', payload),
+  sessionsDeleteCapture: (payload: unknown) =>
+    ipcRenderer.invoke('sessions:delete-capture', payload),
+  sessionsDeleteRecording: (payload: unknown) =>
+    ipcRenderer.invoke('sessions:delete-recording', payload),
   sessionsListCaptures: (sessionFolderPath: string) =>
     ipcRenderer.invoke('sessions:list-captures', sessionFolderPath),
   sessionsListRecordings: (sessionFolderPath: string) =>

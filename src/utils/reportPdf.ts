@@ -1,5 +1,6 @@
 import i18n from '../i18n';
 import type { Capture, Client, Session, ReportData, CompanySettings } from '../types';
+import { formatDateFR } from './formatDate';
 
 const getElectronAPI = () =>
   (window as unknown as { electronAPI?: Record<string, (...a: unknown[]) => Promise<unknown>> }).electronAPI;
@@ -169,12 +170,12 @@ export async function generatePDF(
   field(i18n.t('report.pdfFieldEmail'),     client?.email  || '', margin, margin + 16);
   field(i18n.t('report.pdfFieldPhone'),     client?.phone  || '', col2,   col2 + 22);
   y += 7;
-  if (client?.birthDate) field('Date de naissance :', client.birthDate, margin, margin + 34);
+  if (client?.birthDate) field('Date de naissance :', formatDateFR(client.birthDate), margin, margin + 34);
   const mensu = [client?.weight ? `${client.weight} kg` : '', client?.height ? `${client.height} cm` : ''].filter(Boolean).join(' · ');
   if (mensu) field('Mensurations :', mensu, col2, col2 + 22);
   y += 7;
   field('Discipline :', discipline, margin, margin + 22);
-  if (session?.bikeFitDate) field('Date :', session.bikeFitDate, col2, col2 + 14);
+  if (session?.bikeFitDate) field('Date :', formatDateFR(session.bikeFitDate), col2, col2 + 14);
   y += 10;
 
   section(i18n.t('report.s2_title'));

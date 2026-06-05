@@ -1,4 +1,7 @@
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+
+type UpdateStatus = 'idle' | 'checking' | 'up-to-date' | 'available' | 'downloading' | 'ready' | 'error';
 
 interface Props {
   onClose: () => void;
@@ -6,6 +9,55 @@ interface Props {
 
 export function HelpModal({ onClose }: Props) {
   const { t } = useTranslation();
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  const api = (window as unknown as {
+    electronAPI?: {
+      onUpdateAvailable: (cb: (i: { version: string }) => void) => void;
+      onUpdateDownloaded: (cb: (i: { version: string }) => void) => void;
+      onUpdateNotAvailable: (cb: (i: { version: string }) => void) => void;
+      onUpdateError: (cb: (msg: string) => void) => void;
+      installUpdate: () => void;
+      checkForUpdates: () => void;
+    };
+  }).electronAPI;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    if (!api) return;
+    api.onUpdateAvailable(info => {
+      if (!mountedRef.current) return;
+      setUpdateVersion(info.version);
+      setUpdateStatus('downloading');
+    });
+    api.onUpdateDownloaded(info => {
+      if (!mountedRef.current) return;
+      setUpdateVersion(info.version);
+      setUpdateStatus('ready');
+    });
+    api.onUpdateNotAvailable(() => {
+      if (!mountedRef.current) return;
+      setUpdateStatus('up-to-date');
+    });
+    api.onUpdateError(msg => {
+      if (!mountedRef.current) return;
+      setUpdateError(msg);
+      setUpdateStatus('error');
+    });
+    return () => { mountedRef.current = false; };
+  }, []); // eslint-disable-line
+
+  const handleCheck = () => {
+    if (!api) return;
+    setUpdateStatus('checking');
+    setUpdateError(null);
+    setUpdateVersion(null);
+    api.checkForUpdates();
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[1000]"
@@ -149,6 +201,52 @@ export function HelpModal({ onClose }: Props) {
             <p>• {t('help.report_desc3')}</p>
           </div>
         </section>
+
+        {/* ── Mises à jour ── */}
+        {api && (
+          <section className="mb-5 border border-[#22223b] rounded-lg p-4">
+            <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">Mises à jour</h3>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleCheck}
+                disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
+                className="shrink-0 px-3 py-1.5 bg-[#22223b] hover:bg-[#2d2d48] disabled:opacity-40 text-slate-200 rounded-lg text-xs font-medium transition-colors"
+              >
+                {updateStatus === 'checking' ? 'Vérification…' : 'Vérifier les mises à jour'}
+              </button>
+
+              <span className="text-xs">
+                {updateStatus === 'idle' && (
+                  <span className="text-slate-500">Version actuelle : <span className="font-mono text-slate-400">v{__APP_VERSION__}</span></span>
+                )}
+                {updateStatus === 'checking' && (
+                  <span className="text-slate-400">Connexion à GitHub…</span>
+                )}
+                {updateStatus === 'up-to-date' && (
+                  <span className="text-green-400">✓ Vous avez la dernière version</span>
+                )}
+                {updateStatus === 'downloading' && (
+                  <span className="text-indigo-300">⬇ Téléchargement de la v{updateVersion}…</span>
+                )}
+                {updateStatus === 'ready' && (
+                  <span className="text-yellow-300">✓ v{updateVersion} prête — redémarrage requis</span>
+                )}
+                {updateStatus === 'error' && (
+                  <span className="text-red-400" title={updateError ?? ''}>⚠ Erreur lors de la vérification</span>
+                )}
+              </span>
+
+              {updateStatus === 'ready' && (
+                <button
+                  onClick={() => api.installUpdate()}
+                  className="shrink-0 ml-auto px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition-colors"
+                >
+                  Installer et redémarrer
+                </button>
+              )}
+            </div>
+          </section>
+        )}
 
         <button onClick={onClose} className="mt-2 w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-colors">
           {t('help.close')}

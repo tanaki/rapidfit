@@ -205,7 +205,10 @@ app.on('window-all-closed', () => {
 autoUpdater.logger = log;
 (autoUpdater.logger as typeof log).transports.file.level = 'info';
 autoUpdater.on('checking-for-update',  () => log.info('[updater-win] vérification…'));
-autoUpdater.on('update-not-available', () => log.info('[updater-win] à jour'));
+autoUpdater.on('update-not-available', () => {
+  log.info('[updater-win] à jour');
+  BrowserWindow.getAllWindows()[0]?.webContents.send('update-not-available', { version: app.getVersion() });
+});
 autoUpdater.on('update-available',  (info) => {
   log.info(`[updater-win] disponible : ${info.version}`);
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-available', info);
@@ -296,6 +299,7 @@ async function checkForUpdatesMac(token: string) {
 
     if (!isNewer(latest, current)) {
       log.info('[updater-mac] déjà à jour');
+      win()?.webContents.send('update-not-available', { version: current });
       return;
     }
 
@@ -354,6 +358,19 @@ function installWithScript(zipPath: string) {
   spawn('bash', [tmpScript], { detached: true, stdio: 'ignore' }).unref();
   app.quit();
 }
+
+ipcMain.handle('updater:check-now', () => {
+  if (!__GH_UPDATE_TOKEN__) {
+    BrowserWindow.getAllWindows()[0]?.webContents.send('update-error', 'Token GitHub absent — mise à jour désactivée');
+    return;
+  }
+  if (process.platform === 'darwin') {
+    checkForUpdatesMac(__GH_UPDATE_TOKEN__);
+  } else {
+    process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
+    autoUpdater.checkForUpdates();
+  }
+});
 
 ipcMain.on('install-update', () => {
   if (process.platform === 'darwin' && macDownloadedZip) {
@@ -464,6 +481,15 @@ ipcMain.handle('sessions:save-recording', async (_e, {
   // for WebM files produced by MediaRecorder.
   await fs.writeFile(`${dest}.info.json`, JSON.stringify({ duration }));
   return dest;
+});
+
+ipcMain.handle('sessions:delete-capture', async (_e, { filePath }: { filePath: string }) => {
+  await fs.unlink(filePath);
+});
+
+ipcMain.handle('sessions:delete-recording', async (_e, { filePath }: { filePath: string }) => {
+  await fs.unlink(filePath);
+  try { await fs.unlink(`${filePath}.info.json`); } catch { /* sidecar may not exist */ }
 });
 
 ipcMain.handle('sessions:update-client', async (_e, client: Client) => {

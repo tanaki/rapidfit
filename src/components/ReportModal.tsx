@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Capture, Client, Session, ReportData, CompanySettings } from '../types';
 import { DEFAULT_REPORT } from '../types';
 import { generatePDF } from '../utils/reportPdf';
+import { formatDateFR } from '../utils/formatDate';
 import { Accordion, RadioGroup, CaptureSlot, SvgDiagram } from './report/ReportWidgets';
 
 interface Props {
@@ -113,7 +114,7 @@ export function ReportModal({ captures, client, session, company, initialData, o
               <p className="text-xs text-slate-500 mt-0.5">
                 {client.prenom} {client.nom}
                 {discipline && <> · {discipline}</>}
-                {session?.bikeFitDate && <> · {session.bikeFitDate}</>}
+                {session?.bikeFitDate && <> · {formatDateFR(session.bikeFitDate)}</>}
               </p>
             )}
           </div>
@@ -131,7 +132,7 @@ export function ReportModal({ captures, client, session, company, initialData, o
                 [t('report.firstName'), client?.prenom    || '—'],
                 [t('report.email'),     client?.email     || '—'],
                 [t('report.phone'),     client?.phone     || '—'],
-                ['Date de naissance',   client?.birthDate || '—'],
+                ['Date de naissance',   formatDateFR(client?.birthDate)],
               ].map(([l, v]) => (
                 <div key={l} className="flex gap-2">
                   <span className="text-slate-500 shrink-0 w-32">{l} :</span>
@@ -356,9 +357,11 @@ export function ReportModal({ captures, client, session, company, initialData, o
             ) : (
               <div className="flex gap-4">
                 <CaptureSlot label="Avant" selected={data.capturesBefore} all={captures}
+                  excluded={data.capturesAfter}
                   onToggle={handleCapture} onMoveAll={handleMoveAll} />
                 <div className="w-px bg-[#22223b] shrink-0" />
                 <CaptureSlot label="Après" selected={data.capturesAfter} all={captures}
+                  excluded={data.capturesBefore}
                   onToggle={handleCapture} onMoveAll={handleMoveAll} />
               </div>
             )}

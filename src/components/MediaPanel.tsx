@@ -50,6 +50,7 @@ function CaptureCard({
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <div
@@ -66,23 +67,35 @@ function CaptureCard({
           </span>
         )}
         {/* Hover actions */}
-        <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-1.5 bg-black/60">
-          <button
-            onClick={e => { e.stopPropagation(); onSelect(); }}
-            title={t('recording.view', 'Afficher')}
-            className="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 text-white text-xs transition-colors"
-          >👁</button>
-          <button
-            onClick={e => { e.stopPropagation(); onDownload(); }}
-            title={t('recording.download')}
-            className="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 text-white text-xs transition-colors"
-          >⬇</button>
-          <button
-            onClick={e => { e.stopPropagation(); onDelete(); }}
-            title={t('recording.delete')}
-            className="w-6 h-6 flex items-center justify-center rounded bg-red-500/30 hover:bg-red-500/60 text-red-300 text-xs transition-colors"
-          >✕</button>
-        </div>
+        {confirming ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/80" onClick={e => e.stopPropagation()}>
+            <span className="text-[10px] text-white font-medium">Supprimer ?</span>
+            <div className="flex gap-1.5">
+              <button onClick={e => { e.stopPropagation(); onDelete(); }}
+                className="px-2 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[10px] font-medium">Oui</button>
+              <button onClick={e => { e.stopPropagation(); setConfirming(false); }}
+                className="px-2 py-0.5 bg-white/10 hover:bg-white/20 text-white rounded text-[10px]">Non</button>
+            </div>
+          </div>
+        ) : (
+          <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-1.5 bg-black/60">
+            <button
+              onClick={e => { e.stopPropagation(); onSelect(); }}
+              title={t('recording.view', 'Afficher')}
+              className="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 text-white text-xs transition-colors"
+            >👁</button>
+            <button
+              onClick={e => { e.stopPropagation(); onDownload(); }}
+              title={t('recording.download')}
+              className="w-6 h-6 flex items-center justify-center rounded bg-white/10 hover:bg-white/25 text-white text-xs transition-colors"
+            >⬇</button>
+            <button
+              onClick={e => { e.stopPropagation(); setConfirming(true); }}
+              title={t('recording.delete')}
+              className="w-6 h-6 flex items-center justify-center rounded bg-red-500/30 hover:bg-red-500/60 text-red-300 text-xs transition-colors"
+            >✕</button>
+          </div>
+        )}
       </div>
 
       {/* Name — double-click to rename */}
@@ -123,6 +136,7 @@ function RecordingRow({
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   return (
     <div
@@ -156,17 +170,29 @@ function RecordingRow({
       </div>
 
       {/* Actions — always visible on active, hover otherwise */}
-      <div className={`flex items-center gap-1 shrink-0 ${isActive ? 'flex' : 'hidden group-hover:flex'}`}>
-        <button
-          onClick={e => { e.stopPropagation(); onDownload(); }}
-          title={t('recording.download')}
-          className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-white/10 text-xs transition-colors"
-        >⬇</button>
-        <button
-          onClick={e => { e.stopPropagation(); onDelete(); }}
-          title={t('recording.delete')}
-          className="w-6 h-6 flex items-center justify-center rounded text-red-500/60 hover:text-red-400 hover:bg-red-500/10 text-xs transition-colors"
-        >✕</button>
+      <div className={`flex items-center gap-1 shrink-0 ${isActive ? 'flex' : 'hidden group-hover:flex'}`} onClick={e => e.stopPropagation()}>
+        {confirming ? (
+          <>
+            <span className="text-[10px] text-slate-300 mr-0.5">Supprimer ?</span>
+            <button onClick={() => onDelete()}
+              className="px-1.5 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[10px] font-medium">Oui</button>
+            <button onClick={() => setConfirming(false)}
+              className="px-1.5 py-0.5 bg-[#22223b] hover:bg-[#2d2d48] text-slate-300 rounded text-[10px]">Non</button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={e => { e.stopPropagation(); onDownload(); }}
+              title={t('recording.download')}
+              className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-white/10 text-xs transition-colors"
+            >⬇</button>
+            <button
+              onClick={e => { e.stopPropagation(); setConfirming(true); }}
+              title={t('recording.delete')}
+              className="w-6 h-6 flex items-center justify-center rounded text-red-500/60 hover:text-red-400 hover:bg-red-500/10 text-xs transition-colors"
+            >✕</button>
+          </>
+        )}
       </div>
     </div>
   );

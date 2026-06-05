@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Tool } from '../types';
 
@@ -31,11 +32,27 @@ export function Toolbar({
 }: Props) {
   const { t } = useTranslation();
 
-  const TOOLS: { id: Tool; icon: string; label: string }[] = [
+  const TOOLS: { id: Tool; icon: ReactNode; label: string }[] = [
     { id: 'pan',    icon: '✋', label: t('toolbar.pan') },
     { id: 'select', icon: '⊙', label: t('toolbar.select') },
     { id: 'line',   icon: '╱', label: t('toolbar.line') },
     { id: 'angle',  icon: '∠', label: t('toolbar.angle') },
+    {
+      id: 'h-angle',
+      label: t('toolbar.h_angle', 'Angle / Horiz.'),
+      icon: <span className="flex items-end leading-none gap-[1px]">
+        <span className="text-lg">∠</span>
+        <span className="text-[9px] font-bold mb-[2px]">H</span>
+      </span>,
+    },
+    {
+      id: 'v-angle',
+      label: t('toolbar.v_angle', 'Angle / Vert.'),
+      icon: <span className="flex items-end leading-none gap-[1px]">
+        <span className="text-lg">∠</span>
+        <span className="text-[9px] font-bold mb-[2px]">V</span>
+      </span>,
+    },
   ];
 
   return (
