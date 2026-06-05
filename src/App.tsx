@@ -159,6 +159,7 @@ export default function App() {
       if (s.deviceId !== config.deviceId) setConfig(c => ({ ...c, deviceId: s.deviceId }));
       setIsLiveMode(true); media.setActiveRecording(null); media.setActiveImage(null);
     } else if (s.type === 'recording') {
+      setIsLiveMode(false);
       media.handleSelectRecording(s.recording);
       media.setActiveImage(null);
     } else if (s.type === 'image') {
@@ -472,7 +473,10 @@ export default function App() {
           captureLabels={media.captureLabels}
           recordingLabels={media.recordingLabels}
           onSelectCapture={media.handleSelectCapture}
-          onSelectRecording={media.handleSelectRecording}
+          onSelectRecording={rec => {
+            if (!splitMode || activePaneIndex === 0) setIsLiveMode(false);
+            media.handleSelectRecording(rec);
+          }}
           onDownloadCapture={media.handleDownloadCapture}
           onDeleteCapture={media.handleDeleteCapture}
           onDownloadRecording={media.handleDownloadRecording}
