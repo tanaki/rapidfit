@@ -26,6 +26,7 @@ jobs:
       - name: Build renderer + main process
         env:
           ELECTRON: 'true'
+          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
         run: |
           npx tsc -b
           npx vite build
@@ -54,6 +55,7 @@ jobs:
       - name: Build renderer + main process
         env:
           ELECTRON: 'true'
+          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
         run: |
           npx tsc -b
           npx vite build
