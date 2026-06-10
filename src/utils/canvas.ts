@@ -38,25 +38,81 @@ export const SKELETON_LABELS: Record<SkeletonKey, string> = {
 };
 
 /**
- * Build a default skeleton centered on `shoulder`.
+ * Build a default skeleton anchored on `hip` (click point).
  * `scale` ≈ imgH / 4 gives realistic proportions for a typical bike-fit video.
- * Cyclist facing right (positive-x direction).
+ * Cyclist facing LEFT (negative-x direction).
+ *
+ * Positions are calibrated per discipline from src/data/referenceAngles.ts:
+ *   route/gravel — trunk ~42°, elbow ~160°, shoulder ~87°
+ *   clm          — trunk ~30°, elbow ~90° (tribars), very aero
+ *   vtt          — trunk ~57°, more upright, ankle more dorsiflexed
  */
-export function defaultSkeletonPoints(shoulder: Point, scale: number): Record<SkeletonKey, Point> {
+import type { Discipline } from '../types';
+export function defaultSkeletonPoints(
+  hip: Point,
+  scale: number,
+  discipline: Discipline = 'route',
+): Record<SkeletonKey, Point> {
   const o = (fx: number, fy: number): Point => ({
-    x: shoulder.x + fx * scale,
-    y: shoulder.y + fy * scale,
+    x: hip.x + fx * scale,
+    y: hip.y + fy * scale,
   });
-  return {
-    shoulder,
-    head:     o( 0.15, -0.32),   // above & slightly forward
-    elbow:    o( 0.32,  0.16),   // at handlebar, forward-down
-    wrist:    o( 0.48,  0.30),   // handlebar grip
-    hip:      o(-0.28,  0.42),   // saddle, behind & below
-    knee:     o(-0.14,  0.98),   // below hip
-    ankle:    o(-0.04,  1.48),   // at pedal axle
-    toes:     o( 0.22,  1.54),   // toe clip / foot forward
-  };
+
+  // All offsets are relative to the HIP (anchor), cyclist facing LEFT (negative x = forward).
+  // Upper body varies by discipline (trunk lean + arm position).
+  // Leg positions use a crank-at-top-of-stroke snapshot; knee extension matches
+  // bottom-of-stroke targets when the full pedal stroke is analysed.
+  switch (discipline) {
+    case 'clm':
+      // Trunk ~30° from horizontal (nearly flat). Tribars: elbow ~90°.
+      return {
+        hip,
+        shoulder: o(-0.39, -0.23),
+        head:     o(-0.47, -0.48),  // tucked, aero position
+        elbow:    o(-0.44, -0.04),  // elbow pads near hip height
+        wrist:    o(-0.64, -0.08),  // tribar extension, elbow angle ≈ 90°
+        knee:     o(-0.14, +0.44),
+        ankle:    o(-0.12, +0.96),
+        toes:     o(-0.30, +1.02),
+      };
+    case 'vtt':
+      // Trunk ~57° from horizontal (more upright). Ankle more dorsiflexed.
+      return {
+        hip,
+        shoulder: o(-0.22, -0.34),
+        head:     o(-0.32, -0.60),
+        elbow:    o(-0.42, -0.18),
+        wrist:    o(-0.56, -0.06),
+        knee:     o(-0.14, +0.44),
+        ankle:    o(-0.20, +0.94),  // more dorsiflexed vs road
+        toes:     o(-0.38, +1.00),
+      };
+    case 'gravel':
+      // Trunk ~43° — marginally more upright than route, otherwise identical.
+      return {
+        hip,
+        shoulder: o(-0.24, -0.37),
+        head:     o(-0.36, -0.65),
+        elbow:    o(-0.49, -0.19),
+        wrist:    o(-0.63, -0.07),
+        knee:     o(-0.14, +0.44),
+        ankle:    o(-0.12, +0.96),
+        toes:     o(-0.30, +1.02),
+      };
+    case 'route':
+    default:
+      // Trunk ~42°, shoulder ≈ 90°, elbow ≈ 160°.
+      return {
+        hip,
+        shoulder: o(-0.25, -0.36),
+        head:     o(-0.37, -0.64),
+        elbow:    o(-0.51, -0.18),
+        wrist:    o(-0.65, -0.06),
+        knee:     o(-0.14, +0.44),
+        ankle:    o(-0.12, +0.96),
+        toes:     o(-0.30, +1.02),
+      };
+  }
 }
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -476,17 +532,56 @@ function drawSkeleton(ctx: CanvasRenderingContext2D, el: SkeletonElement, zoom: 
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
-  // ── Angle arcs ──
+  // ── Pre-compute arc bisector direction for every angle joint ──────────────
+  // The degree label sits along this direction (interior of angle).
+  // The joint name label will be placed in the OPPOSITE direction to avoid overlap.
+  const arcRadius = 26 / zoom;
+  const arcBisector = new Map<SkeletonKey, number>(); // radians
+  for (const [vertex, a, b] of SKELETON_ANGLES) {
+    const pv = points[vertex];
+    const a1 = Math.atan2(points[a].y - pv.y, points[a].x - pv.x);
+    const a2 = Math.atan2(points[b].y - pv.y, points[b].x - pv.x);
+    const cwSweep = ((a2 - a1) + 2 * Math.PI) % (2 * Math.PI);
+    const anticlockwise = cwSweep > Math.PI;
+    const halfSweep = anticlockwise ? -((2 * Math.PI - cwSweep) / 2) : cwSweep / 2;
+    arcBisector.set(vertex, a1 + halfSweep);
+  }
+
+  // ── Angle arcs + degree labels ──
   for (const [vertex, a, b] of SKELETON_ANGLES) {
     drawSkeletonAngle(ctx, points[vertex], points[a], points[b], zoom, color, strokeWidth);
   }
 
-  // ── Joint dots + labels ──
-  const dotR = (3 + strokeWidth) / zoom;
+  // ── Build adjacency list (for joints without an arc) ──────────────────────
+  const allSegs: [SkeletonKey, SkeletonKey][] = [...SKELETON_SEGMENTS, SKELETON_HEAD_SEGMENT];
+  const neighbors = new Map<SkeletonKey, SkeletonKey[]>();
+  for (const key of SKELETON_KEYS) neighbors.set(key, []);
+  for (const [a, b] of allSegs) {
+    neighbors.get(a)!.push(b);
+    neighbors.get(b)!.push(a);
+  }
+
+  /** Direction angle (radians) at which to place the joint name label. */
+  function labelDir(key: SkeletonKey): number {
+    if (arcBisector.has(key)) {
+      // Opposite to the degree label (interior arc) → exterior direction
+      return arcBisector.get(key)! + Math.PI;
+    }
+    // No arc: go away from the average position of neighbors
+    const ns = neighbors.get(key)!;
+    if (ns.length === 0) return -Math.PI / 2;
+    const p = points[key];
+    const avgDx = ns.reduce((s, n) => s + (points[n].x - p.x), 0) / ns.length;
+    const avgDy = ns.reduce((s, n) => s + (points[n].y - p.y), 0) / ns.length;
+    return Math.atan2(-avgDy, -avgDx); // opposite direction
+  }
+
+  // ── Joint dots + name labels ──────────────────────────────────────────────
+  const dotR    = (3 + strokeWidth) / zoom;
   const fontSize = (10 + strokeWidth) / zoom;
   ctx.font = `${fontSize}px system-ui`;
   ctx.textBaseline = 'middle';
-  ctx.textAlign = 'left';
+  ctx.textAlign = 'center';
 
   for (const key of SKELETON_KEYS) {
     const p = points[key];
@@ -497,18 +592,22 @@ function drawSkeleton(ctx: CanvasRenderingContext2D, el: SkeletonElement, zoom: 
     ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
     ctx.fill();
 
-    // Label — offset slightly to the right, shifted up for head/shoulder
-    const oy = (key === 'head' || key === 'shoulder') ? -dotR - 6 / zoom : dotR + 4 / zoom;
-    const ox = dotR + 4 / zoom;
+    // Name label: push far enough to clear the arc (if any)
+    const hasArc = arcBisector.has(key);
+    const dist   = hasArc ? arcRadius + 15 / zoom : dotR + 10 / zoom;
+    const dir    = labelDir(key);
+    const lx = p.x + Math.cos(dir) * dist;
+    const ly = p.y + Math.sin(dir) * dist;
+
     const txt = SKELETON_LABELS[key];
-    const tw = ctx.measureText(txt).width;
-    const bh = fontSize * 1.3;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    const tw  = ctx.measureText(txt).width;
+    const bh  = fontSize * 1.3;
+    ctx.fillStyle = 'rgba(0,0,0,0.60)';
     ctx.beginPath();
-    ctx.roundRect(p.x + ox - 2 / zoom, p.y + oy - bh / 2, tw + 4 / zoom, bh, 2 / zoom);
+    ctx.roundRect(lx - tw / 2 - 3 / zoom, ly - bh / 2, tw + 6 / zoom, bh, 2 / zoom);
     ctx.fill();
     ctx.fillStyle = color;
-    ctx.fillText(txt, p.x + ox, p.y + oy);
+    ctx.fillText(txt, lx, ly);
   }
 }
 

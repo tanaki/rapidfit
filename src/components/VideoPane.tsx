@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PaneSource, Recording, Capture, Layer, Tool } from '../types';
+import type { PaneSource, Recording, Capture, Layer, Tool, Discipline } from '../types';
 import type { AnnotationElement } from '../types';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { useZoomPan } from '../hooks/useZoomPan';
@@ -43,6 +43,7 @@ export interface AnnotationProps {
   onDeleteElement: (layerId: string, elementId: string) => void;
   onBeginDrag: () => void;
   onRescaleElements?: (sx: number, sy: number) => void;
+  discipline?: Discipline;
 }
 
 export interface VideoPaneHandle {
@@ -323,6 +324,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           videoRect={videoRect}
           imgW={imgDims.w}
           imgH={imgDims.h}
+          discipline={annotationProps.discipline}
           style={annotationProps.tool === 'pan' ? { pointerEvents: 'none' } : undefined}
         />
       )}

@@ -16,7 +16,6 @@ import { MediaPanel } from './components/MediaPanel';
 import { HelpModal } from './components/HelpModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ReportModal } from './components/ReportModal';
-import { SessionSelector } from './components/SessionSelector';
 import { NewSessionModal } from './components/NewSessionModal';
 import { VideoPane, SourceSelector, type VideoPaneHandle, type AnnotationProps } from './components/VideoPane';
 import { PanePlayer } from './components/PanePlayer';
@@ -278,6 +277,7 @@ export default function App() {
       onDeleteElement: ls.deleteElement,
       onBeginDrag: ls.beginDrag,
       onRescaleElements: ls.rescaleElements,
+      discipline: sessions.activeSession?.discipline ?? 'route',
     };
   }
 

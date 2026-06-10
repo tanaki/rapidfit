@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import type { Layer, Tool, Point, AnnotationElement, AngleElement } from '../types';
+import type { Layer, Tool, Point, AnnotationElement, AngleElement, Discipline } from '../types';
 import {
   renderLayersWithDraft,
   computeAngle,
@@ -34,6 +34,7 @@ interface Props {
   videoRect?: VideoRect | null;
   imgW?: number;
   imgH?: number;
+  discipline?: Discipline;
   style?: React.CSSProperties;
 }
 
@@ -41,7 +42,7 @@ export function AnnotationCanvas({
   layers, activeLayerId, tool, color, strokeWidth, filled,
   zoom = 1,
   pan = { x: 0, y: 0 },
-  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, imgW = 0, imgH = 0, style,
+  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, imgW = 0, imgH = 0, discipline = 'route', style,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -347,7 +348,7 @@ export function AnnotationCanvas({
     }
     if (tool === 'skeleton') {
       const scale = imgH > 0 ? imgH / 4 : 160;
-      onAddElement(activeLayerId, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale) });
+      onAddElement(activeLayerId, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale, discipline) });
     }
     else if (tool === 'h-angle' || tool === 'v-angle') {
       const mode = tool === 'h-angle' ? 'h' : 'v';
@@ -388,7 +389,7 @@ export function AnnotationCanvas({
 
       {tool === 'skeleton' && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/70 text-yellow-300 text-xs px-3 py-1 rounded-full pointer-events-none select-none">
-          Cliquez pour placer l'épaule — puis ⊙ pour ajuster les articulations
+          Cliquez pour placer la hanche — puis ⊙ pour ajuster les articulations
         </div>
       )}
     </div>
