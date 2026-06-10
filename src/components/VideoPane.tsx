@@ -27,20 +27,22 @@ interface Props {
   onTimeUpdate?: (t: number) => void;
   onDurationChange?: (d: number) => void;
   onPlayStateChange?: (paused: boolean) => void;
-  annotationProps?: {
-    layers: Layer[];
-    activeLayerId: string;
-    tool: Tool;
-    color: string;
-    strokeWidth: number;
-    filled: boolean;
-    onAddElement: (layerId: string, el: AnnotationElement) => void;
-    onEraseAt: (layerId: string, p: { x: number; y: number }, radius: number) => void;
-    onUpdateElement: (layerId: string, el: AnnotationElement) => void;
-    onDeleteElement: (layerId: string, elementId: string) => void;
-    onBeginDrag: () => void;
-    onRescaleElements?: (sx: number, sy: number) => void;
-  };
+  annotationProps?: AnnotationProps;
+}
+
+export interface AnnotationProps {
+  layers: Layer[];
+  activeLayerId: string;
+  tool: Tool;
+  color: string;
+  strokeWidth: number;
+  filled: boolean;
+  onAddElement: (layerId: string, el: AnnotationElement) => void;
+  onEraseAt: (layerId: string, p: { x: number; y: number }, radius: number) => void;
+  onUpdateElement: (layerId: string, el: AnnotationElement) => void;
+  onDeleteElement: (layerId: string, elementId: string) => void;
+  onBeginDrag: () => void;
+  onRescaleElements?: (sx: number, sy: number) => void;
 }
 
 export interface VideoPaneHandle {

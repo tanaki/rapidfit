@@ -18,11 +18,81 @@ import { SettingsModal } from './components/SettingsModal';
 import { ReportModal } from './components/ReportModal';
 import { SessionSelector } from './components/SessionSelector';
 import { NewSessionModal } from './components/NewSessionModal';
-import { VideoPane, SourceSelector, type VideoPaneHandle } from './components/VideoPane';
+import { VideoPane, SourceSelector, type VideoPaneHandle, type AnnotationProps } from './components/VideoPane';
 import { PanePlayer } from './components/PanePlayer';
+import { AppHeader } from './components/AppHeader';
+import type { Recording } from './types';
 import { useStorage } from './hooks/useStorage';
 import { UpdateBanner } from './components/UpdateBanner';
 import { useCompany } from './hooks/useCompany';
+
+// ── PaneColumn ───────────────────────────────────────────────────────────────
+// Wraps VideoPane + PanePlayer into a single column — defined at module level
+// so React never unmounts it due to identity change between renders.
+interface PaneColumnProps {
+  paneRef: React.RefObject<VideoPaneHandle | null>;
+  source: PaneSource;
+  active: boolean;
+  label?: string;
+  onFocus?: () => void;
+  annotationProps: AnnotationProps;
+  onStreamChange?: (s: MediaStream | null) => void;
+  onCameraError?: (e: string | null) => void;
+  onTimeUpdate: (t: number) => void;
+  onDurationChange: (d: number) => void;
+  onPlayStateChange: (p: boolean) => void;
+  onCapture: (blob: Blob, name: string) => void;
+  playerLabel: string;
+  playerIsLive: boolean;
+  playerIsPaused: boolean;
+  playerTime: number;
+  playerDuration: number;
+  frameRate: number;
+  devices: MediaDeviceInfo[];
+  recordings: Recording[];
+  showGuide: boolean;
+  showGrid: boolean;
+  gridSize: number;
+}
+
+function PaneColumn({
+  paneRef, source, active, label, onFocus,
+  annotationProps, onStreamChange, onCameraError,
+  onTimeUpdate, onDurationChange, onPlayStateChange, onCapture,
+  playerLabel, playerIsLive, playerIsPaused, playerTime, playerDuration, frameRate,
+  devices, recordings, showGuide, showGrid, gridSize,
+}: PaneColumnProps) {
+  return (
+    <div className="flex flex-col flex-1 overflow-hidden">
+      <VideoPane
+        ref={paneRef}
+        source={source} devices={devices} recordings={recordings}
+        active={active} label={label} onFocus={onFocus}
+        showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
+        annotationProps={annotationProps}
+        onStreamChange={onStreamChange}
+        onCameraError={onCameraError}
+        onTimeUpdate={onTimeUpdate}
+        onDurationChange={onDurationChange}
+        onPlayStateChange={onPlayStateChange}
+        onCapture={onCapture}
+      />
+      <PanePlayer
+        label={playerLabel}
+        isLiveMode={playerIsLive}
+        isPaused={playerIsPaused}
+        time={playerTime}
+        duration={playerDuration}
+        onPlayPause={() => paneRef.current?.togglePlay()}
+        onSeek={t => { paneRef.current?.seekTo(t); onTimeUpdate(t); }}
+        onFramePrev={() => paneRef.current?.stepFrame(-1, frameRate)}
+        onFrameNext={() => paneRef.current?.stepFrame(1, frameRate)}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_CONFIG: VideoConfig = {
   deviceId: '',
@@ -270,113 +340,53 @@ export default function App() {
     return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
   }, []);
 
+  const handleToggleSplit = useCallback(() => {
+    if (!splitMode && media.activeRecording) {
+      const time = playbackTime;
+      setTimeout(() => paneRef0.current?.seekTo(time), 50);
+    }
+    setSplitMode(s => !s);
+  }, [splitMode, media.activeRecording, playbackTime]);
+
+  const handleOpenReport = useCallback(async () => {
+    if (!appSession.reportLoaded && sessions.activeSession?.folderPath) {
+      const saved = await sessions.loadReport(sessions.activeSession.folderPath);
+      appSession.setReportData(saved);
+      appSession.setReportLoaded(true);
+    }
+    setShowReport(true);
+  }, [appSession, sessions]);
+
   return (
     <div className="flex flex-col h-screen bg-[#0d0d14] text-slate-100 select-none overflow-hidden">
       <UpdateBanner />
 
-      {/* ── Header ── */}
-      <header className="flex items-center justify-between px-4 py-2 bg-[#13131f] border-b border-[#22223b] shrink-0 h-11">
-        <div className="flex items-center gap-2">
-          <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="RapidFit" className="h-6 w-6" />
-          <span className="text-sm font-bold tracking-wide text-white">RapidFit</span>
-          <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
-          <SessionSelector
-            clients={sessions.clients}
-            sessionsByClient={sessions.sessionsByClient}
-            activeClient={sessions.activeClient}
-            activeSession={sessions.activeSession}
-            onSelect={appSession.applySession}
-            onNewSession={() => appSession.setShowNewSession(true)}
-            onEditClient={async updates => { await sessions.updateClient(updates); }}
-            onDeleteSession={appSession.handleDeleteSession}
-            onDeleteClient={appSession.handleDeleteClient}
-          />
-          <div className="w-px h-4 bg-[#3d3d5c] mx-1" />
-          <span className="text-xs text-slate-400 bg-[#22223b] px-2 py-0.5 rounded-md border border-[#3d3d5c]">
-            {splitMode && (
-              <span className="text-indigo-400 font-medium mr-1">
-                {t('header.panel')} {activePaneIndex === 0 ? 'A' : 'B'} —
-              </span>
-            )}
-            {t('header.layer')} : <span className="text-slate-200 font-medium">{activeLayerName}</span>
-          </span>
-        </div>
-
-        {cameraError && (
-          <div className="text-xs text-red-400 bg-red-900/20 border border-red-900/40 px-3 py-1 rounded-lg">
-            ⚠ {cameraError}
-          </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          {isLiveMode && !cameraIsActive && !cameraError && (
-            <span className="text-xs text-slate-500">{t('header.cameraWaiting')}</span>
-          )}
-          <button
-            onClick={() => setShowGuide(g => !g)}
-            title={t('header.guidesTitle')}
-            className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
-              showGuide ? 'bg-yellow-600 text-white' : 'bg-[#22223b] hover:bg-[#2d2d48] text-slate-300'
-            }`}
-          >
-            {t('header.guides')}
-          </button>
-          <button
-            onClick={() => setShowGrid(g => !g)}
-            title={t('header.gridTitle')}
-            className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
-              showGrid ? 'bg-blue-600 text-white' : 'bg-[#22223b] hover:bg-[#2d2d48] text-slate-300'
-            }`}
-          >
-            {t('header.grid')}
-          </button>
-          {showGrid && (
-            <div className="flex items-center gap-1 bg-[#22223b] rounded-lg px-1.5 py-0.5 border border-[#3d3d5c]">
-              <button onClick={() => setGridSize(s => Math.max(10, s - 10))} disabled={gridSize <= 10}
-                className="w-5 h-5 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-30 text-sm font-bold">−</button>
-              <span className="text-xs text-slate-300 w-12 text-center tabular-nums">{gridSize} px</span>
-              <button onClick={() => setGridSize(s => Math.min(200, s + 10))} disabled={gridSize >= 200}
-                className="w-5 h-5 flex items-center justify-center rounded text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-30 text-sm font-bold">+</button>
-            </div>
-          )}
-          <button
-            onClick={() => {
-              if (!splitMode && media.activeRecording) {
-                const t = playbackTime;
-                setTimeout(() => paneRef0.current?.seekTo(t), 50);
-              }
-              setSplitMode(s => !s);
-            }}
-            className={`text-xs px-3 py-1 rounded-lg font-medium transition-colors ${
-              splitMode ? 'bg-indigo-600 text-white' : 'bg-[#22223b] hover:bg-[#2d2d48] text-slate-300'
-            }`}
-          >
-            {t('header.split')}
-          </button>
-          <div className="w-px h-4 bg-[#3d3d5c]" />
-          <button
-            onClick={async () => {
-              if (!appSession.reportLoaded && sessions.activeSession?.folderPath) {
-                const saved = await sessions.loadReport(sessions.activeSession.folderPath);
-                appSession.setReportData(saved);
-                appSession.setReportLoaded(true);
-              }
-              setShowReport(true);
-            }}
-            className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 font-medium transition-colors"
-          >
-            {t('header.report')}
-          </button>
-          <button onClick={() => setShowSettings(true)} title={t('header.settings')}
-            className="w-8 h-7 flex items-center justify-center bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-              <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 0 1-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 0 1 .947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 0 1 2.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 0 1 2.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 0 1 .947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 0 1-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 0 1-2.287-.947zM10 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" clipRule="evenodd" />
-            </svg>
-          </button>
-          <button onClick={() => setShowHelp(true)} title={t('header.help')}
-            className="w-8 h-7 flex items-center justify-center bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 text-sm">?</button>
-        </div>
-      </header>
+      <AppHeader
+        sessionProps={{
+          clients: sessions.clients,
+          sessionsByClient: sessions.sessionsByClient,
+          activeClient: sessions.activeClient,
+          activeSession: sessions.activeSession,
+          onSelect: appSession.applySession,
+          onNewSession: () => appSession.setShowNewSession(true),
+          onEditClient: async updates => { await sessions.updateClient(updates); },
+          onDeleteSession: appSession.handleDeleteSession,
+          onDeleteClient: appSession.handleDeleteClient,
+        }}
+        splitMode={splitMode}
+        activePaneIndex={activePaneIndex}
+        activeLayerName={activeLayerName}
+        isLiveMode={isLiveMode}
+        cameraIsActive={cameraIsActive}
+        cameraError={cameraError}
+        showGuide={showGuide} onToggleGuide={() => setShowGuide(g => !g)}
+        showGrid={showGrid}   onToggleGrid={() => setShowGrid(g => !g)}
+        gridSize={gridSize}   onGridSizeChange={setGridSize}
+        onToggleSplit={handleToggleSplit}
+        onOpenReport={handleOpenReport}
+        onOpenSettings={() => setShowSettings(true)}
+        onOpenHelp={() => setShowHelp(true)}
+      />
 
       {/* ── Main ── */}
       <div className="flex flex-1 overflow-hidden">
@@ -414,80 +424,65 @@ export default function App() {
 
           {/* Panes */}
           <div className="flex flex-1 overflow-hidden relative">
-            {/* Pane A column */}
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <VideoPane
-                ref={paneRef0}
-                source={singleSource} devices={devices} recordings={media.recordings}
-                active={splitMode && activePaneIndex === 0}
-                label={splitMode ? 'A' : undefined}
-                onFocus={splitMode ? () => setActivePaneIndex(0) : undefined}
-                showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
-                onCapture={(blob, name) => media.handleCapture(blob, name, splitMode ? 'A' : undefined)}
-                annotationProps={makeAnnotationProps(singleLayers)}
-                onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
-                onCameraError={setCameraError}
-                onTimeUpdate={setPlaybackTime}
-                onDurationChange={d => {
-                  setPlaybackDuration(d);
-                  if (isFinite(d) && d > 0) {
-                    media.setRecordings(prev => prev.map(r =>
-                      r.id === media.activeRecording?.id && r.duration === 0 ? { ...r, duration: d } : r,
-                    ));
-                  }
-                }}
-                onPlayStateChange={p => setPlaybackPaused(p)}
-              />
-              <PanePlayer
-                label={splitMode ? 'A' : ''}
-                isLiveMode={isLiveMode}
-                isPaused={playbackPaused}
-                time={playbackTime}
-                duration={playbackDuration}
-                onPlayPause={() => paneRef0.current?.togglePlay()}
-                onSeek={t => { paneRef0.current?.seekTo(t); setPlaybackTime(t); }}
-                onFramePrev={() => paneRef0.current?.stepFrame(-1, config.frameRate || 30)}
-                onFrameNext={() => paneRef0.current?.stepFrame(1, config.frameRate || 30)}
-              />
-            </div>
+            <PaneColumn
+              paneRef={paneRef0}
+              source={singleSource}
+              active={splitMode && activePaneIndex === 0}
+              label={splitMode ? 'A' : undefined}
+              onFocus={splitMode ? () => setActivePaneIndex(0) : undefined}
+              annotationProps={makeAnnotationProps(singleLayers)}
+              onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
+              onCameraError={setCameraError}
+              onTimeUpdate={setPlaybackTime}
+              onDurationChange={d => {
+                setPlaybackDuration(d);
+                if (isFinite(d) && d > 0)
+                  media.setRecordings(prev => prev.map(r =>
+                    r.id === media.activeRecording?.id && r.duration === 0 ? { ...r, duration: d } : r,
+                  ));
+              }}
+              onPlayStateChange={setPlaybackPaused}
+              onCapture={(blob, name) => media.handleCapture(blob, name, splitMode ? 'A' : undefined)}
+              playerLabel={splitMode ? 'A' : ''}
+              playerIsLive={isLiveMode}
+              playerIsPaused={playbackPaused}
+              playerTime={playbackTime}
+              playerDuration={playbackDuration}
+              frameRate={config.frameRate || 30}
+              devices={devices} recordings={media.recordings}
+              showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
+            />
 
             {splitMode && (
               <>
                 <div className="w-px bg-[#22223b] shrink-0" />
-                {/* Pane B column */}
-                <div className="flex flex-col flex-1 overflow-hidden">
-                  <VideoPane
-                    ref={paneRef1}
-                    source={paneBSource} devices={devices} recordings={media.recordings}
-                    active={activePaneIndex === 1} label="B"
-                    onFocus={() => setActivePaneIndex(1)}
-                    showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
-                    onCapture={(blob, name) => media.handleCapture(blob, name, 'B')}
-                    annotationProps={makeAnnotationProps(paneLayers1)}
-                    onTimeUpdate={setPlaybackTimeB}
-                    onDurationChange={d => {
-                      setPlaybackDurationB(d);
-                      if (isFinite(d) && d > 0 && paneBSource.type === 'recording') {
-                        media.setRecordings(prev => prev.map(r =>
-                          r.id === (paneBSource as { type: 'recording'; recording: { id: string } }).recording.id && r.duration === 0
-                            ? { ...r, duration: d } : r,
-                        ));
-                      }
-                    }}
-                    onPlayStateChange={p => setPlaybackPausedB(p)}
-                  />
-                  <PanePlayer
-                    label="B"
-                    isLiveMode={paneBSource.type === 'camera'}
-                    isPaused={playbackPausedB}
-                    time={playbackTimeB}
-                    duration={playbackDurationB}
-                    onPlayPause={() => paneRef1.current?.togglePlay()}
-                    onSeek={t => { paneRef1.current?.seekTo(t); setPlaybackTimeB(t); }}
-                    onFramePrev={() => paneRef1.current?.stepFrame(-1, config.frameRate || 30)}
-                    onFrameNext={() => paneRef1.current?.stepFrame(1, config.frameRate || 30)}
-                  />
-                </div>
+                <PaneColumn
+                  paneRef={paneRef1}
+                  source={paneBSource}
+                  active={activePaneIndex === 1}
+                  label="B"
+                  onFocus={() => setActivePaneIndex(1)}
+                  annotationProps={makeAnnotationProps(paneLayers1)}
+                  onTimeUpdate={setPlaybackTimeB}
+                  onDurationChange={d => {
+                    setPlaybackDurationB(d);
+                    if (isFinite(d) && d > 0 && paneBSource.type === 'recording')
+                      media.setRecordings(prev => prev.map(r =>
+                        r.id === (paneBSource as { type: 'recording'; recording: { id: string } }).recording.id && r.duration === 0
+                          ? { ...r, duration: d } : r,
+                      ));
+                  }}
+                  onPlayStateChange={setPlaybackPausedB}
+                  onCapture={(blob, name) => media.handleCapture(blob, name, 'B')}
+                  playerLabel="B"
+                  playerIsLive={paneBSource.type === 'camera'}
+                  playerIsPaused={playbackPausedB}
+                  playerTime={playbackTimeB}
+                  playerDuration={playbackDurationB}
+                  frameRate={config.frameRate || 30}
+                  devices={devices} recordings={media.recordings}
+                  showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
+                />
               </>
             )}
 
