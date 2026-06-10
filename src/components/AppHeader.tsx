@@ -139,10 +139,10 @@ export function AppHeader({
         {/* Pain guide */}
         <button
           onClick={onOpenPainGuide}
-          title="Douleurs & Réglages — diagramme de dépannage"
+          title={t('header.painGuideTitle')}
           className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 font-medium transition-colors"
         >
-          🩹 Douleurs
+          {t('header.painGuide')}
         </button>
 
         {/* Report */}

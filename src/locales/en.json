@@ -10,7 +10,9 @@
     "report": "📋 Report",
     "split": "⊞ Split",
     "settings": "⚙ Settings",
-    "help": "? Help"
+    "help": "? Help",
+    "painGuide": "🩹 Pain guide",
+    "painGuideTitle": "Pain & Adjustments — troubleshooting guide"
   },
   "toolbar": {
     "pan": "Pan (H)",
@@ -245,7 +247,20 @@
     "errorTitle": "Update error",
     "downloading": "Downloading update v{{version}}…",
     "ready": "Update ready",
-    "clickToRestart": "Click to restart"
+    "clickToRestart": "Click to restart",
+    "check": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "✓ up to date",
+    "downloadingShort": "⬇ v{{version}}…",
+    "readyShort": "✓ v{{version}} ready — Install",
+    "errorShort": "⚠ Error",
+    "timeout": "Timed out — check your internet connection"
+  },
+  "painGuide": {
+    "title": "Pain & Adjustments",
+    "subtitle": "Troubleshooting guide — quick fixes by pain zone",
+    "disclaimer": "Apply these tips once the equipment has been checked. They are not a substitute for a comprehensive assessment by a healthcare professional.",
+    "close": "Close"
   },
   "help": {
     "title": "User guide",

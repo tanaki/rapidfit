@@ -81,7 +81,7 @@ export function HelpModal({ onClose }: Props) {
     checkTimeoutRef.current = setTimeout(() => {
       if (!mountedRef.current) return;
       setUpdateStatus(prev => prev === 'checking' ? 'error' : prev);
-      setUpdateError(prev => prev ?? 'Délai dépassé — vérifiez la connexion réseau');
+      setUpdateError(prev => prev ?? t('update.timeout'));
     }, 20_000);
   };
 
@@ -103,24 +103,24 @@ export function HelpModal({ onClose }: Props) {
                     disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
                     className="text-[10px] ml-1 mt-1 px-1.5 py-0.5 rounded bg-[#22223b] hover:bg-[#2d2d48] disabled:opacity-40 text-slate-400 hover:text-slate-200 transition-colors font-medium"
                   >
-                    {updateStatus === 'checking' ? 'Vérification…' : 'Vérifier les mises à jour'}
+                    {updateStatus === 'checking' ? t('update.checking') : t('update.check')}
                   </button>
                   {updateStatus === 'up-to-date' && (
-                    <span className="text-[10px] text-green-400">✓ à jour</span>
+                    <span className="text-[10px] text-green-400">{t('update.upToDate')}</span>
                   )}
                   {updateStatus === 'downloading' && (
-                    <span className="text-[10px] text-indigo-300">⬇ v{updateVersion}…</span>
+                    <span className="text-[10px] text-indigo-300">{t('update.downloadingShort', { version: updateVersion })}</span>
                   )}
                   {updateStatus === 'ready' && (
                     <button
                       onClick={() => api.installUpdate()}
                       className="text-[10px] ml-1 mt-1 px-1.5 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium animate-pulse"
                     >
-                      ✓ v{updateVersion} prête — Installer
+                      {t('update.readyShort', { version: updateVersion })}
                     </button>
                   )}
                   {updateStatus === 'error' && (
-                    <span className="text-[10px] text-red-400" title={updateError ?? ''}>⚠ Erreur</span>
+                    <span className="text-[10px] text-red-400" title={updateError ?? ''}>{t('update.errorShort')}</span>
                   )}
                 </>
               )}

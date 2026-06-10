@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { PAIN_GUIDE } from '../data/painGuide';
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function PainGuideModal({ onClose }: Props) {
+  const { t } = useTranslation();
   // Track which section and which zone are open
   const [openSection, setOpenSection] = useState<string | null>(PAIN_GUIDE[0].id);
   const [openZone, setOpenZone]       = useState<string | null>(null);
@@ -29,9 +31,9 @@ export function PainGuideModal({ onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#22223b] shrink-0">
           <div>
-            <h2 className="text-base font-semibold text-slate-100">Douleurs & Réglages</h2>
+            <h2 className="text-base font-semibold text-slate-100">{t('painGuide.title')}</h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Diagramme de dépannage — solutions rapides par zone de douleur
+              {t('painGuide.subtitle')}
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white text-xl leading-none">✕</button>
@@ -40,7 +42,7 @@ export function PainGuideModal({ onClose }: Props) {
         {/* Disclaimer */}
         <div className="px-6 py-2.5 bg-amber-950/30 border-b border-amber-900/30 shrink-0">
           <p className="text-[10px] text-amber-400/80 leading-relaxed">
-            Ces conseils sont à appliquer une fois que le matériel est vérifié. Ils ne remplacent en aucun cas une prise en charge globale par un professionnel de santé.
+            {t('painGuide.disclaimer')}
           </p>
         </div>
 
@@ -123,7 +125,7 @@ export function PainGuideModal({ onClose }: Props) {
             onClick={onClose}
             className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors"
           >
-            Fermer
+            {t('painGuide.close')}
           </button>
         </div>
 
