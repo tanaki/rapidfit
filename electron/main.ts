@@ -213,6 +213,11 @@ autoUpdater.on('update-available',  (info) => {
   log.info(`[updater-win] disponible : ${info.version}`);
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-available', info);
 });
+autoUpdater.on('download-progress', (progress) => {
+  const percent = Math.round(progress.percent);
+  log.info(`[updater-win] progression : ${percent}%`);
+  BrowserWindow.getAllWindows()[0]?.webContents.send('update-download-progress', { percent });
+});
 autoUpdater.on('update-downloaded', (info) => {
   log.info(`[updater-win] téléchargé : ${info.version}`);
   BrowserWindow.getAllWindows()[0]?.webContents.send('update-downloaded', info);
@@ -252,7 +257,12 @@ function githubApiGet(apiPath: string, token: string): Promise<unknown> {
   });
 }
 
-function downloadFile(url: string, token: string, dest: string): Promise<void> {
+function downloadFile(
+  url: string,
+  token: string,
+  dest: string,
+  onProgress?: (percent: number) => void,
+): Promise<void> {
   return new Promise((resolve, reject) => {
     function follow(u: string, withAuth: boolean) {
       const parsed = new URL(u);
@@ -267,6 +277,22 @@ function downloadFile(url: string, token: string, dest: string): Promise<void> {
           return;
         }
         if (res.statusCode !== 200) { reject(new Error(`Download ${res.statusCode}`)); return; }
+
+        const total = parseInt(res.headers['content-length'] ?? '0', 10);
+        let received = 0;
+        let lastPercent = -1;
+
+        res.on('data', (chunk: Buffer) => {
+          received += chunk.length;
+          if (onProgress && total > 0) {
+            const percent = Math.round((received / total) * 100);
+            if (percent !== lastPercent) {
+              lastPercent = percent;
+              onProgress(percent);
+            }
+          }
+        });
+
         const file = fsSync.createWriteStream(dest);
         res.pipe(file);
         file.on('finish', () => { file.close(); resolve(); });
@@ -318,6 +344,9 @@ async function checkForUpdatesMac(token: string) {
     await downloadFile(
       `https://api.github.com/repos/tanaki/rapidfit/releases/assets/${asset.id}`,
       token, zipPath,
+      (percent) => {
+        win()?.webContents.send('update-download-progress', { percent });
+      },
     );
 
     macDownloadedZip = zipPath;

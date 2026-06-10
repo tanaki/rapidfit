@@ -14,14 +14,16 @@ export function HelpModal({ onClose }: Props) {
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>('idle');
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [downloadPercent, setDownloadPercent] = useState<number>(0);
   const mountedRef = useRef(true);
 
   const api = (window as unknown as {
     electronAPI?: {
-      onUpdateAvailable:    (cb: (i: { version: string }) => void) => () => void;
-      onUpdateDownloaded:   (cb: (i: { version: string }) => void) => () => void;
-      onUpdateNotAvailable: (cb: (i: { version: string }) => void) => () => void;
-      onUpdateError:        (cb: (msg: string) => void) => () => void;
+      onUpdateAvailable:         (cb: (i: { version: string }) => void) => () => void;
+      onUpdateDownloaded:        (cb: (i: { version: string }) => void) => () => void;
+      onUpdateNotAvailable:      (cb: (i: { version: string }) => void) => () => void;
+      onUpdateError:             (cb: (msg: string) => void) => () => void;
+      onUpdateDownloadProgress:  (cb: (i: { percent: number }) => void) => () => void;
       installUpdate:   () => void;
       checkForUpdates: () => void;
     };
@@ -43,7 +45,12 @@ export function HelpModal({ onClose }: Props) {
         if (!mountedRef.current) return;
         clearCheckTimeout();
         setUpdateVersion(info.version);
+        setDownloadPercent(0);
         setUpdateStatus('downloading');
+      }),
+      api.onUpdateDownloadProgress(({ percent }) => {
+        if (!mountedRef.current) return;
+        setDownloadPercent(percent);
       }),
       api.onUpdateDownloaded(info => {
         if (!mountedRef.current) return;
@@ -111,7 +118,19 @@ export function HelpModal({ onClose }: Props) {
                     <span className="text-[10px] text-green-400">{t('update.upToDate')}</span>
                   )}
                   {updateStatus === 'downloading' && (
-                    <span className="text-[10px] text-indigo-300">{t('update.downloadingShort', { version: updateVersion })}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="w-24 h-1.5 bg-[#22223b] rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                          style={{ width: `${downloadPercent}%` }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-indigo-300 tabular-nums">
+                        {downloadPercent > 0
+                          ? `${downloadPercent}%`
+                          : t('update.downloadingShort', { version: updateVersion })}
+                      </span>
+                    </div>
                   )}
                   {updateStatus === 'ready' && (
                     <button

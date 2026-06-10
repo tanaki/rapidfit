@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('update-available', handler);
     return () => ipcRenderer.removeListener('update-available', handler);
   },
+  onUpdateDownloadProgress: (cb: (info: { percent: number }) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: { percent: number }) => cb(info);
+    ipcRenderer.on('update-download-progress', handler);
+    return () => ipcRenderer.removeListener('update-download-progress', handler);
+  },
   onUpdateDownloaded: (cb: (info: unknown) => void) => {
     const handler = (_e: Electron.IpcRendererEvent, info: unknown) => cb(info);
     ipcRenderer.on('update-downloaded', handler);
