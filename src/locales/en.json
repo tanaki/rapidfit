@@ -260,7 +260,119 @@
     "title": "Pain & Adjustments",
     "subtitle": "Troubleshooting guide — quick fixes by pain zone",
     "disclaimer": "Apply these tips once the equipment has been checked. They are not a substitute for a comprehensive assessment by a healthcare professional.",
-    "close": "Close"
+    "close": "Close",
+    "pied": {
+      "title": "Lower limb — Foot",
+      "engoudissement-pied": {
+        "name": "Foot numbness",
+        "c0": { "p": "Shoes too tight", "s0": "Go up a shoe size or loosen the straps", "s1": "Use wider shoes (\"wide\" models: Shimano, Lake, Specialized)", "s2": "Thinner or custom insoles made by a sports podiatrist" }
+      },
+      "douleur-cou-pied": {
+        "name": "Top-of-foot pain",
+        "c0": { "p": "Shoe too tight with the tongue pressing on the area (pedal at top or excessive dorsiflexion)", "s0": "Replace shoes with a more open model at that point (e.g. Lake brand)", "s1": "Cut part of the tongue with scissors (common with Sidi shoes)", "s2": "Thinner or custom insoles from a sports podiatrist", "s3": "Review cleat position (too far forward) and saddle height (too low): the ankle may be working through a poor range of motion" }
+      },
+      "douleurs-pieds": {
+        "name": "Foot pain",
+        "c0": { "p": "Excessive pressure on the outer edge of the foot or another maximum pressure point", "s0": "Shoes too tight or too narrow at the front — use \"wide\" shoes", "s1": "Custom insoles from a sports podiatrist", "s2": "Move cleats toward the inside of the shoe to push the feet away from the cranks" }
+      },
+      "crampes-pieds": {
+        "name": "Foot cramps",
+        "c0": { "p": "Shoes too tight", "s0": "Go up a shoe size or loosen the straps", "s1": "Thinner or custom insoles" },
+        "c1": { "p": "Feet not held firmly enough (toes work harder to maintain stability)", "s0": "Go down a shoe size, thicker or custom insoles", "s1": "Narrower and shorter shoes", "s2": "Engage the foot more (move cleat toward the heel)" },
+        "c2": { "p": "Incorrectly adjusted cleats or saddle too low", "s0": "Review cleat engagement (often too far forward)", "s1": "Review saddle settings (often too low)" },
+        "c3": { "p": "Unsuitable shoes", "s0": "Replace shoes with a model better suited to your foot morphology" }
+      },
+      "tendon-achille": {
+        "name": "Achilles tendon",
+        "c0": { "p": "Excessive maximum plantar flexion", "s0": "Review cleat position (often too far forward)", "s1": "Review saddle height (often too low)", "s2": "Engage the foot more (move cleat toward the heel)" },
+        "c1": { "p": "Unsuitable shoes", "s0": "Replace shoes with a model that does not press on the tendon" },
+        "c2": { "p": "Lots of positive elevation (low cadence, greater ankle mobilisation) or excessive force work", "s0": "Reduce training volume, especially force work and hilly routes", "s1": "Increase pedalling cadence", "s2": "Raise the saddle to the optimal angle for your discipline" }
+      }
+    },
+    "genou": {
+      "title": "Lower limb — Knee",
+      "genou-anterieur": {
+        "name": "Front of knee (anterior)",
+        "c0": { "p": "Excessive quadriceps load, too much knee flexion", "s0": "Raise and/or move the saddle back", "s1": "Review cleat position", "s2": "Engage the foot more (move cleat toward the heel)", "s3": "Reduce training volume, especially force work and hilly routes", "s4": "Increase pedalling cadence" },
+        "c1": { "p": "Too much force work", "s0": "Increase average pedalling cadence", "s1": "Reduce training volume" },
+        "c2": { "p": "Excessive knee range of motion", "s0": "Switch to shorter cranks" }
+      },
+      "genou-posterieur": {
+        "name": "Back of knee (posterior)",
+        "c0": { "p": "Excessive hamstring load (too much knee extension)", "s0": "Lower the saddle", "s1": "Move the saddle forward", "s2": "Saddle-to-bar distance too great: shorten the stem", "s3": "Review cleat position", "s4": "Rotate the cleat to bring the heel closer to the frame", "s5": "Replace worn cleats and/or pedals — reduce float if adjustable" }
+      },
+      "patte-oie": {
+        "name": "Pes anserinus (inner knee, lower area)",
+        "c0": { "p": "Excessive maximum leg extension", "s0": "Lower the saddle" },
+        "c1": { "p": "Excessive external foot rotation (heel too close to the frame)", "s0": "Rotate the cleat to move the heel away from the frame", "s1": "Replace worn cleats and/or pedals — reduce float if adjustable" },
+        "c2": { "p": "Feet too far from the frame", "s0": "Reduce Q-factor: move cleats toward the outside of the shoes to bring the feet closer to the cranks" }
+      },
+      "rotule-interne": {
+        "name": "Inner edge of the kneecap",
+        "c0": { "p": "Excessive stress on the inner edge of the kneecap", "s0": "Reduce training volume, especially force work and hilly routes", "s1": "Increase pedalling cadence", "s2": "Saddle too low or too far forward: correct the height", "s3": "Rotate the cleat to bring the heel closer to the frame" },
+        "c1": { "p": "Femoro-patellar dysplasia or other structural cause", "s0": "See a specialist" }
+      },
+      "rotule-externe": {
+        "name": "Outer edge of the kneecap",
+        "c0": { "p": "Excessive stress on the outer edge of the kneecap (same logic as the inner side)", "s0": "Reduce training volume, especially force work and hilly routes", "s1": "Increase pedalling cadence", "s2": "Saddle too low or too far forward: correct the height", "s3": "Rotate the cleat to move the heel away from the frame (opposite to inner side)" }
+      },
+      "bandelette": {
+        "name": "Outer knee (lateral) — IT band",
+        "c0": { "p": "Excessive internal foot rotation (heel too far from the frame)", "s0": "Rotate the cleat to bring the heel closer to the frame", "s1": "Replace worn cleats and/or pedals — reduce float if adjustable" },
+        "c1": { "p": "Ankle too free / feet too close to the frame", "s0": "Increase Q-factor: move cleats toward the inside of the shoes to push the feet further from the cranks", "s1": "If insufficient, use spacers or pedals with a longer axle" },
+        "c2": { "p": "IT-band friction caused by incorrect saddle height", "s0": "Check the saddle height" }
+      }
+    },
+    "hanche-dos": {
+      "title": "Hip & Back",
+      "hanches": {
+        "name": "Hip pain",
+        "c0": { "p": "Excessive hip flexion", "s0": "Lower the saddle to the optimal angle for your discipline", "s1": "Move the saddle forward", "s2": "Shorten the stem", "s3": "Raise the handlebar", "s4": "Use shorter cranks" },
+        "c1": { "p": "Excessive range of motion or poor hip/knee/ankle alignment", "s0": "Check saddle height", "s1": "Adjust cleat rotation and Q-factor", "s2": "Saddle misaligned: recalibrate", "s3": "Switch to shorter cranks", "s4": "Consult a sports podiatrist" },
+        "c2": { "p": "Pelvic compensation due to lower-limb asymmetry", "s0": "Identify the cause of the asymmetry with a podiatrist", "s1": "Orient the cleat of the inward-turning knee outward to restore alignment (move heel closer to the crank)", "s2": "Leg length discrepancy: consult a podiatrist for a precise diagnosis" },
+        "c3": { "p": "Hip dysplasia or other structural cause", "s0": "See a specialist" }
+      },
+      "lombaires": {
+        "name": "Lower back pain",
+        "c0": { "p": "Posterior muscle chain under too much tension / torso too far forward", "s0": "Shorten the stem", "s1": "Raise the handlebar", "s2": "Lower the saddle (and possibly move it forward)" },
+        "c1": { "p": "Torso too far back (posterior pelvic tilt)", "s0": "Tilt the saddle nose down", "s1": "Use a better-suited saddle (wide and short models for more stability)" },
+        "c2": { "p": "Hip swaying / pelvic instability", "s0": "Saddle too high or too far back: correct height and setback", "s1": "Raise the handlebar", "s2": "Saddle model not suitable", "s3": "Leg length discrepancy: consult a podiatrist for a precise diagnosis", "s4": "Consult a sports podiatrist" }
+      }
+    },
+    "assise": {
+      "title": "Saddle contact",
+      "perinee": {
+        "name": "Perineal compression (front of saddle)",
+        "c0": { "p": "Too much pressure on the front and nose of the saddle / pelvis rotated too far forward", "s0": "Tilt the saddle nose down", "s1": "Lower the saddle", "s2": "Raise the handlebar", "s3": "Switch to a better-suited saddle" },
+        "c1": { "p": "Low-quality shorts or chafing", "s0": "Use higher-quality cycling shorts", "s1": "Apply Akileine NOK cream" }
+      },
+      "appuis-selle": {
+        "name": "Rear saddle pain (sit bones)",
+        "c0": { "p": "Too much pressure at the rear — saddle tilted too far back", "s0": "Switch to a better-suited saddle", "s1": "Tilt the saddle nose down", "s2": "Use higher-quality cycling shorts", "s3": "Apply Akileine NOK cream" },
+        "c1": { "p": "Saddle too wide", "s0": "Use a narrower saddle, particularly at the nose" }
+      },
+      "irritation-cuisses": {
+        "name": "Inner thigh irritation",
+        "c0": { "p": "Low-quality shorts and chafing", "s0": "Use higher-quality cycling shorts", "s1": "Apply Akileine NOK cream", "s2": "Tilt the saddle nose up slightly", "s3": "Shorten the stem and move the saddle back" }
+      }
+    },
+    "superieur": {
+      "title": "Upper limb — Shoulders, Neck & Hands",
+      "epaules-cervicales": {
+        "name": "Shoulders & Neck",
+        "c0": { "p": "Too much weight on the arms (excessive forward reach)", "s0": "Tilt the saddle nose up", "s1": "Shorten the stem and move the saddle back", "s2": "Raise the handlebar" },
+        "c1": { "p": "Arms too wide apart", "s0": "Shorten the stem", "s1": "Raise the handlebar", "s2": "Reduce saddle setback" },
+        "c2": { "p": "Shoulders too closed", "s0": "Widen the handlebar (= width between the two acromions)" },
+        "c3": { "p": "Excessive cervical tension compressing nerve roots", "s0": "Shorten the stem", "s1": "Raise the handlebar", "s2": "Many other possible causes — see a specialist if symptoms persist" }
+      },
+      "mains-poignets": {
+        "name": "Wrist / hand numbness or pain",
+        "c0": { "p": "Too much weight on the wrists", "s0": "Tilt the saddle nose up", "s1": "Shorten the stem", "s2": "Check handlebar height" },
+        "c1": { "p": "Poor handlebar grip position", "s0": "Shorten the stem if the bars are hard to reach", "s1": "Check handlebar height" },
+        "c2": { "p": "Low-quality bar tape or vibrations", "s0": "Try a different bar tape model", "s1": "Use two layers of bar tape to absorb vibrations" },
+        "c3": { "p": "Anterior forearm tension", "s0": "Narrow the handlebar (= width between the two acromions)" }
+      }
+    }
   },
   "help": {
     "title": "User guide",

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import type { Capture, Client, Session, ReportData, CompanySettings } from '../types';
 import { DEFAULT_REPORT } from '../types';
 import { generatePDF } from '../utils/reportPdf';
@@ -87,6 +88,7 @@ export function ReportModal({ captures, client, session, company, initialData, o
   }, [data]);
 
   const handleClose = useCallback(() => { flushSave(); onClose(); }, [flushSave, onClose]);
+  useEscapeKey(handleClose);
 
   const handleExport = async () => {
     setExporting(true);

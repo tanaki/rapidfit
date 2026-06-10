@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 import type { VideoConfig, CompanySettings } from '../types';
 import { RESOLUTIONS, FRAMERATES } from '../types';
 
@@ -16,6 +17,7 @@ type Tab = 'video' | 'company' | 'interface';
 
 export function SettingsModal({ config, onChange, onClose, devices, company, onCompany }: Props) {
   const { t, i18n } = useTranslation();
+  useEscapeKey(onClose);
   const [tab, setTab] = useState<Tab>('video');
   const [local, setLocal] = useState<VideoConfig>(config);
   const [comp, setComp] = useState<CompanySettings>(company);

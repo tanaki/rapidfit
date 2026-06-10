@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { PAIN_GUIDE } from '../data/painGuide';
+import { getPainGuide } from '../data/painGuide';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   onClose: () => void;
@@ -8,8 +9,10 @@ interface Props {
 
 export function PainGuideModal({ onClose }: Props) {
   const { t } = useTranslation();
+  useEscapeKey(onClose);
+  const painGuide = getPainGuide(t);
   // Track which section and which zone are open
-  const [openSection, setOpenSection] = useState<string | null>(PAIN_GUIDE[0].id);
+  const [openSection, setOpenSection] = useState<string | null>(painGuide[0].id);
   const [openZone, setOpenZone]       = useState<string | null>(null);
 
   const toggleSection = (id: string) => {
@@ -48,7 +51,7 @@ export function PainGuideModal({ onClose }: Props) {
 
         {/* Accordion */}
         <div className="overflow-y-auto flex-1 px-4 py-3 space-y-1.5">
-          {PAIN_GUIDE.map(section => {
+          {painGuide.map(section => {
             const sectionOpen = openSection === section.id;
             return (
               <div key={section.id} className="rounded-lg border border-[#22223b] overflow-hidden">
