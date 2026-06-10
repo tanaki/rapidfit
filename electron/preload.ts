@@ -2,14 +2,28 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // ── Auto-updater ────────────────────────────────────────────────────────────
-  onUpdateAvailable: (cb: (info: unknown) => void) =>
-    ipcRenderer.on('update-available', (_e, info) => cb(info)),
-  onUpdateDownloaded: (cb: (info: unknown) => void) =>
-    ipcRenderer.on('update-downloaded', (_e, info) => cb(info)),
-  onUpdateNotAvailable: (cb: (info: unknown) => void) =>
-    ipcRenderer.on('update-not-available', (_e, info) => cb(info)),
-  onUpdateError: (cb: (message: string) => void) =>
-    ipcRenderer.on('update-error', (_e, message) => cb(message)),
+  // Each on* call registers a listener and returns a cleanup function so React
+  // can remove it when the component unmounts — prevents listener accumulation.
+  onUpdateAvailable: (cb: (info: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: unknown) => cb(info);
+    ipcRenderer.on('update-available', handler);
+    return () => ipcRenderer.removeListener('update-available', handler);
+  },
+  onUpdateDownloaded: (cb: (info: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: unknown) => cb(info);
+    ipcRenderer.on('update-downloaded', handler);
+    return () => ipcRenderer.removeListener('update-downloaded', handler);
+  },
+  onUpdateNotAvailable: (cb: (info: unknown) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, info: unknown) => cb(info);
+    ipcRenderer.on('update-not-available', handler);
+    return () => ipcRenderer.removeListener('update-not-available', handler);
+  },
+  onUpdateError: (cb: (message: string) => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, message: string) => cb(message);
+    ipcRenderer.on('update-error', handler);
+    return () => ipcRenderer.removeListener('update-error', handler);
+  },
   installUpdate: () => ipcRenderer.send('install-update'),
   checkForUpdates: () => ipcRenderer.invoke('updater:check-now'),
 

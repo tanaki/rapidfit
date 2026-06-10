@@ -16,38 +16,57 @@ export function HelpModal({ onClose }: Props) {
 
   const api = (window as unknown as {
     electronAPI?: {
-      onUpdateAvailable: (cb: (i: { version: string }) => void) => void;
-      onUpdateDownloaded: (cb: (i: { version: string }) => void) => void;
-      onUpdateNotAvailable: (cb: (i: { version: string }) => void) => void;
-      onUpdateError: (cb: (msg: string) => void) => void;
-      installUpdate: () => void;
+      onUpdateAvailable:    (cb: (i: { version: string }) => void) => () => void;
+      onUpdateDownloaded:   (cb: (i: { version: string }) => void) => () => void;
+      onUpdateNotAvailable: (cb: (i: { version: string }) => void) => () => void;
+      onUpdateError:        (cb: (msg: string) => void) => () => void;
+      installUpdate:   () => void;
       checkForUpdates: () => void;
     };
   }).electronAPI;
 
+  const checkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCheckTimeout = () => {
+    if (checkTimeoutRef.current) { clearTimeout(checkTimeoutRef.current); checkTimeoutRef.current = null; }
+  };
+
   useEffect(() => {
     mountedRef.current = true;
     if (!api) return;
-    api.onUpdateAvailable(info => {
-      if (!mountedRef.current) return;
-      setUpdateVersion(info.version);
-      setUpdateStatus('downloading');
-    });
-    api.onUpdateDownloaded(info => {
-      if (!mountedRef.current) return;
-      setUpdateVersion(info.version);
-      setUpdateStatus('ready');
-    });
-    api.onUpdateNotAvailable(() => {
-      if (!mountedRef.current) return;
-      setUpdateStatus('up-to-date');
-    });
-    api.onUpdateError(msg => {
-      if (!mountedRef.current) return;
-      setUpdateError(msg);
-      setUpdateStatus('error');
-    });
-    return () => { mountedRef.current = false; };
+
+    // Register listeners and keep their cleanup functions.
+    const cleanups = [
+      api.onUpdateAvailable(info => {
+        if (!mountedRef.current) return;
+        clearCheckTimeout();
+        setUpdateVersion(info.version);
+        setUpdateStatus('downloading');
+      }),
+      api.onUpdateDownloaded(info => {
+        if (!mountedRef.current) return;
+        clearCheckTimeout();
+        setUpdateVersion(info.version);
+        setUpdateStatus('ready');
+      }),
+      api.onUpdateNotAvailable(() => {
+        if (!mountedRef.current) return;
+        clearCheckTimeout();
+        setUpdateStatus('up-to-date');
+      }),
+      api.onUpdateError(msg => {
+        if (!mountedRef.current) return;
+        clearCheckTimeout();
+        setUpdateError(msg);
+        setUpdateStatus('error');
+      }),
+    ];
+
+    return () => {
+      mountedRef.current = false;
+      clearCheckTimeout();
+      cleanups.forEach(fn => fn());
+    };
   }, []); // eslint-disable-line
 
   const handleCheck = () => {
@@ -56,6 +75,14 @@ export function HelpModal({ onClose }: Props) {
     setUpdateError(null);
     setUpdateVersion(null);
     api.checkForUpdates();
+
+    // Safety net: if no IPC response within 20s, surface an error.
+    clearCheckTimeout();
+    checkTimeoutRef.current = setTimeout(() => {
+      if (!mountedRef.current) return;
+      setUpdateStatus(prev => prev === 'checking' ? 'error' : prev);
+      setUpdateError(prev => prev ?? 'Délai dépassé — vérifiez la connexion réseau');
+    }, 20_000);
   };
 
   return (
