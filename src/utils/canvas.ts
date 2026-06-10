@@ -1,119 +1,22 @@
-import type { Point, AnnotationElement, AngleElement, HVAngleElement, SkeletonElement, SkeletonKey, Layer } from '../types';
+import type { Point, AnnotationElement, AngleElement, HVAngleElement, SkeletonKey, Layer } from '../types';
 import { SKELETON_KEYS } from '../types';
+import {
+  SKELETON_SEGMENTS,
+  SKELETON_HEAD_SEGMENT,
+  drawSkeleton,
+} from './skeleton';
 
-// ── Skeleton constants ────────────────────────────────────────────────────────
+// Re-export skeleton config so existing importers (AnnotationCanvas, etc.) need not change.
+export {
+  SKELETON_SEGMENTS,
+  SKELETON_HEAD_SEGMENT,
+  SKELETON_ANGLES,
+  SKELETON_LABELS,
+  defaultSkeletonPoints,
+} from './skeleton';
 
-/** Body segments: pairs of [from, to] joint keys */
-export const SKELETON_SEGMENTS: [SkeletonKey, SkeletonKey][] = [
-  ['wrist',    'elbow'],
-  ['elbow',    'shoulder'],
-  ['shoulder', 'hip'],
-  ['hip',      'knee'],
-  ['knee',     'ankle'],
-  ['ankle',    'toes'],
-];
-
-/** Head-alignment segment (drawn dashed) */
-export const SKELETON_HEAD_SEGMENT: [SkeletonKey, SkeletonKey] = ['shoulder', 'head'];
-
-/** Joints where angles are displayed: [vertex, arm1, arm2] */
-export const SKELETON_ANGLES: [SkeletonKey, SkeletonKey, SkeletonKey][] = [
-  ['elbow',    'wrist',    'shoulder'],
-  ['shoulder', 'elbow',    'hip'],
-  ['hip',      'shoulder', 'knee'],
-  ['knee',     'hip',      'ankle'],
-  ['ankle',    'knee',     'toes'],
-];
-
-/** French label for each joint */
-export const SKELETON_LABELS: Record<SkeletonKey, string> = {
-  shoulder: 'Épaule',
-  elbow:    'Coude',
-  wrist:    'Poignet',
-  hip:      'Hanche',
-  knee:     'Genou',
-  ankle:    'Cheville',
-  toes:     'Orteils',
-  head:     'Tête',
-};
-
-/**
- * Build a default skeleton anchored on `hip` (click point).
- * `scale` ≈ imgH / 4 gives realistic proportions for a typical bike-fit video.
- * Cyclist facing LEFT (negative-x direction).
- *
- * Positions are calibrated per discipline from src/data/referenceAngles.ts:
- *   route/gravel — trunk ~42°, elbow ~160°, shoulder ~87°
- *   clm          — trunk ~30°, elbow ~90° (tribars), very aero
- *   vtt          — trunk ~57°, more upright, ankle more dorsiflexed
- */
-import type { Discipline } from '../types';
-export function defaultSkeletonPoints(
-  hip: Point,
-  scale: number,
-  discipline: Discipline = 'route',
-): Record<SkeletonKey, Point> {
-  const o = (fx: number, fy: number): Point => ({
-    x: hip.x + fx * scale,
-    y: hip.y + fy * scale,
-  });
-
-  // All offsets are relative to the HIP (anchor), cyclist facing LEFT (negative x = forward).
-  // Upper body varies by discipline (trunk lean + arm position).
-  // Leg positions use a crank-at-top-of-stroke snapshot; knee extension matches
-  // bottom-of-stroke targets when the full pedal stroke is analysed.
-  switch (discipline) {
-    case 'clm':
-      // Trunk ~30° from horizontal (nearly flat). Tribars: elbow ~90°.
-      return {
-        hip,
-        shoulder: o(-0.39, -0.23),
-        head:     o(-0.47, -0.48),  // tucked, aero position
-        elbow:    o(-0.44, -0.04),  // elbow pads near hip height
-        wrist:    o(-0.64, -0.08),  // tribar extension, elbow angle ≈ 90°
-        knee:     o(-0.14, +0.44),
-        ankle:    o(-0.12, +0.96),
-        toes:     o(-0.30, +1.02),
-      };
-    case 'vtt':
-      // Trunk ~57° from horizontal (more upright). Ankle more dorsiflexed.
-      return {
-        hip,
-        shoulder: o(-0.22, -0.34),
-        head:     o(-0.32, -0.60),
-        elbow:    o(-0.42, -0.18),
-        wrist:    o(-0.56, -0.06),
-        knee:     o(-0.14, +0.44),
-        ankle:    o(-0.20, +0.94),  // more dorsiflexed vs road
-        toes:     o(-0.38, +1.00),
-      };
-    case 'gravel':
-      // Trunk ~43° — marginally more upright than route, otherwise identical.
-      return {
-        hip,
-        shoulder: o(-0.24, -0.37),
-        head:     o(-0.36, -0.65),
-        elbow:    o(-0.49, -0.19),
-        wrist:    o(-0.63, -0.07),
-        knee:     o(-0.14, +0.44),
-        ankle:    o(-0.12, +0.96),
-        toes:     o(-0.30, +1.02),
-      };
-    case 'route':
-    default:
-      // Trunk ~42°, shoulder ≈ 90°, elbow ≈ 160°.
-      return {
-        hip,
-        shoulder: o(-0.25, -0.36),
-        head:     o(-0.37, -0.64),
-        elbow:    o(-0.51, -0.18),
-        wrist:    o(-0.65, -0.06),
-        knee:     o(-0.14, +0.44),
-        ankle:    o(-0.12, +0.96),
-        toes:     o(-0.30, +1.02),
-      };
-  }
-}
+// Re-export uid so existing importers (hooks, AnnotationCanvas) need not change.
+export { uid } from './uid';
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
 
@@ -128,7 +31,7 @@ export function computeHVAngle(p1: Point, p2: Point, mode: 'h' | 'v' = 'h'): num
     const a = Math.abs(deg);
     return Math.round((a > 90 ? 180 - a : a) * 10) / 10;
   } else {
-    // Angle to vertical axis: 90° - angle-to-horizontal
+    // Angle to vertical: 90° − acute-angle-to-horizontal
     const toH = Math.abs(deg);
     const acuteH = toH > 90 ? 180 - toH : toH;
     return Math.round((90 - acuteH) * 10) / 10;
@@ -138,7 +41,7 @@ export function computeHVAngle(p1: Point, p2: Point, mode: 'h' | 'v' = 'h'): num
 export function computeAngle(p0: Point, vertex: Point, p2: Point): number {
   const v1 = { x: p0.x - vertex.x, y: p0.y - vertex.y };
   const v2 = { x: p2.x - vertex.x, y: p2.y - vertex.y };
-  const dot = v1.x * v2.x + v1.y * v2.y;
+  const dot  = v1.x * v2.x + v1.y * v2.y;
   const mag1 = Math.hypot(v1.x, v1.y);
   const mag2 = Math.hypot(v2.x, v2.y);
   if (mag1 === 0 || mag2 === 0) return 0;
@@ -192,10 +95,7 @@ export function hitTestElement(el: AnnotationElement, p: Point, tol = 8): boolea
       return distToSegment(p, el.p0, el.p1) < tol || distToSegment(p, el.p1, el.p2) < tol;
     case 'skeleton': {
       const segs: [SkeletonKey, SkeletonKey][] = [...SKELETON_SEGMENTS, SKELETON_HEAD_SEGMENT];
-      for (const [a, b] of segs) {
-        if (distToSegment(p, el.points[a], el.points[b]) < tol) return true;
-      }
-      return false;
+      return segs.some(([a, b]) => distToSegment(p, el.points[a], el.points[b]) < tol);
     }
   }
 }
@@ -242,9 +142,7 @@ export function getHandles(el: AnnotationElement): Handle[] {
       ];
     case 'path': {
       const b = pathBounds(el.points);
-      return [
-        { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2, index: -1, cursor: 'move' },
-      ];
+      return [{ x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2, index: -1, cursor: 'move' }];
     }
     case 'skeleton':
       return SKELETON_KEYS.map((key, i) => ({ ...el.points[key], index: i, cursor: 'grab' }));
@@ -260,15 +158,17 @@ export function hitTestHandle(handles: Handle[], p: Point, radius = 8): Handle |
 
 export function applyHandleDrag(el: AnnotationElement, handleIndex: number, newPt: Point): AnnotationElement {
   switch (el.type) {
-    case 'hv-angle':
-      return { ...(handleIndex === 0 ? { ...el, p1: newPt } : { ...el, p2: newPt }), angle: computeHVAngle(handleIndex === 0 ? newPt : el.p1, handleIndex === 0 ? el.p2 : newPt, el.mode) };
+    case 'hv-angle': {
+      const updated = handleIndex === 0 ? { ...el, p1: newPt } : { ...el, p2: newPt };
+      return { ...updated, angle: computeHVAngle(updated.p1, updated.p2, el.mode) };
+    }
     case 'line':
     case 'arrow':
       return handleIndex === 0 ? { ...el, p1: newPt } : { ...el, p2: newPt };
     case 'rect': {
       const x1 = el.x, y1 = el.y, x2 = el.x + el.w, y2 = el.y + el.h;
       let [nx1, ny1, nx2, ny2] = [x1, y1, x2, y2];
-      if (handleIndex === 0) { nx1 = newPt.x; ny1 = newPt.y; }
+      if      (handleIndex === 0) { nx1 = newPt.x; ny1 = newPt.y; }
       else if (handleIndex === 1) { nx2 = newPt.x; ny1 = newPt.y; }
       else if (handleIndex === 2) { nx2 = newPt.x; ny2 = newPt.y; }
       else if (handleIndex === 3) { nx1 = newPt.x; ny2 = newPt.y; }
@@ -290,9 +190,8 @@ export function applyHandleDrag(el: AnnotationElement, handleIndex: number, newP
         : { ...el, p2: newPt };
       return { ...updated, angle: computeAngle(updated.p0, updated.p1, updated.p2) };
     }
-    case 'path': {
+    case 'path':
       return el; // handled by moveElement
-    }
     case 'skeleton': {
       const key = SKELETON_KEYS[handleIndex];
       if (!key) return el;
@@ -304,14 +203,14 @@ export function applyHandleDrag(el: AnnotationElement, handleIndex: number, newP
 export function moveElement(el: AnnotationElement, dx: number, dy: number): AnnotationElement {
   const m = (p: Point): Point => ({ x: p.x + dx, y: p.y + dy });
   switch (el.type) {
-    case 'path':    return { ...el, points: el.points.map(m) };
+    case 'path':      return { ...el, points: el.points.map(m) };
     case 'hv-angle':
     case 'line':
-    case 'arrow':   return { ...el, p1: m(el.p1), p2: m(el.p2) };
-    case 'rect':    return { ...el, x: el.x + dx, y: el.y + dy };
-    case 'ellipse': return { ...el, cx: el.cx + dx, cy: el.cy + dy };
-    case 'text':    return { ...el, x: el.x + dx, y: el.y + dy };
-    case 'angle':   return { ...el, p0: m(el.p0), p1: m(el.p1), p2: m(el.p2) };
+    case 'arrow':     return { ...el, p1: m(el.p1), p2: m(el.p2) };
+    case 'rect':      return { ...el, x: el.x + dx, y: el.y + dy };
+    case 'ellipse':   return { ...el, cx: el.cx + dx, cy: el.cy + dy };
+    case 'text':      return { ...el, x: el.x + dx, y: el.y + dy };
+    case 'angle':     return { ...el, p0: m(el.p0), p1: m(el.p1), p2: m(el.p2) };
     case 'skeleton': {
       const moved = { ...el.points } as Record<SkeletonKey, Point>;
       for (const key of SKELETON_KEYS) moved[key] = m(el.points[key]);
@@ -346,26 +245,27 @@ function drawAngleArc(ctx: CanvasRenderingContext2D, el: AngleElement, zoom: num
   const a1 = Math.atan2(p0.y - p1.y, p0.x - p1.x);
   const a2 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
 
-  const cwSweep = ((a2 - a1) + 2 * Math.PI) % (2 * Math.PI);
+  const cwSweep     = ((a2 - a1) + 2 * Math.PI) % (2 * Math.PI);
   const anticlockwise = cwSweep > Math.PI;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = strokeWidth / zoom;
+  ctx.lineWidth   = strokeWidth / zoom;
   ctx.beginPath();
   ctx.arc(p1.x, p1.y, radius, a1, a2, anticlockwise);
   ctx.stroke();
 
   const halfSweep = anticlockwise ? -((2 * Math.PI - cwSweep) / 2) : cwSweep / 2;
-  const midAngle = a1 + halfSweep;
+  const midAngle  = a1 + halfSweep;
   const labelDist = radius + 18 / zoom;
   const lx = p1.x + labelDist * Math.cos(midAngle);
   const ly = p1.y + labelDist * Math.sin(midAngle);
-  const label = `${el.angle}°`;
+
+  const label    = `${el.angle}°`;
   const fontSize = (12 + strokeWidth) / zoom;
   ctx.font = `bold ${fontSize}px system-ui`;
-  ctx.textAlign = 'center';
+  ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
-  const w = ctx.measureText(label).width + 8 / zoom;
+  const w    = ctx.measureText(label).width + 8 / zoom;
   const boxH = 22 / zoom;
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
   ctx.beginPath();
@@ -383,23 +283,15 @@ function drawHVAngle(
   imgH = 0,
 ) {
   const { p1, p2, color, strokeWidth, mode } = el;
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const lineLen = Math.hypot(dx, dy);
-  if (lineLen < 1) return;
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  if (Math.hypot(dx, dy) < 1) return;
 
   const rawRad = Math.atan2(dy, dx);
 
-  // Fixed axis reference angle and full-span endpoints
-  // For H: horizontal line across full image width at p1.y
-  // For V: vertical line across full image height at p1.x
-  const refAnglePos = mode === 'h' ? 0 : Math.PI / 2;         // rightward or downward
-  const refAngleNeg = mode === 'h' ? Math.PI : -Math.PI / 2;  // leftward or upward
-
-  // Choose same-side reference so arc is drawn on the correct side
+  // Reference axis direction (same side as the drawn line)
   const refAngle = mode === 'h'
-    ? (dx >= 0 ? refAnglePos : refAngleNeg)
-    : (dy >= 0 ? refAnglePos : refAngleNeg);
+    ? (dx >= 0 ? 0 : Math.PI)
+    : (dy >= 0 ? Math.PI / 2 : -Math.PI / 2);
 
   // Full-span dashed reference line
   const refStart = mode === 'h'
@@ -409,40 +301,40 @@ function drawHVAngle(
     ? { x: imgW > 0 ? imgW : p1.x + 2000, y: p1.y }
     : { x: p1.x, y: imgH > 0 ? imgH : p1.y + 2000 };
 
-  // Angle between measured line and fixed axis (0–90°)
-  const displayAngle = el.angle;
-
-  // ── Dashed reference line (full span) ──
   ctx.strokeStyle = color;
+  ctx.lineCap     = 'round';
+
+  // Dashed reference line
   ctx.lineWidth   = Math.max(1, strokeWidth * 0.7) / zoom;
   ctx.globalAlpha = 0.55;
-  ctx.lineCap     = 'round';
   ctx.setLineDash([6 / zoom, 4 / zoom]);
   ctx.beginPath(); ctx.moveTo(refStart.x, refStart.y); ctx.lineTo(refEnd.x, refEnd.y); ctx.stroke();
   ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 
-  // ── Main (measured) line ──
+  // Measured line
   ctx.lineWidth = strokeWidth / zoom;
   ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
 
-  // ── Arc ──
+  // Arc
   const radius = 36 / zoom;
   let diff = rawRad - refAngle;
   while (diff >  Math.PI) diff -= 2 * Math.PI;
   while (diff < -Math.PI) diff += 2 * Math.PI;
-  const anticlockwise = diff < 0;
-  ctx.beginPath(); ctx.arc(p1.x, p1.y, radius, refAngle, rawRad, anticlockwise); ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(p1.x, p1.y, radius, refAngle, rawRad, diff < 0);
+  ctx.stroke();
 
-  // ── Label ──
+  // Label
   const midAngle  = refAngle + diff / 2;
   const labelDist = radius + 16 / zoom;
-  const lx        = p1.x + Math.cos(midAngle) * labelDist;
-  const ly        = p1.y + Math.sin(midAngle) * labelDist;
-  const label     = `${displayAngle}°`;
-  const fontSize  = (12 + strokeWidth) / zoom;
-  ctx.font        = `bold ${fontSize}px system-ui`;
-  ctx.textAlign   = 'center';
+  const lx = p1.x + Math.cos(midAngle) * labelDist;
+  const ly = p1.y + Math.sin(midAngle) * labelDist;
+
+  const label    = `${el.angle}°`;
+  const fontSize = (12 + strokeWidth) / zoom;
+  ctx.font = `bold ${fontSize}px system-ui`;
+  ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
   const w  = ctx.measureText(label).width + 8 / zoom;
   const bh = 22 / zoom;
@@ -450,165 +342,6 @@ function drawHVAngle(
   ctx.beginPath(); ctx.roundRect(lx - w / 2, ly - bh / 2, w, bh, 4 / zoom); ctx.fill();
   ctx.fillStyle = color;
   ctx.fillText(label, lx, ly);
-}
-
-// ── Skeleton drawing ──────────────────────────────────────────────────────────
-
-/** Draw an angle arc + degree label at a joint vertex between two adjacent segments. */
-function drawSkeletonAngle(
-  ctx: CanvasRenderingContext2D,
-  vertex: Point, pa: Point, pb: Point,
-  zoom: number, color: string, strokeWidth: number,
-) {
-  const v1 = { x: pa.x - vertex.x, y: pa.y - vertex.y };
-  const v2 = { x: pb.x - vertex.x, y: pb.y - vertex.y };
-  const mag1 = Math.hypot(v1.x, v1.y);
-  const mag2 = Math.hypot(v2.x, v2.y);
-  if (mag1 < 1 || mag2 < 1) return;
-
-  const dot = v1.x * v2.x + v1.y * v2.y;
-  const angleDeg = Math.round(Math.acos(Math.max(-1, Math.min(1, dot / (mag1 * mag2)))) * 180 / Math.PI * 10) / 10;
-
-  const a1 = Math.atan2(pa.y - vertex.y, pa.x - vertex.x);
-  const a2 = Math.atan2(pb.y - vertex.y, pb.x - vertex.x);
-  const cwSweep = ((a2 - a1) + 2 * Math.PI) % (2 * Math.PI);
-  const anticlockwise = cwSweep > Math.PI;
-
-  const radius = 26 / zoom;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(1, strokeWidth * 0.6) / zoom;
-  ctx.globalAlpha = 0.75;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.arc(vertex.x, vertex.y, radius, a1, a2, anticlockwise);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  const halfSweep = anticlockwise ? -((2 * Math.PI - cwSweep) / 2) : cwSweep / 2;
-  const midAngle = a1 + halfSweep;
-  const labelDist = radius + 13 / zoom;
-  const lx = vertex.x + labelDist * Math.cos(midAngle);
-  const ly = vertex.y + labelDist * Math.sin(midAngle);
-  const label = `${angleDeg}°`;
-  const fontSize = (10 + strokeWidth) / zoom;
-  ctx.font = `bold ${fontSize}px system-ui`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const w  = ctx.measureText(label).width + 6 / zoom;
-  const bh = 17 / zoom;
-  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  ctx.beginPath();
-  ctx.roundRect(lx - w / 2, ly - bh / 2, w, bh, 3 / zoom);
-  ctx.fill();
-  ctx.fillStyle = color;
-  ctx.fillText(label, lx, ly);
-}
-
-function drawSkeleton(ctx: CanvasRenderingContext2D, el: SkeletonElement, zoom: number) {
-  const { points, color, strokeWidth } = el;
-
-  ctx.strokeStyle = color;
-  ctx.lineCap = 'round';
-
-  // ── Body segments ──
-  ctx.lineWidth = strokeWidth / zoom;
-  ctx.setLineDash([]);
-  for (const [a, b] of SKELETON_SEGMENTS) {
-    ctx.beginPath();
-    ctx.moveTo(points[a].x, points[a].y);
-    ctx.lineTo(points[b].x, points[b].y);
-    ctx.stroke();
-  }
-
-  // ── Head segment (dashed) ──
-  ctx.lineWidth = Math.max(1, strokeWidth * 0.8) / zoom;
-  ctx.globalAlpha = 0.6;
-  ctx.setLineDash([5 / zoom, 4 / zoom]);
-  const [hs, he] = SKELETON_HEAD_SEGMENT;
-  ctx.beginPath();
-  ctx.moveTo(points[hs].x, points[hs].y);
-  ctx.lineTo(points[he].x, points[he].y);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.globalAlpha = 1;
-
-  // ── Pre-compute arc bisector direction for every angle joint ──────────────
-  // The degree label sits along this direction (interior of angle).
-  // The joint name label will be placed in the OPPOSITE direction to avoid overlap.
-  const arcRadius = 26 / zoom;
-  const arcBisector = new Map<SkeletonKey, number>(); // radians
-  for (const [vertex, a, b] of SKELETON_ANGLES) {
-    const pv = points[vertex];
-    const a1 = Math.atan2(points[a].y - pv.y, points[a].x - pv.x);
-    const a2 = Math.atan2(points[b].y - pv.y, points[b].x - pv.x);
-    const cwSweep = ((a2 - a1) + 2 * Math.PI) % (2 * Math.PI);
-    const anticlockwise = cwSweep > Math.PI;
-    const halfSweep = anticlockwise ? -((2 * Math.PI - cwSweep) / 2) : cwSweep / 2;
-    arcBisector.set(vertex, a1 + halfSweep);
-  }
-
-  // ── Angle arcs + degree labels ──
-  for (const [vertex, a, b] of SKELETON_ANGLES) {
-    drawSkeletonAngle(ctx, points[vertex], points[a], points[b], zoom, color, strokeWidth);
-  }
-
-  // ── Build adjacency list (for joints without an arc) ──────────────────────
-  const allSegs: [SkeletonKey, SkeletonKey][] = [...SKELETON_SEGMENTS, SKELETON_HEAD_SEGMENT];
-  const neighbors = new Map<SkeletonKey, SkeletonKey[]>();
-  for (const key of SKELETON_KEYS) neighbors.set(key, []);
-  for (const [a, b] of allSegs) {
-    neighbors.get(a)!.push(b);
-    neighbors.get(b)!.push(a);
-  }
-
-  /** Direction angle (radians) at which to place the joint name label. */
-  function labelDir(key: SkeletonKey): number {
-    if (arcBisector.has(key)) {
-      // Opposite to the degree label (interior arc) → exterior direction
-      return arcBisector.get(key)! + Math.PI;
-    }
-    // No arc: go away from the average position of neighbors
-    const ns = neighbors.get(key)!;
-    if (ns.length === 0) return -Math.PI / 2;
-    const p = points[key];
-    const avgDx = ns.reduce((s, n) => s + (points[n].x - p.x), 0) / ns.length;
-    const avgDy = ns.reduce((s, n) => s + (points[n].y - p.y), 0) / ns.length;
-    return Math.atan2(-avgDy, -avgDx); // opposite direction
-  }
-
-  // ── Joint dots + name labels ──────────────────────────────────────────────
-  const dotR    = (3 + strokeWidth) / zoom;
-  const fontSize = (10 + strokeWidth) / zoom;
-  ctx.font = `${fontSize}px system-ui`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'center';
-
-  for (const key of SKELETON_KEYS) {
-    const p = points[key];
-
-    // Filled dot
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Name label: push far enough to clear the arc (if any)
-    const hasArc = arcBisector.has(key);
-    const dist   = hasArc ? arcRadius + 15 / zoom : dotR + 10 / zoom;
-    const dir    = labelDir(key);
-    const lx = p.x + Math.cos(dir) * dist;
-    const ly = p.y + Math.sin(dir) * dist;
-
-    const txt = SKELETON_LABELS[key];
-    const tw  = ctx.measureText(txt).width;
-    const bh  = fontSize * 1.3;
-    ctx.fillStyle = 'rgba(0,0,0,0.60)';
-    ctx.beginPath();
-    ctx.roundRect(lx - tw / 2 - 3 / zoom, ly - bh / 2, tw + 6 / zoom, bh, 2 / zoom);
-    ctx.fill();
-    ctx.fillStyle = color;
-    ctx.fillText(txt, lx, ly);
-  }
 }
 
 function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom = 1, imgW = 0, imgH = 0) {
@@ -674,7 +407,7 @@ export function drawSelectionHandles(ctx: CanvasRenderingContext2D, el: Annotati
   const pad6 = 6 / zoom;
 
   ctx.strokeStyle = 'rgba(99,102,241,0.6)';
-  ctx.lineWidth = 1 / zoom;
+  ctx.lineWidth   = 1 / zoom;
   ctx.setLineDash([5 / zoom, 4 / zoom]);
   switch (el.type) {
     case 'rect':
@@ -694,18 +427,19 @@ export function drawSelectionHandles(ctx: CanvasRenderingContext2D, el: Annotati
   }
   ctx.setLineDash([]);
 
-  const handles = getHandles(el);
-  for (const h of handles) {
+  for (const h of getHandles(el)) {
     ctx.beginPath();
     ctx.arc(h.x, h.y, 6 / zoom, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
     ctx.strokeStyle = '#6366f1';
-    ctx.lineWidth = 2 / zoom;
+    ctx.lineWidth   = 2 / zoom;
     ctx.stroke();
   }
   ctx.restore();
 }
+
+// ── Coordinate transform ──────────────────────────────────────────────────────
 
 // Compute the canvas 2D transform that maps content-space coords to screen
 // pixels, mirroring the CSS: scale(zoom) translate(pan) with origin=center.
@@ -721,6 +455,24 @@ export function contentTransform(
     ty: zoom * pan.y + (H / 2) * (1 - zoom),
   };
 }
+
+export function getCanvasPoint(
+  e: React.MouseEvent<HTMLCanvasElement> | MouseEvent,
+  canvas: HTMLCanvasElement,
+  zoom = 1,
+  pan = { x: 0, y: 0 },
+): Point {
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left;
+  const sy = e.clientY - rect.top;
+  const { tx, ty } = contentTransform(zoom, pan, rect.width, rect.height);
+  return {
+    x: (sx - tx) / zoom,
+    y: (sy - ty) / zoom,
+  };
+}
+
+// ── Layer rendering ───────────────────────────────────────────────────────────
 
 export function renderLayers(
   ctx: CanvasRenderingContext2D,
@@ -759,7 +511,6 @@ export function renderLayersWithDraft(
   const { width: W, height: H } = ctx.canvas;
   const { tx, ty } = contentTransform(zoom, pan, W, H);
 
-  // Clear in screen space, then switch to content space
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, W, H);
   ctx.setTransform(zoom, 0, 0, zoom, tx, ty);
@@ -782,54 +533,23 @@ export function renderLayersWithDraft(
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 
-export function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
+// ── Element scaling (canvas resize: single ↔ split) ──────────────────────────
 
-// Convert a mouse event to content-space coordinates.
-// The canvas sits at full screen resolution (no CSS transform). We invert the
-// same zoom/pan transform that was applied via ctx.setTransform when drawing.
-export function getCanvasPoint(
-  e: React.MouseEvent<HTMLCanvasElement> | MouseEvent,
-  canvas: HTMLCanvasElement,
-  zoom = 1,
-  pan = { x: 0, y: 0 },
-): Point {
-  const rect = canvas.getBoundingClientRect();
-  const sx = e.clientX - rect.left;
-  const sy = e.clientY - rect.top;
-  const { tx, ty } = contentTransform(zoom, pan, rect.width, rect.height);
-  return {
-    x: (sx - tx) / zoom,
-    y: (sy - ty) / zoom,
-  };
-}
-
-// Scale all coordinates of an element by (sx, sy).
-// Used when the canvas resizes (e.g. single ↔ split) to keep annotations
-// visually anchored to the same position on screen.
 export function rescaleElement(el: AnnotationElement, sx: number, sy: number): AnnotationElement {
   const sp = (p: Point): Point => ({ x: p.x * sx, y: p.y * sy });
   switch (el.type) {
     case 'line':
-    case 'arrow':
-      return { ...el, p1: sp(el.p1), p2: sp(el.p2) };
-    case 'rect':
-      return { ...el, x: el.x * sx, y: el.y * sy, w: el.w * sx, h: el.h * sy };
-    case 'ellipse':
-      return { ...el, cx: el.cx * sx, cy: el.cy * sy, rx: el.rx * sx, ry: el.ry * sy };
-    case 'path':
-      return { ...el, points: el.points.map(sp) };
-    case 'angle':
-      return { ...el, p0: sp(el.p0), p1: sp(el.p1), p2: sp(el.p2) };
-    case 'text':
-      return { ...el, x: el.x * sx, y: el.y * sy };
+    case 'arrow':     return { ...el, p1: sp(el.p1), p2: sp(el.p2) };
+    case 'rect':      return { ...el, x: el.x * sx, y: el.y * sy, w: el.w * sx, h: el.h * sy };
+    case 'ellipse':   return { ...el, cx: el.cx * sx, cy: el.cy * sy, rx: el.rx * sx, ry: el.ry * sy };
+    case 'path':      return { ...el, points: el.points.map(sp) };
+    case 'angle':     return { ...el, p0: sp(el.p0), p1: sp(el.p1), p2: sp(el.p2) };
+    case 'text':      return { ...el, x: el.x * sx, y: el.y * sy };
     case 'skeleton': {
       const scaled = { ...el.points } as Record<SkeletonKey, Point>;
       for (const key of SKELETON_KEYS) scaled[key] = sp(el.points[key]);
       return { ...el, points: scaled };
     }
-    default:
-      return el;
+    default: return el;
   }
 }

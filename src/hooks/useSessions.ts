@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Client, Session, Discipline, Capture, Recording, PersistedSessionState, ReportData } from '../types';
-import { uid } from '../utils/canvas';
+import { uid } from '../utils/uid';
 
 interface DiskFile { name: string; path: string; createdAt: string; duration: number; }
 

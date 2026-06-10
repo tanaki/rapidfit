@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import type { Capture, Recording, PaneSource } from '../types';
-import { uid } from '../utils/canvas';
+import { uid } from '../utils/uid';
 import { saveRecordingToFile } from '../utils/saveFile';
 import type { useSessions } from './useSessions';
 

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import type { Recording } from '../types';
-import { uid } from '../utils/canvas';
+import { uid } from '../utils/uid';
 
 export function useRecorder() {
   const recorderRef = useRef<MediaRecorder | null>(null);

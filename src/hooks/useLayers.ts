@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import type { Layer, AnnotationElement } from '../types';
-import { uid, rescaleElement } from '../utils/canvas';
+import { uid } from '../utils/uid';
+import { rescaleElement } from '../utils/canvas';
 import i18n from '../i18n';
 
 function makeLayer(name: string): Layer {

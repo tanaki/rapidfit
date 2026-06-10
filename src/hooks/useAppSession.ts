@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Capture, Recording, PaneSource, Client, Session, Discipline, PersistedSessionState, Layer } from '../types';
 import type { ReportData } from '../types';
-import { uid } from '../utils/canvas';
+import { uid } from '../utils/uid';
 import type { useSessions } from './useSessions';
 import type { LayersState } from './useLayers';
 import type { VideoPaneHandle } from '../components/VideoPane';
