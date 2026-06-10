@@ -16,6 +16,7 @@ import { MediaPanel } from './components/MediaPanel';
 import { HelpModal } from './components/HelpModal';
 import { SettingsModal } from './components/SettingsModal';
 import { ReportModal } from './components/ReportModal';
+import { PainGuideModal } from './components/PainGuideModal';
 import { NewSessionModal } from './components/NewSessionModal';
 import { VideoPane, SourceSelector, type VideoPaneHandle, type AnnotationProps } from './components/VideoPane';
 import { PanePlayer } from './components/PanePlayer';
@@ -123,6 +124,7 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showPainGuide, setShowPainGuide] = useState(false);
 
   // Overlay options
   const [showGuide, setShowGuide] = useState(false);
@@ -384,6 +386,7 @@ export default function App() {
         gridSize={gridSize}   onGridSizeChange={setGridSize}
         onToggleSplit={handleToggleSplit}
         onOpenReport={handleOpenReport}
+        onOpenPainGuide={() => setShowPainGuide(true)}
         onOpenSettings={() => setShowSettings(true)}
         onOpenHelp={() => setShowHelp(true)}
       />
@@ -593,6 +596,7 @@ export default function App() {
       )}
 
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showPainGuide && <PainGuideModal onClose={() => setShowPainGuide(false)} />}
     </div>
   );
 }

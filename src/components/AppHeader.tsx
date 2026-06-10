@@ -39,6 +39,7 @@ interface Props {
   // Actions
   onToggleSplit: () => void;
   onOpenReport: () => void;
+  onOpenPainGuide: () => void;
   onOpenSettings: () => void;
   onOpenHelp: () => void;
 }
@@ -50,7 +51,7 @@ export function AppHeader({
   showGuide, onToggleGuide,
   showGrid, onToggleGrid,
   gridSize, onGridSizeChange,
-  onToggleSplit, onOpenReport, onOpenSettings, onOpenHelp,
+  onToggleSplit, onOpenReport, onOpenPainGuide, onOpenSettings, onOpenHelp,
 }: Props) {
   const { t } = useTranslation();
 
@@ -134,6 +135,15 @@ export function AppHeader({
         </button>
 
         <div className="w-px h-4 bg-[#3d3d5c]" />
+
+        {/* Pain guide */}
+        <button
+          onClick={onOpenPainGuide}
+          title="Douleurs & Réglages — diagramme de dépannage"
+          className="text-xs px-3 py-1 bg-[#22223b] hover:bg-[#2d2d48] rounded-lg text-slate-300 font-medium transition-colors"
+        >
+          🩹 Douleurs
+        </button>
 
         {/* Report */}
         <button
