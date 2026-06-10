@@ -199,7 +199,7 @@ export default function App() {
       tool, color, strokeWidth: 2, filled: false,
       onAddElement: (_: string, el: AnnotationElement) => {
         ls.addElementOnNewLayer(el);
-        if (el.type === 'line' || el.type === 'arrow' || el.type === 'angle' || el.type === 'hv-angle' || el.type === 'path') {
+        if (el.type === 'line' || el.type === 'arrow' || el.type === 'angle' || el.type === 'hv-angle' || el.type === 'skeleton' || el.type === 'path') {
           advanceColor();
         }
       },

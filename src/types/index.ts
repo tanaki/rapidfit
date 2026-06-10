@@ -11,6 +11,7 @@ export type Tool =
   | 'angle'
   | 'h-angle'
   | 'v-angle'
+  | 'skeleton'
   | 'eraser';
 
 export interface PathElement {
@@ -89,6 +90,18 @@ export interface HVAngleElement {
   mode: 'h' | 'v'; // h = horizontal reference, v = vertical reference
 }
 
+/** Ordered list of skeleton joint keys — index = handle index */
+export const SKELETON_KEYS = ['shoulder', 'elbow', 'wrist', 'hip', 'knee', 'ankle', 'toes', 'head'] as const;
+export type SkeletonKey = typeof SKELETON_KEYS[number];
+
+export interface SkeletonElement {
+  type: 'skeleton';
+  id: string;
+  color: string;
+  strokeWidth: number;
+  points: Record<SkeletonKey, Point>;
+}
+
 export type AnnotationElement =
   | PathElement
   | LineElement
@@ -97,7 +110,8 @@ export type AnnotationElement =
   | EllipseElement
   | TextElement
   | AngleElement
-  | HVAngleElement;
+  | HVAngleElement
+  | SkeletonElement;
 
 export interface Layer {
   id: string;

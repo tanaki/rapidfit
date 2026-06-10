@@ -4,6 +4,7 @@ import {
   renderLayersWithDraft,
   computeAngle,
   computeHVAngle,
+  defaultSkeletonPoints,
   uid,
   getCanvasPoint,
   getHandles,
@@ -311,7 +312,10 @@ export function AnnotationCanvas({
       return;
     }
 
-    if (tool === 'h-angle' || tool === 'v-angle') {
+    if (tool === 'skeleton') {
+      // No live preview — skeleton is placed instantly on mouseUp
+    }
+    else if (tool === 'h-angle' || tool === 'v-angle') {
       const mode = tool === 'h-angle' ? 'h' : 'v';
       draftRef.current = { type: 'hv-angle', id: '__draft__', p1: start, p2: p, color, strokeWidth, angle: computeHVAngle(start, p, mode), mode };
     }
@@ -341,7 +345,11 @@ export function AnnotationCanvas({
       pathPtsRef.current = [];
       return;
     }
-    if (tool === 'h-angle' || tool === 'v-angle') {
+    if (tool === 'skeleton') {
+      const scale = imgH > 0 ? imgH / 4 : 160;
+      onAddElement(activeLayerId, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale) });
+    }
+    else if (tool === 'h-angle' || tool === 'v-angle') {
       const mode = tool === 'h-angle' ? 'h' : 'v';
       onAddElement(activeLayerId, { type: 'hv-angle', id: uid(), p1: start, p2: p, color, strokeWidth, angle: computeHVAngle(start, p, mode), mode });
     }
@@ -375,6 +383,12 @@ export function AnnotationCanvas({
           {anglePoints.length === 1
             ? 'Cliquez pour placer le sommet (2/3)'
             : 'Cliquez pour le 3e point (3/3)'}
+        </div>
+      )}
+
+      {tool === 'skeleton' && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/70 text-yellow-300 text-xs px-3 py-1 rounded-full pointer-events-none select-none">
+          Cliquez pour placer l'épaule — puis ⊙ pour ajuster les articulations
         </div>
       )}
     </div>

@@ -53,6 +53,30 @@ export function Toolbar({
         <span className="text-[9px] font-bold mb-[2px]">V</span>
       </span>,
     },
+    {
+      id: 'skeleton',
+      label: t('toolbar.skeleton', 'Squelette cycliste'),
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          {/* head */}
+          <circle cx="12" cy="2.8" r="1.8" fill="currentColor" stroke="none" />
+          {/* torso: shoulder → hip */}
+          <line x1="10.5" y1="4.5" x2="8.5" y2="9.5" />
+          {/* upper arm: shoulder → elbow */}
+          <line x1="10.5" y1="5.5" x2="15" y2="7.5" />
+          {/* forearm: elbow → wrist */}
+          <line x1="15" y1="7.5" x2="17.5" y2="10" />
+          {/* thigh: hip → knee */}
+          <line x1="8.5" y1="9.5" x2="7.5" y2="14.5" />
+          {/* shin: knee → ankle */}
+          <line x1="7.5" y1="14.5" x2="7" y2="18.5" />
+          {/* foot: ankle → toes */}
+          <line x1="7" y1="18.5" x2="11" y2="18.5" />
+          {/* head segment: shoulder → head (dashed) */}
+          <line x1="10.5" y1="4.5" x2="12" y2="4.5" strokeDasharray="1.5 1" strokeWidth="1.2" opacity="0.6" />
+        </svg>
+      ),
+    },
   ];
 
   return (
