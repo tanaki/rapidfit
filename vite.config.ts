@@ -26,7 +26,7 @@ export default defineConfig({
               vite: {
                 build: {
                   outDir: 'dist-electron',
-                  sourcemap: true,
+                  sourcemap: false,
                 },
                 define: {
                   // Injected at build time by CI (GH_UPDATE_TOKEN secret).
@@ -44,7 +44,7 @@ export default defineConfig({
               vite: {
                 build: {
                   outDir: 'dist-electron',
-                  sourcemap: true,
+                  sourcemap: false,
                   lib: {
                     entry: 'electron/preload.ts',
                     formats: ['cjs'],

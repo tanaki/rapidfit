@@ -71,7 +71,9 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "!dist-electron/**/*.map",
+      "!dist/**/*.map"
     ],
     "publish": {
       "provider": "github",
