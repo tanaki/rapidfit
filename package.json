@@ -13,8 +13,7 @@
   "scripts": {
     "dev": "vite",
     "dev:electron": "ELECTRON=true vite",
-    "postinstall": "node scripts/copy-opencv.mjs",
-    "build": "node scripts/copy-opencv.mjs && tsc -b && vite build",
+    "build": "tsc -b && vite build",
     "build:electron": "ELECTRON=true tsc -b && ELECTRON=true vite build && electron-builder --publish never",
     "build:electron:win": "ELECTRON=true tsc -b && ELECTRON=true vite build && electron-builder --win --publish never",
     "build:electron:mac": "ELECTRON=true tsc -b && ELECTRON=true vite build && electron-builder --mac --publish never",
@@ -25,7 +24,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@techstark/opencv-js": "^4.12.0-release.1",
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.3",
     "i18next": "^26.3.1",
