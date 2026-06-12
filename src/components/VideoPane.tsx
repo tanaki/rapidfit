@@ -1,6 +1,6 @@
-import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PaneSource, Recording, Capture, Layer, Tool, Discipline } from '../types';
+import type { PaneSource, Recording, Capture, Layer, Tool, Discipline, SkeletonElement, Point, SkeletonKey } from '../types';
 import type { AnnotationElement } from '../types';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { useZoomPan } from '../hooks/useZoomPan';
@@ -9,6 +9,9 @@ import { GuideOverlay } from './GuideOverlay';
 import { GridOverlay } from './GridOverlay';
 import { capturePane } from '../utils/captureFrame';
 import { computeVideoRect, type VideoRect } from '../hooks/useVideoRect';
+import { useTracking, applyTrackingToSkeleton, TRACKING_JOINTS } from '../hooks/useTracking';
+import { TrackingOverlay } from './TrackingOverlay';
+import type { TrackedPoint } from '../utils/opticalFlow';
 
 interface Props {
   source: PaneSource;
@@ -84,13 +87,85 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
 
   const zoomState = useZoomPan(isPanMode, d => stepVideoFrame(d < 0 ? -1 : 1));
 
+  // ── Tracking — stale-closure-safe refs ────────────────────────────────────
+  const annotationPropsRef = useRef(annotationProps);
+  useEffect(() => { annotationPropsRef.current = annotationProps; }, [annotationProps]);
+  const videoRectRef2 = useRef<VideoRect | null>(null);
+  const imgDimsRef    = useRef({ w: 0, h: 0 });
+
+  // Convert natural video coords → canvas world coords (origin = top-left of video display)
+  const naturalToWorld = useCallback((nx: number, ny: number): Point => {
+    const vr  = videoRectRef2.current;
+    const dim = imgDimsRef.current;
+    if (!vr || !dim.w) return { x: nx, y: ny };
+    return { x: (nx / dim.w) * vr.w, y: (ny / dim.h) * vr.h };
+  }, []);
+
+  const onUpdateSkeleton = useCallback((positions: Partial<Record<SkeletonKey, Point>>) => {
+    const ap = annotationPropsRef.current;
+    if (!ap) return;
+    const activeLayer = ap.layers.find(l => l.id === ap.activeLayerId);
+    const skeleton = activeLayer?.elements.find(el => el.type === 'skeleton') as SkeletonElement | undefined;
+    if (!skeleton) return;
+    const worldPositions: Partial<Record<SkeletonKey, Point>> = {};
+    for (const [key, pt] of Object.entries(positions) as [SkeletonKey, Point][]) {
+      if (pt) worldPositions[key] = naturalToWorld(pt.x, pt.y);
+    }
+    ap.onUpdateElement(ap.activeLayerId, applyTrackingToSkeleton(skeleton, worldPositions));
+  }, [naturalToWorld]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const onUpdateTrajectories = useCallback((_pts: TrackedPoint[]) => {
+    // Phase C: trajectory trails — no-op for now
+  }, []);
+
+  const { tracking, startTracking, stopTracking, registerInitClick } = useTracking({
+    videoRef,
+    onUpdateSkeleton,
+    onUpdateTrajectories,
+  });
+
+  // Container-relative click positions for the overlay dots
+  const [initClickedPoints, setInitClickedPoints] = useState<Array<{ x: number; y: number }>>([]);
+
+  useEffect(() => {
+    if (tracking.mode === 'off' || (tracking.mode === 'initializing' && tracking.initIndex === 0)) {
+      setInitClickedPoints([]);
+    }
+  }, [tracking.mode, tracking.initIndex]);
+
+  const handleInitClick = useCallback((containerX: number, containerY: number) => {
+    const vr  = videoRectRef2.current;
+    const dim = imgDimsRef.current;
+    if (!vr || !dim.w) return;
+    setInitClickedPoints(prev => [...prev, { x: containerX, y: containerY }]);
+    const natX = ((containerX - vr.x) / vr.w) * dim.w;
+    const natY = ((containerY - vr.y) / vr.h) * dim.h;
+    // Snap skeleton joint immediately, then register for LK
+    const joint = TRACKING_JOINTS[tracking.initIndex];
+    if (joint) onUpdateSkeleton({ [joint]: naturalToWorld(natX, natY) } as Partial<Record<SkeletonKey, Point>>);
+    registerInitClick(natX, natY);
+  }, [tracking.initIndex, naturalToWorld, onUpdateSkeleton, registerInitClick]);
+
+  const isVideoSource = source.type === 'camera' || source.type === 'recording';
+
+  // Memoised: does the active layer have a skeleton?
+  const hasSkeleton = useMemo(() => {
+    if (!annotationProps) return false;
+    const al = annotationProps.layers.find(l => l.id === annotationProps.activeLayerId);
+    return al?.elements.some(el => el.type === 'skeleton') ?? false;
+  }, [annotationProps]);
+
   // updateVideoRect declared AFTER zoomState to avoid accessing it before declaration
   const updateVideoRect = useCallback(() => {
     const video = videoRef.current;
     const container = zoomState.containerRef.current;
     if (!video || !container || !video.videoWidth || !video.videoHeight) return;
     const aspect = video.videoWidth / video.videoHeight;
-    setVideoRect(computeVideoRect(container.clientWidth, container.clientHeight, aspect));
+    const vr = computeVideoRect(container.clientWidth, container.clientHeight, aspect);
+    videoRectRef2.current = vr;
+    imgDimsRef.current    = { w: video.videoWidth, h: video.videoHeight };
+    setVideoRect(vr);
     setImgDims({ w: video.videoWidth, h: video.videoHeight });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -100,7 +175,10 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     const container = zoomState.containerRef.current;
     if (!img || !container || !img.naturalWidth || !img.naturalHeight) return;
     const aspect = img.naturalWidth / img.naturalHeight;
-    setVideoRect(computeVideoRect(container.clientWidth, container.clientHeight, aspect));
+    const vr = computeVideoRect(container.clientWidth, container.clientHeight, aspect);
+    videoRectRef2.current = vr;
+    imgDimsRef.current    = { w: img.naturalWidth, h: img.naturalHeight };
+    setVideoRect(vr);
     setImgDims({ w: img.naturalWidth, h: img.naturalHeight });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -333,27 +411,64 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       <GridOverlay visible={showGrid} gridSize={gridSize} zoom={zoomState.zoom} pan={zoomState.pan} />
       <ZoomControls state={zoomState} />
 
-      {onCapture && (
-        <button
-          onClick={async e => {
-            e.stopPropagation();
-            const container = zoomState.containerRef.current;
-            if (!container) return;
-            const { blob, name } = await capturePane(
-              container,
-              label,
-              annotationProps?.layers,
-              videoRect,
-            );
-            onCapture(blob, name);
-          }}
-          title={t('video.captureTitle')}
-          style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 300 }}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 border border-white/20 text-white text-xs font-medium backdrop-blur-sm transition-colors"
-        >
-          {t('video.capture')}
-        </button>
+      {/* Tracking overlay — above AnnotationCanvas */}
+      {isVideoSource && (
+        <TrackingOverlay
+          mode={tracking.mode}
+          initIndex={tracking.initIndex}
+          clickedPoints={initClickedPoints}
+          videoRect={videoRect}
+          onInitClick={handleInitClick}
+          onStop={stopTracking}
+        />
       )}
+
+      {/* Bottom-right buttons: tracking toggle + capture */}
+      <div className="absolute flex items-center gap-2" style={{ bottom: 8, right: 8, zIndex: 300 }}>
+        {isVideoSource && annotationProps && (
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              if (tracking.mode !== 'off') { stopTracking(); return; }
+              if (!hasSkeleton) return; // No skeleton to track
+              startTracking();
+            }}
+            title={hasSkeleton ? t('tracking.activate') : t('tracking.noSkeleton')}
+            disabled={tracking.mode === 'loading' || (!hasSkeleton && tracking.mode === 'off')}
+            className={[
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium backdrop-blur-sm transition-colors',
+              tracking.mode !== 'off'
+                ? 'bg-red-600/70 hover:bg-red-600/90 border-red-400/30 text-white'
+                : hasSkeleton
+                  ? 'bg-black/60 hover:bg-black/80 border-white/20 text-white'
+                  : 'bg-black/30 border-white/10 text-white/30 cursor-not-allowed',
+            ].join(' ')}
+          >
+            🎯
+          </button>
+        )}
+
+        {onCapture && (
+          <button
+            onClick={async e => {
+              e.stopPropagation();
+              const container = zoomState.containerRef.current;
+              if (!container) return;
+              const { blob, name } = await capturePane(
+                container,
+                label,
+                annotationProps?.layers,
+                videoRect,
+              );
+              onCapture(blob, name);
+            }}
+            title={t('video.captureTitle')}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 border border-white/20 text-white text-xs font-medium backdrop-blur-sm transition-colors"
+          >
+            {t('video.capture')}
+          </button>
+        )}
+      </div>
 
       {/* Label badge — only in split mode (when label is provided) */}
       {label && (

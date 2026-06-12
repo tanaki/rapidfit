@@ -458,6 +458,24 @@
     "report_desc2": "L'auto-save enregistre le formulaire 800 ms après chaque modification dans report.json de la session.",
     "report_desc3": "Exporter PDF génère un document structuré avec en-tête entreprise, diagramme vélo, tableaux de cotes et captures sélectionnées."
   },
+  "tracking": {
+    "activate": "Activer le suivi",
+    "stop": "Arrêter le suivi",
+    "cancel": "Annuler",
+    "loading": "Chargement d'OpenCV…",
+    "active": "Suivi actif",
+    "noSkeleton": "Ajoutez d'abord un squelette",
+    "clickJointHint": "Cliquez sur la gommette {{n}}/{{total}}",
+    "joints": {
+      "shoulder": "Épaule",
+      "elbow": "Coude",
+      "wrist": "Poignet",
+      "hip": "Hanche",
+      "knee": "Genou",
+      "ankle": "Cheville",
+      "toes": "Orteils"
+    }
+  },
   "media": {
     "library": "Médias",
     "toggle": "Bibliothèque médias (captures & vidéos)",

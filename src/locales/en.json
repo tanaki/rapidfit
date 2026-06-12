@@ -458,6 +458,24 @@
     "report_desc2": "Auto-save writes the form to report.json 800 ms after each edit.",
     "report_desc3": "Export PDF generates a structured document with company header, bike diagram, measurement tables and selected captures."
   },
+  "tracking": {
+    "activate": "Enable tracking",
+    "stop": "Stop tracking",
+    "cancel": "Cancel",
+    "loading": "Loading OpenCV…",
+    "active": "Tracking active",
+    "noSkeleton": "Add a skeleton first",
+    "clickJointHint": "Click the sticker {{n}}/{{total}}",
+    "joints": {
+      "shoulder": "Shoulder",
+      "elbow": "Elbow",
+      "wrist": "Wrist",
+      "hip": "Hip",
+      "knee": "Knee",
+      "ankle": "Ankle",
+      "toes": "Toes"
+    }
+  },
   "media": {
     "library": "Media",
     "toggle": "Media library (captures & videos)",
