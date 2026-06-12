@@ -128,7 +128,8 @@ function createWindow() {
   }
 
   if (isDev) {
-    win.loadURL('http://localhost:5173');
+    // vite-plugin-electron injecte le port réel dans VITE_DEV_SERVER_URL
+    win.loadURL(process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:5173');
     win.webContents.openDevTools({ mode: 'detach' });
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'));
