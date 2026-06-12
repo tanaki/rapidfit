@@ -26,3 +26,6 @@ build/icon.iconset
 *.njsproj
 *.sln
 *.sw?
+
+# OpenCV.js WASM — généré via scripts/copy-opencv.mjs (npm run postinstall)
+public/opencv.js
