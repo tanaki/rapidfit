@@ -148,7 +148,11 @@ export function useTracking({ videoRef, onUpdateSkeleton, onUpdateTrajectories }
         const video = videoRef.current;
         const cv = cvRef.current;
         if (video && cv) {
-          prevGrayRef.current = frameToGray(cv, video);
+          try {
+            prevGrayRef.current = frameToGray(cv, video);
+          } catch {
+            // cv pas encore prêt (ne devrait pas arriver grâce au loader)
+          }
         }
         rafRef.current = requestAnimationFrame(loop);
         return { ...prev, mode: 'active', initIndex: nextIndex, points: newPoints };
