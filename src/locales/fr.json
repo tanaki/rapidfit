@@ -462,7 +462,7 @@
     "activate": "Activer le suivi",
     "stop": "Arrêter le suivi",
     "cancel": "Annuler",
-    "loading": "Chargement d'OpenCV…",
+    "loading": "Démarrage du suivi…",
     "active": "Suivi actif",
     "noSkeleton": "Ajoutez d'abord un squelette",
     "clickJointHint": "Cliquez sur la gommette {{n}}/{{total}}",

@@ -444,7 +444,15 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
                   : 'bg-black/30 border-white/10 text-white/30 cursor-not-allowed',
             ].join(' ')}
           >
-            🎯
+            {/* Crosshair target icon */}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.25"/>
+              <circle cx="7" cy="7" r="2" stroke="currentColor" strokeWidth="1.25"/>
+              <line x1="7" y1="0" x2="7" y2="3.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+              <line x1="7" y1="10.5" x2="7" y2="14" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+              <line x1="0" y1="7" x2="3.5" y2="7" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+              <line x1="10.5" y1="7" x2="14" y2="7" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round"/>
+            </svg>
           </button>
         )}
 

@@ -1,12 +1,13 @@
-/** Lazy singleton loader for OpenCV.js (WASM).
- *  Injects the script once, resolves when cv.onRuntimeInitialized fires.
- *  Subsequent calls return the cached promise immediately. */
+/** Lazy singleton loader for OpenCV.js (WASM — @techstark/opencv-js UMD build).
+ *
+ *  The UMD bundle sets `window.cv = cv(Module)` where `cv(Module)` is an
+ *  emscripten Promise that resolves to the initialized cv instance.
+ *  We await that Promise after the script tag loads. */
 
 declare global {
   interface Window {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cv: any;
-    Module: { onRuntimeInitialized?: () => void };
   }
 }
 
@@ -16,23 +17,36 @@ export function loadOpenCV(): Promise<typeof window.cv> {
   if (cvPromise) return cvPromise;
 
   cvPromise = new Promise((resolve, reject) => {
-    if (window.cv?.Mat) {
+    // Already fully initialized (cv is the module object, not a Promise)
+    if (window.cv && typeof window.cv.then !== 'function' && typeof window.cv.Mat !== 'undefined') {
       resolve(window.cv);
       return;
     }
 
-    // Callback que OpenCV.js appelle dès que le WASM est prêt
-    window.Module = {
-      onRuntimeInitialized() {
-        resolve(window.cv);
-      },
+    const inject = () => {
+      const script = document.createElement('script');
+      script.src = `${import.meta.env.BASE_URL}opencv.js`;
+      script.async = true;
+      script.onerror = () => reject(new Error('Impossible de charger opencv.js'));
+      script.onload = async () => {
+        try {
+          // window.cv is an emscripten Promise — await it to get the cv instance
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const cv: any = await window.cv;
+          resolve(cv);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      document.head.appendChild(script);
     };
 
-    const script = document.createElement('script');
-    script.src = `${import.meta.env.BASE_URL}opencv.js`;
-    script.async = true;
-    script.onerror = () => reject(new Error('Impossible de charger opencv.js'));
-    document.head.appendChild(script);
+    // Script already injected (e.g., partial load): await the existing Promise
+    if (window.cv && typeof window.cv.then === 'function') {
+      window.cv.then(resolve, reject);
+    } else {
+      inject();
+    }
   });
 
   return cvPromise;

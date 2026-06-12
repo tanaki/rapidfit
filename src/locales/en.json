@@ -462,7 +462,7 @@
     "activate": "Enable tracking",
     "stop": "Stop tracking",
     "cancel": "Cancel",
-    "loading": "Loading OpenCV…",
+    "loading": "Starting tracking…",
     "active": "Tracking active",
     "noSkeleton": "Add a skeleton first",
     "clickJointHint": "Click the sticker {{n}}/{{total}}",

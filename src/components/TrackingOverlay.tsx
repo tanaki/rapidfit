@@ -89,10 +89,27 @@ export function TrackingOverlay({ mode, initIndex, clickedPoints, videoRect, onI
 
       {/* Loading state */}
       {mode === 'loading' && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-auto bg-black/30">
-          <div className="bg-black/75 text-white rounded-xl px-4 py-3 text-sm backdrop-blur-sm">
-            {t('tracking.loading')}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-auto bg-black/40">
+          <div className="bg-black/80 text-white rounded-xl px-6 py-4 text-sm backdrop-blur-sm shadow-xl flex flex-col items-center gap-3 min-w-[180px]">
+            <span className="text-white/90 font-medium">{t('tracking.loading')}</span>
+            {/* Indeterminate progress bar */}
+            <div className="w-full h-1.5 rounded-full bg-white/20 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-indigo-400"
+                style={{
+                  width: '40%',
+                  animation: 'trackingSlide 1.2s ease-in-out infinite',
+                }}
+              />
+            </div>
           </div>
+          <style>{`
+            @keyframes trackingSlide {
+              0%   { margin-left: 0%;   width: 30%; }
+              50%  { margin-left: 50%;  width: 40%; }
+              100% { margin-left: 100%; width: 10%; }
+            }
+          `}</style>
         </div>
       )}
 
