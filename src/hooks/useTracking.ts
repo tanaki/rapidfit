@@ -3,17 +3,15 @@ import type { SkeletonKey, SkeletonElement, Point } from '../types';
 import { SKELETON_KEYS } from '../types';
 import type { LKPoint } from '../utils/lkFlow';
 
-// Joints à initialiser dans l'ordre du guide visuel (pas la tête)
 export const TRACKING_JOINTS: SkeletonKey[] = [
   'shoulder', 'elbow', 'wrist', 'hip', 'knee', 'ankle', 'toes',
 ];
 
-export type TrackingMode = 'off' | 'initializing' | 'active';
+export type TrackingMode = 'off' | 'active';
 
 export interface TrackingState {
-  mode:      TrackingMode;
-  initIndex: number;        // prochain joint à cliquer
-  error:     string | null;
+  mode:  TrackingMode;
+  error: string | null;
 }
 
 interface UseTrackingOptions {
@@ -22,12 +20,11 @@ interface UseTrackingOptions {
 }
 
 export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) {
-  const [state, setState] = useState<TrackingState>({ mode: 'off', initIndex: 0, error: null });
+  const [state, setState] = useState<TrackingState>({ mode: 'off', error: null });
 
   const workerRef        = useRef<Worker | null>(null);
   const rafRef           = useRef<number | null>(null);
   const captureCanvasRef = useRef<OffscreenCanvas | null>(null);
-  const initPointsRef    = useRef<LKPoint[]>([]);    // accumulateur pendant l'init
   const onUpdateRef      = useRef(onUpdateSkeleton);
   useEffect(() => { onUpdateRef.current = onUpdateSkeleton; }, [onUpdateSkeleton]);
 
@@ -56,7 +53,6 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
       return;
     }
 
-    // Crée / redimensionne le canvas de capture si besoin
     if (
       !captureCanvasRef.current ||
       captureCanvasRef.current.width  !== video.videoWidth ||
@@ -71,7 +67,6 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     ctx.drawImage(video, 0, 0);
     const imageData = ctx.getImageData(0, 0, video.videoWidth, video.videoHeight);
 
-    // Transfert zéro-copie vers le worker
     worker.postMessage(
       { type: 'frame', buffer: imageData.data.buffer, width: video.videoWidth, height: video.videoHeight },
       [imageData.data.buffer],
@@ -82,9 +77,10 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
 
   // ── API publique ──────────────────────────────────────────────────────────
 
-  const startTracking = useCallback(() => {
+  /** Démarre le tracking avec les points fournis (coords vidéo naturelles).
+   *  Appelé depuis VideoPane qui extrait les positions du squelette actif. */
+  const startTracking = useCallback((initPoints: LKPoint[]) => {
     destroyWorker();
-    initPointsRef.current = [];
 
     const worker = new Worker(
       new URL('../workers/tracker.worker.ts', import.meta.url),
@@ -108,42 +104,21 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     };
 
     workerRef.current = worker;
-    setState({ mode: 'initializing', initIndex: 0, error: null });
-  }, [destroyWorker]);
+    worker.postMessage({ type: 'init', points: initPoints });
+    rafRef.current = requestAnimationFrame(loop);
+    setState({ mode: 'active', error: null });
+  }, [destroyWorker, loop]);
 
   const stopTracking = useCallback(() => {
     destroyWorker();
-    initPointsRef.current = [];
-    setState({ mode: 'off', initIndex: 0, error: null });
+    setState({ mode: 'off', error: null });
   }, [destroyWorker]);
 
-  /** Enregistre un clic d'init. Coords en espace vidéo naturel (px).
-   *  Au 7e clic : envoie les points au worker et démarre la boucle RAF. */
-  const registerInitClick = useCallback((x: number, y: number, jointIndex: number) => {
-    const joint = TRACKING_JOINTS[jointIndex];
-    if (!joint) return;
-
-    initPointsRef.current = [...initPointsRef.current, { key: joint, x, y, lost: false }];
-    const done = initPointsRef.current.length >= TRACKING_JOINTS.length;
-
-    if (done) {
-      const worker = workerRef.current;
-      if (worker) {
-        worker.postMessage({ type: 'init', points: initPointsRef.current });
-        rafRef.current = requestAnimationFrame(loop);
-      }
-      setState(s => ({ ...s, mode: 'active', initIndex: TRACKING_JOINTS.length }));
-    } else {
-      setState(s => ({ ...s, initIndex: s.initIndex + 1 }));
-    }
-  }, [loop]);
-
-  return { tracking: state, startTracking, stopTracking, registerInitClick };
+  return { tracking: state, startTracking, stopTracking };
 }
 
 // ── Helper exporté ────────────────────────────────────────────────────────────
 
-/** Applique les positions trackées (world coords) à un SkeletonElement existant. */
 export function applyTrackingToSkeleton(
   skeleton: SkeletonElement,
   positions: Partial<Record<SkeletonKey, Point>>,

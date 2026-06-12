@@ -92,7 +92,15 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   const videoRectRef2 = useRef<VideoRect | null>(null);
   const imgDimsRef    = useRef({ w: 0, h: 0 });
 
-  // Conversion coordonnées naturelles vidéo → world canvas (origine = top-left vidéo)
+  // World canvas → coordonnées naturelles vidéo
+  const worldToNatural = useCallback((wx: number, wy: number): Point => {
+    const vr  = videoRectRef2.current;
+    const dim = imgDimsRef.current;
+    if (!vr || !dim.w) return { x: wx, y: wy };
+    return { x: (wx / vr.w) * dim.w, y: (wy / vr.h) * dim.h };
+  }, []);
+
+  // Coordonnées naturelles vidéo → world canvas
   const naturalToWorld = useCallback((nx: number, ny: number): Point => {
     const vr  = videoRectRef2.current;
     const dim = imgDimsRef.current;
@@ -113,36 +121,29 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     ap.onUpdateElement(ap.activeLayerId, applyTrackingToSkeleton(sk, worldPos));
   }, [naturalToWorld]);
 
-  const { tracking, startTracking, stopTracking, registerInitClick } = useTracking({
+  const { tracking, startTracking, stopTracking } = useTracking({
     videoRef,
     onUpdateSkeleton,
   });
 
-  // Positions cliquées pendant l'init (coords container) pour l'overlay dots
-  const [initClickedPoints, setInitClickedPoints] = useState<Array<{ x: number; y: number }>>([]);
+  // Démarre le tracking en extrayant les positions du squelette actif
+  const handleStartTracking = useCallback(() => {
+    const ap = annotationPropsRef.current;
+    if (!ap) return;
+    const layer = ap.layers.find(l => l.id === ap.activeLayerId);
+    const sk    = layer?.elements.find(el => el.type === 'skeleton') as SkeletonElement | undefined;
+    if (!sk) return;
 
-  useEffect(() => {
-    if (tracking.mode === 'off' || tracking.initIndex === 0) setInitClickedPoints([]);
-  }, [tracking.mode, tracking.initIndex]);
+    const initPoints = TRACKING_JOINTS
+      .filter(key => sk.points[key] !== undefined)
+      .map(key => {
+        const nat = worldToNatural(sk.points[key].x, sk.points[key].y);
+        return { key, x: nat.x, y: nat.y, lost: false };
+      });
 
-  const handleInitClick = useCallback((containerX: number, containerY: number) => {
-    const vr  = videoRectRef2.current;
-    const dim = imgDimsRef.current;
-    if (!vr || !dim.w) return;
-
-    const jointIndex = tracking.initIndex;
-    setInitClickedPoints(prev => [...prev, { x: containerX, y: containerY }]);
-
-    // Coordonnées naturelles vidéo → LK
-    const natX = ((containerX - vr.x) / vr.w) * dim.w;
-    const natY = ((containerY - vr.y) / vr.h) * dim.h;
-
-    // Snap immédiat du joint squelette au point cliqué
-    const joint = TRACKING_JOINTS[jointIndex];
-    if (joint) onUpdateSkeleton({ [joint]: naturalToWorld(natX, natY) } as Partial<Record<SkeletonKey, Point>>);
-
-    registerInitClick(natX, natY, jointIndex);
-  }, [tracking.initIndex, naturalToWorld, onUpdateSkeleton, registerInitClick]);
+    if (initPoints.length === 0) return;
+    startTracking(initPoints);
+  }, [worldToNatural, startTracking]);
 
   const isVideoSource = source.type === 'camera' || source.type === 'recording';
 
@@ -408,17 +409,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       <GridOverlay visible={showGrid} gridSize={gridSize} zoom={zoomState.zoom} pan={zoomState.pan} />
       <ZoomControls state={zoomState} />
 
-      {/* Tracking overlay */}
-      {isVideoSource && (
-        <TrackingOverlay
-          mode={tracking.mode}
-          initIndex={tracking.initIndex}
-          clickedPoints={initClickedPoints}
-          videoRect={videoRect}
-          onInitClick={handleInitClick}
-          onStop={stopTracking}
-        />
-      )}
+      {/* Indicateur tracking actif + bouton stop */}
+      {isVideoSource && <TrackingOverlay mode={tracking.mode} onStop={stopTracking} />}
 
       {/* Bottom-right buttons: tracking + capture */}
       <div className="absolute flex items-center gap-2" style={{ bottom: 8, right: 8, zIndex: 300 }}>
@@ -428,7 +420,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
               e.stopPropagation();
               if (tracking.mode !== 'off') { stopTracking(); return; }
               if (!hasSkeleton) return;
-              startTracking();
+              handleStartTracking();
             }}
             title={hasSkeleton ? t('tracking.activate') : t('tracking.noSkeleton')}
             disabled={!hasSkeleton && tracking.mode === 'off'}
