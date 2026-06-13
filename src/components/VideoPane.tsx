@@ -127,7 +127,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
 
   const {
     tracking, startTracking, stopTracking, addFreePoint, updateSkeletonPoint,
-    trajectoryHistoryRef, lostJointsRef, jointConfidenceRef,
+    trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, definitiveLostRef,
   } = useTracking({ videoRef, onUpdateSkeleton });
 
   // ── Drag de joint squelette en mode tracking ──────────────────────────────
@@ -263,6 +263,30 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     e.stopPropagation();
     dragStateRef.current = { ...dragStateRef.current, natX: coords.natX, natY: coords.natY };
   }, [eventToNatural, findNearestJoint]);
+
+  /** Double-clic sur un joint → le reseede à partir de la position dessinée du squelette. */
+  const handleSkeletonDoubleClick = useCallback((e: React.MouseEvent) => {
+    const coords = eventToNatural(e);
+    if (!coords) return;
+    const key = findNearestJoint(coords.natX, coords.natY);
+    if (!key) return;
+    e.stopPropagation();
+
+    // Position courante du joint dans le squelette dessiné → convertir en naturel
+    const ap = annotationPropsRef.current;
+    if (!ap) return;
+    for (const l of ap.layers) {
+      if (l.visible === false) continue;
+      for (const el of l.elements) {
+        if (el.type !== 'skeleton') continue;
+        const pt = el.points[key];
+        if (!pt) return;
+        const nat = worldToNatural(pt.x, pt.y);
+        updateSkeletonPoint(key, nat.x, nat.y);
+        return;
+      }
+    }
+  }, [eventToNatural, findNearestJoint, worldToNatural, updateSkeletonPoint]);
 
   const handleSkeletonDragEnd = useCallback((e: React.MouseEvent) => {
     const drag = dragStateRef.current;
@@ -568,6 +592,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           lostJointsRef={lostJointsRef}
           jointConfidenceRef={jointConfidenceRef}
           dragStateRef={dragStateRef}
+          definitiveLostRef={definitiveLostRef}
           layers={annotationProps?.layers ?? []}
           zoom={zoomState.zoom}
           pan={zoomState.pan}
@@ -594,6 +619,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           onMouseMove={handleSkeletonDragMove}
           onMouseUp={handleSkeletonDragEnd}
           onMouseLeave={() => { dragStateRef.current = null; hoveredJointRef.current = null; }}
+          onDoubleClick={handleSkeletonDoubleClick}
         />
       )}
 

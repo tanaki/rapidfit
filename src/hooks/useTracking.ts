@@ -15,14 +15,16 @@ export interface TrackingState {
   error:  string | null;
 }
 
-const MAX_HISTORY = 64; // suffisant pour le dessin incrémental (on ne redessine jamais depuis zéro)
+const MAX_HISTORY          = 64; // suffisant pour le dessin incrémental
+const DEFINITIVE_LOST_FRAMES = 30; // frames consécutives avant de marquer "perdu définitivement"
 
 export interface TrajectoryEntry {
   color:      string;
   initialX:   number;   // position initiale en coords naturelles (permanente)
   initialY:   number;
   totalAdded: number;   // total de points jamais ajoutés (index absolu pour la couleur)
-  points:     { x: number; y: number }[];  // buffer tournant, MAX_HISTORY derniers points
+  points:     { x: number; y: number }[];  // buffer tournant MAX_HISTORY — pour le dessin incrémental
+  allPoints:  { x: number; y: number }[];  // tous les points — pour l'analyse ellipse
 }
 
 export type TrajectoryHistory = Map<string, TrajectoryEntry>;
@@ -47,6 +49,9 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
   // Joints squelette perdus (lost=true) et confiance (err 0..1) — mis à jour chaque frame trackée
   const lostJointsRef         = useRef<Set<SkeletonKey>>(new Set());
   const jointConfidenceRef    = useRef<Map<SkeletonKey, number>>(new Map());
+  // Compteur de frames consécutives perdues et ensemble des joints définitivement perdus
+  const lostFramesRef         = useRef<Map<SkeletonKey, number>>(new Map());
+  const definitiveLostRef     = useRef<Set<SkeletonKey>>(new Set());
 
   // ── Nettoyage ─────────────────────────────────────────────────────────────
 
@@ -60,6 +65,8 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     workerRef.current = null;
     lostJointsRef.current.clear();
     jointConfidenceRef.current.clear();
+    lostFramesRef.current.clear();
+    definitiveLostRef.current.clear();
   }, [stopLoop]);
 
   useEffect(() => () => destroyWorker(), [destroyWorker]);
@@ -123,16 +130,25 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
           const key = pt.key as SkeletonKey;
           if (pt.lost) {
             lostJointsRef.current.add(key);
+            // Incrémenter le compteur de frames perdues consécutives
+            const n = (lostFramesRef.current.get(key) ?? 0) + 1;
+            lostFramesRef.current.set(key, n);
+            if (n >= DEFINITIVE_LOST_FRAMES) definitiveLostRef.current.add(key);
           } else {
             skPos[key] = { x: pt.x, y: pt.y };
             jointConfidenceRef.current.set(key, pt.err);
+            // Joint retrouvé → réinitialiser le compteur
+            lostFramesRef.current.set(key, 0);
+            definitiveLostRef.current.delete(key);
           }
         } else if (!pt.key.startsWith('sk-')) {
           // Point libre (trajectoire)
           if (!pt.lost) {
             const entry = trajectoryHistoryRef.current.get(pt.key);
             if (entry) {
-              entry.points.push({ x: pt.x, y: pt.y });
+              const p = { x: pt.x, y: pt.y };
+              entry.points.push(p);
+              entry.allPoints.push(p);
               entry.totalAdded++;
               if (entry.points.length > MAX_HISTORY) entry.points.shift();
             }
@@ -186,6 +202,8 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     if (!worker) return;
     lostJointsRef.current.delete(key);
     jointConfidenceRef.current.set(key, 1);
+    lostFramesRef.current.set(key, 0);
+    definitiveLostRef.current.delete(key);
     worker.postMessage({ type: 'update-point', key, x: natX, y: natY });
   }, []);
 
@@ -193,7 +211,9 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
   const addFreePoint = useCallback((natX: number, natY: number, key: string, color: string) => {
     const worker = workerRef.current;
     if (!worker) return;
-    trajectoryHistoryRef.current.set(key, { color, initialX: natX, initialY: natY, totalAdded: 0, points: [] });
+    trajectoryHistoryRef.current.set(key, {
+      color, initialX: natX, initialY: natY, totalAdded: 0, points: [], allPoints: [],
+    });
     worker.postMessage({ type: 'add-point', point: { key, x: natX, y: natY, lost: false, err: 1 } });
   }, []);
 
@@ -203,6 +223,7 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     trajectoryHistoryRef,
     lostJointsRef,
     jointConfidenceRef,
+    definitiveLostRef,
   };
 }
 

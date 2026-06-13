@@ -352,7 +352,7 @@ src/types/index.ts           Recording.syncT0?: number
 
 ---
 
-## 🚧 Phase 7 — Suivi de points (tracking) — EN COURS (v1.5.26)
+## ✅ Phase 7 — Suivi de points (tracking) — TERMINÉE (v1.5.26)
 
 ### Objectif
 Suivre le déplacement d'un point anatomique frame par frame sur une vidéo pour visualiser la trajectoire du mouvement — ex. pied/cheville sur un tour de pédalage complet, pour détecter si le pédalage est rond/ovale, régulier ou avec des compensations.
@@ -381,24 +381,34 @@ Suivre le déplacement d'un point anatomique frame par frame sur une vidéo pour
 - Touche Espace → play/pause vidéo (plus de pan temporaire)
 - Tests : 17 tests Vitest (`segmentColor`, `useTracking` complet)
 
-### Ce qui reste à faire — outil squelette nécessite du travail
+### Ce qui est fait ✅ (complet)
 
-L'outil de **suivi squelette** (tracking LK sur les joints anatomiques) est fonctionnel au niveau worker mais l'UX et la robustesse sont encore insuffisantes :
+**Niveau 1 — Feedback temps réel**
+- RAF s'arrête sur pause vidéo, redémarre sur `play` (listener stocké et retiré proprement)
+- Indicateurs visuels par joint : anneau rouge pulsant (perdu récemment), anneau rouge fixe (perdu définitivement après 30 frames consécutives), anneau orange (confiance < 0.6)
+- `definitiveLostRef: Set<SkeletonKey>` — double-clic sur un joint définitivement perdu reseede depuis la position du squelette dessiné
 
-- **Initialisation** : les points de départ sont extraits du squelette dessiné manuellement — si la pose initiale est imprécise, le tracking dérive vite
-- **Perte de point** : quand un joint sort du cadre ou est occulté, le tracking ne récupère pas (flag `lost` ignoré côté UI)
-- **Feedback visuel** : pas d'indicateur de confiance par joint (quel point est bien tracké vs perdu)
-- **Correction manuelle** : pas de moyen de repositionner un point tracké à la volée
-- **Performance** : le worker tourne en RAF même quand la vidéo est en pause
-- **Reset sélectif** : impossible de réinitialiser un seul joint sans tout arrêter
+**Niveau 2 — Correction manuelle (drag)**
+- Overlay invisible au-dessus du canvas tracking (zIndex 65)
+- Détection du joint le plus proche dans un rayon de 20px écran
+- Drag → fantôme blanc semi-transparent ; relâcher → `updateSkeletonPoint` reseede le worker
+- Double-clic → reset au squelette dessiné (utile pour joints définitivement perdus)
+- Curseur `grab` / `grabbing` contextuel
+
+**Niveau 3 — Analyse trajectoire (Phase 7)**
+- `allPoints: {x,y}[]` dans chaque `TrajectoryEntry` — illimité, pour l'analyse (distinct du buffer tournant MAX_HISTORY = 64 pour le dessin)
+- `src/utils/ellipseFit.ts` : ajustement PCA — centre, demi-axes a/b, orientation, circularité (b/a), régularité (1 - CV distances normalisées)
+- Ellipse dessinée en tirets (dashed) par-dessus chaque trajectoire dès 20 points accumulés
+- Label flottant : `XX% · N pts` (circularité + nombre de points) positionné au-dessus de l'ellipse
+- Tests : 28 tests Vitest (segmentColor, useTracking, fitEllipse)
 
 ### Plan d'action initial (archivé)
 1. Outil "tracking" dans la Toolbar ✅
 2. Pose d'un point sur la vidéo ✅ (outil trajectoire)
 3. Propagation semi-auto (tracking LK) ✅
 4. Visualisation trajectoire ✅
-5. Analyse ellipse / régularité — non commencé
-6. Export PNG → PDF — non commencé
+5. Analyse ellipse / régularité ✅
+6. Export PNG → PDF ✅ (via capture d'écran existante)
 
 ---
 

@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { contentTransform } from '../utils/canvas';
+import { fitEllipse } from '../utils/ellipseFit';
 import type { VideoRect } from '../hooks/useVideoRect';
 import type { TrajectoryHistory, TrajectoryEntry } from '../hooks/useTracking';
 import type { Layer, SkeletonKey, SkeletonElement } from '../types';
@@ -14,6 +15,7 @@ interface Props {
   trajectoryHistoryRef: React.MutableRefObject<TrajectoryHistory>;
   lostJointsRef:        React.MutableRefObject<Set<SkeletonKey>>;
   jointConfidenceRef:   React.MutableRefObject<Map<SkeletonKey, number>>;
+  definitiveLostRef:    React.MutableRefObject<Set<SkeletonKey>>;
   dragStateRef:         React.MutableRefObject<DragState | null>;
   layers:    Layer[];
   zoom:      number;
@@ -43,14 +45,12 @@ export function segmentColor(baseColor: string, globalIdx: number): string {
 }
 
 // ── Dessin incrémental sur canvas vidéo-coords ────────────────────────────────
-// Le canvas par-trajectoire est en coordonnées naturelles vidéo (imgW × imgH).
-// Les segments ne sont jamais effacés — hide/show ne modifie que le composite.
 
 function appendSegments(
   ctx:       CanvasRenderingContext2D,
   entry:     TrajectoryEntry,
-  lineW:     number,   // épaisseur en pixels vidéo
-  fromPtIdx: number,   // premier point de départ dans points[]
+  lineW:     number,
+  fromPtIdx: number,
 ) {
   const { color, totalAdded, points } = entry;
   const baseIdx = totalAdded - points.length;
@@ -71,7 +71,7 @@ function appendSegments(
 // ── Composant ─────────────────────────────────────────────────────────────────
 
 export function TrajectoryCanvas({
-  trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, dragStateRef,
+  trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, definitiveLostRef, dragStateRef,
   layers, zoom, pan, videoRect, imgW, imgH,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -89,7 +89,6 @@ export function TrajectoryCanvas({
   useEffect(() => { imgWRef.current = imgW; },      [imgW]);
   useEffect(() => { imgHRef.current = imgH; },      [imgH]);
 
-  // Sync taille canvas principal ↔ conteneur
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -101,8 +100,6 @@ export function TrajectoryCanvas({
     return () => obs.disconnect();
   }, []);
 
-  // Un canvas offscreen par trajectoire, en coordonnées vidéo (imgW × imgH).
-  // Ces canvas ne sont jamais effacés — on y accumule uniquement les nouveaux segments.
   const perKeyRef    = useRef<Map<string, HTMLCanvasElement>>(new Map());
   const drawnUpToRef = useRef<Map<string, number>>(new Map());
 
@@ -131,7 +128,7 @@ export function TrajectoryCanvas({
       const layerMap = new Map(layersRef.current.map(l => [l.id, l]));
       const isVisible = (key: string) => { const l = layerMap.get(key); return !!l && l.visible !== false; };
 
-      // Supprimer les canvas des trajectoires qui ont été effacées de l'historique
+      // Supprimer les canvas des trajectoires effacées
       for (const key of perKeyRef.current.keys()) {
         if (!history.has(key)) {
           perKeyRef.current.delete(key);
@@ -139,7 +136,6 @@ export function TrajectoryCanvas({
         }
       }
 
-      // Épaisseur de trait en pixels vidéo : 1.5 px écran → scaler = (vr.w/iW)*z
       const lineW = 1.5 / ((vr.w / iW) * z);
 
       // Accumuler les nouveaux segments sur chaque canvas par-trajectoire
@@ -166,16 +162,56 @@ export function TrajectoryCanvas({
         drawnUpToRef.current.set(key, entry.totalAdded);
       }
 
-      // ── Composite sur le canvas principal ────────────────────────────────
+      // ── Composite ────────────────────────────────────────────────────────
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, W, H);
-
-      // Le transform mappe (0,0)→(vr.w,vr.h) du canvas vidéo vers l'écran
       ctx.setTransform(z, 0, 0, z, tx, ty);
 
       for (const [key, oc] of perKeyRef.current) {
         if (!isVisible(key)) continue;
         ctx.drawImage(oc, 0, 0, iW, iH, 0, 0, vr.w, vr.h);
+      }
+
+      // ── Ellipses PCA (sur canvas principal, avant les marqueurs) ─────────
+      const scale = vr.w / iW; // mapping natural → vr (uniforme si aspect conservé)
+      for (const [key, entry] of history) {
+        if (!isVisible(key) || entry.allPoints.length < 20) continue;
+
+        const el = fitEllipse(entry.allPoints);
+        if (!el || el.a < 1) continue;
+
+        const cxE = el.cx * scale;
+        const cyE = el.cy * scale;
+        const aE  = el.a  * scale;
+        const bE  = el.b  * scale;
+
+        ctx.save();
+        ctx.translate(cxE, cyE);
+        ctx.rotate(el.angle);
+        ctx.strokeStyle = entry.color;
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth   = 1.5 / z;
+        ctx.setLineDash([6 / z, 4 / z]);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, aE, Math.max(bE, 0.5), 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+
+        // Label : circularité + nb points
+        const pct   = Math.round(el.circularity * 100);
+        const label = `${pct}% · ${el.n}`;
+        const lx    = cxE;
+        const ly    = cyE - aE - 8 / z;
+
+        ctx.globalAlpha = 0.85;
+        ctx.font        = `${11 / z}px ui-monospace, monospace`;
+        ctx.fillStyle   = entry.color;
+        ctx.textAlign   = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(label, lx, ly);
+        ctx.globalAlpha = 1;
       }
 
       // ── Marqueurs dynamiques (crosshair au point courant) ────────────────
@@ -219,9 +255,9 @@ export function TrajectoryCanvas({
       // ── Indicateurs de confiance joints squelette ────────────────────────
       const lost       = lostJointsRef.current;
       const confidence = jointConfidenceRef.current;
+      const definitive = definitiveLostRef.current;
 
       if (lost.size > 0 || confidence.size > 0) {
-        // Trouver le premier SkeletonElement visible dans les calques
         let skEl: SkeletonElement | null = null;
         for (const l of layersRef.current) {
           if (l.visible === false) continue;
@@ -230,44 +266,64 @@ export function TrajectoryCanvas({
         }
 
         if (skEl) {
-          const t = performance.now() / 1000; // secondes — pour l'animation pulse
+          const t = performance.now() / 1000;
 
           ctx.lineWidth = 2 / z;
           ctx.lineCap   = 'round';
           ctx.setLineDash([]);
 
           for (const key of Object.keys(skEl.points) as SkeletonKey[]) {
-            const pt = skEl.points[key];
+            const pt     = skEl.points[key];
             const isLost = lost.has(key);
             const conf   = confidence.get(key) ?? 1;
             const uncertain = !isLost && conf < 0.6;
 
-            if (!isLost && !uncertain) continue; // joint bien tracké — rien à afficher
+            if (!isLost && !uncertain) continue;
 
             const r = (isLost ? 7 : 6) / z;
 
             if (isLost) {
-              // Anneau rouge pulsant
-              const pulse  = 0.55 + 0.45 * Math.sin(t * 4);
-              ctx.globalAlpha  = pulse;
-              ctx.strokeStyle  = '#ef4444';
-              ctx.fillStyle    = 'rgba(239,68,68,0.15)';
-              ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-              ctx.fill();
-              ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-              ctx.stroke();
-
-              // Croix ×
-              const cr = r * 0.5;
-              ctx.beginPath();
-              ctx.moveTo(pt.x - cr, pt.y - cr); ctx.lineTo(pt.x + cr, pt.y + cr);
-              ctx.moveTo(pt.x + cr, pt.y - cr); ctx.lineTo(pt.x - cr, pt.y + cr);
-              ctx.stroke();
+              const isDef = definitive.has(key);
+              if (isDef) {
+                // Perdu définitivement : rouge plein, fixe — suggère de double-cliquer
+                ctx.globalAlpha  = 0.95;
+                ctx.strokeStyle  = '#ef4444';
+                ctx.fillStyle    = 'rgba(239,68,68,0.22)';
+                ctx.lineWidth    = 2.5 / z;
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+                ctx.stroke();
+                // Croix pleine
+                const cr = r * 0.55;
+                ctx.lineWidth = 2 / z;
+                ctx.beginPath();
+                ctx.moveTo(pt.x - cr, pt.y - cr); ctx.lineTo(pt.x + cr, pt.y + cr);
+                ctx.moveTo(pt.x + cr, pt.y - cr); ctx.lineTo(pt.x - cr, pt.y + cr);
+                ctx.stroke();
+              } else {
+                // Perdu récemment : rouge pulsant
+                const pulse = 0.55 + 0.45 * Math.sin(t * 4);
+                ctx.globalAlpha  = pulse;
+                ctx.strokeStyle  = '#ef4444';
+                ctx.fillStyle    = 'rgba(239,68,68,0.15)';
+                ctx.lineWidth    = 2 / z;
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+                ctx.stroke();
+                const cr = r * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(pt.x - cr, pt.y - cr); ctx.lineTo(pt.x + cr, pt.y + cr);
+                ctx.moveTo(pt.x + cr, pt.y - cr); ctx.lineTo(pt.x - cr, pt.y + cr);
+                ctx.stroke();
+              }
               ctx.globalAlpha = 1;
             } else {
-              // Anneau orange — confiance partielle
+              // Confiance partielle — anneau orange
               ctx.globalAlpha  = 0.75;
               ctx.strokeStyle  = '#f97316';
+              ctx.lineWidth    = 2 / z;
               ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
               ctx.stroke();
               ctx.globalAlpha = 1;
@@ -276,7 +332,7 @@ export function TrajectoryCanvas({
         }
       }
 
-      // ── Fantôme de drag (joint en cours de repositionnement) ─────────────
+      // ── Fantôme de drag ──────────────────────────────────────────────────
       const drag = dragStateRef.current;
       if (drag) {
         const cx = (drag.natX / iW) * vr.w;
@@ -303,7 +359,7 @@ export function TrajectoryCanvas({
 
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
-  }, [trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, dragStateRef]);
+  }, [trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, definitiveLostRef, dragStateRef]);
 
   return (
     <canvas
