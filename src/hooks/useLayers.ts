@@ -42,6 +42,16 @@ export function useLayers(initialName = 'Calque 1') {
     setActiveLayerId(newLayer.id);
   }, [layers]);
 
+  /** Crée un calque nommé vide ; retourne l'id du calque. */
+  const addNamedLayer = useCallback((name: string): string => {
+    const newLayer = makeLayer(name);
+    setHistory(h => [...h.slice(-49), layers]);
+    setFuture([]);
+    setLayers(prev => [...prev, { ...newLayer }]);
+    setActiveLayerId(newLayer.id);
+    return newLayer.id;
+  }, [layers]);
+
   const eraseAt = useCallback((layerId: string, p: { x: number; y: number }, radius: number) => {
     setLayers(prev => prev.map(l => {
       if (l.id !== layerId) return l;
@@ -152,7 +162,7 @@ export function useLayers(initialName = 'Calque 1') {
   return {
     layers, activeLayerId, setActiveLayerId,
     history, future,
-    addElement, addElementOnNewLayer, eraseAt, updateElement, deleteElement, beginDrag,
+    addElement, addElementOnNewLayer, addNamedLayer, eraseAt, updateElement, deleteElement, beginDrag,
     undo, redo, clearActiveLayer, importLayers, rescaleElements,
     layerActions,
   };

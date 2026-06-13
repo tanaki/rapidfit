@@ -352,7 +352,7 @@ src/types/index.ts           Recording.syncT0?: number
 
 ---
 
-## ⏳ Phase 7 — Suivi de points (tracking)
+## 🚧 Phase 7 — Suivi de points (tracking) — EN COURS (v1.5.26)
 
 ### Objectif
 Suivre le déplacement d'un point anatomique frame par frame sur une vidéo pour visualiser la trajectoire du mouvement — ex. pied/cheville sur un tour de pédalage complet, pour détecter si le pédalage est rond/ovale, régulier ou avec des compensations.
@@ -363,30 +363,42 @@ Suivre le déplacement d'un point anatomique frame par frame sur une vidéo pour
 - Visualisation de la régularité du pédalage tour par tour
 - Exportable en PNG dans le compte rendu PDF
 
-### Plan d'action
-1. **Outil "tracking"** : nouveau tool dans la Toolbar (icône ⊕ ou 🎯)
-2. **Pose d'un point** : clic sur la vidéo en pause → pose un marqueur `TrackPoint` sur le frame courant
-3. **Propagation semi-auto** : avance frame par frame → le fitter repositionne le point si nécessaire (pas d'IA, tracking manuel assisté)
-4. **Visualisation** : overlay de la trajectoire en temps réel pendant la lecture (courbe lissée sur les N derniers frames)
-5. **Analyse** : calcul de l'ellipse de régression (demi-axes, orientation), indicateur de régularité (variance de la trajectoire)
-6. **Export** : snapshot de la trajectoire en PNG → section dédiée dans le compte rendu PDF
+### Ce qui est fait ✅
 
-### Types à créer
-```typescript
-interface TrackPoint {
-  id: string;
-  frameTime: number;   // currentTime video en secondes
-  x: number; y: number; // coordonnées dans l'espace vidéo (VideoRect)
-  label?: string;      // "Pied G", "Cheville D"…
-}
+**Outil Trajectoire (Phase C)**
+- Lucas-Kanade sparse optical flow — pure TypeScript, Web Worker, Transferable ArrayBuffer
+- Outil `trajectory` dans la Toolbar (icône courbe pointillée) — indépendant du squelette
+- Clic sur la vidéo → crée un calque nommé ("Trajectoire 1"…) et démarre le tracking du point
+- `TrajectoryCanvas` : canvas offscreen **par trajectoire** en coordonnées vidéo (imgW × imgH)
+  - Segments accumulés de façon incrémentale, jamais effacés
+  - Hide / delete du calque → composite skip, pixels intacts (pas de redraw depuis les points)
+  - Zoom / pan → `drawImage` repositionne sans redraw
+  - Drift couleur : `segmentColor(base, globalIdx)` — s'éclaircit sur 1800 frames (~60 s), stable
+- Crosshair dynamique (cercle + 4 ticks) au dernier point tracké
+- Buffer tournant `MAX_HISTORY = 64` (suffisant pour dessin incrémental — pas de stockage de toute l'historique)
+- `TrackingState.source: 'skeleton' | 'trajectory' | null` — découplage complet :
+  - Bandeau "Stop tracking" et bouton crosshair n'apparaissent que pour `source === 'skeleton'`
+- Touche Espace → play/pause vidéo (plus de pan temporaire)
+- Tests : 17 tests Vitest (`segmentColor`, `useTracking` complet)
 
-interface TrackSeries {
-  id: string;
-  label: string;
-  color: string;
-  points: TrackPoint[];
-}
-```
+### Ce qui reste à faire — outil squelette nécessite du travail
+
+L'outil de **suivi squelette** (tracking LK sur les joints anatomiques) est fonctionnel au niveau worker mais l'UX et la robustesse sont encore insuffisantes :
+
+- **Initialisation** : les points de départ sont extraits du squelette dessiné manuellement — si la pose initiale est imprécise, le tracking dérive vite
+- **Perte de point** : quand un joint sort du cadre ou est occulté, le tracking ne récupère pas (flag `lost` ignoré côté UI)
+- **Feedback visuel** : pas d'indicateur de confiance par joint (quel point est bien tracké vs perdu)
+- **Correction manuelle** : pas de moyen de repositionner un point tracké à la volée
+- **Performance** : le worker tourne en RAF même quand la vidéo est en pause
+- **Reset sélectif** : impossible de réinitialiser un seul joint sans tout arrêter
+
+### Plan d'action initial (archivé)
+1. Outil "tracking" dans la Toolbar ✅
+2. Pose d'un point sur la vidéo ✅ (outil trajectoire)
+3. Propagation semi-auto (tracking LK) ✅
+4. Visualisation trajectoire ✅
+5. Analyse ellipse / régularité — non commencé
+6. Export PNG → PDF — non commencé
 
 ---
 
@@ -507,7 +519,7 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 ```
 Branche active : dev
 Dernière version taguée : v1.5.16
-Version courante sur dev : v1.5.16+ (non tagué)
+Version courante sur dev : v1.5.26 (non tagué — Phase 7 en cours)
 Pour publier : bump version dans package.json → git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 

@@ -20,6 +20,8 @@
     "line": "Line (L)",
     "angle": "Angle (G)",
     "hv_angle": "H/V Angle",
+    "skeleton": "Cyclist skeleton",
+    "trajectory": "Trace a trajectory",
     "undo": "Undo (Ctrl+Z)",
     "redo": "Redo (Ctrl+Y)",
     "clear": "Clear active layer"
@@ -466,6 +468,9 @@
     "active": "Tracking active",
     "noSkeleton": "Add a skeleton first",
     "clickJointHint": "Click the sticker {{n}}/{{total}}",
+    "addPoint": "Trace",
+    "clickToPlace": "Click on the video…",
+    "clearTrails": "Clear trails",
     "joints": {
       "shoulder": "Shoulder",
       "elbow": "Elbow",

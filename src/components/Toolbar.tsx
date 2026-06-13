@@ -58,6 +58,17 @@ export function Toolbar({
       label: t('toolbar.skeleton', 'Squelette cycliste'),
       icon: '🩻',
     },
+    {
+      id: 'trajectory',
+      label: t('toolbar.trajectory', 'Tracer une trajectoire'),
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="14" cy="4" r="2" stroke="currentColor" strokeWidth="1.3"/>
+          <path d="M4 14 Q5 8 9 7 Q13 6 12 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" strokeDasharray="2 1.5"/>
+          <circle cx="4" cy="14" r="1.5" fill="currentColor"/>
+        </svg>
+      ),
+    },
   ];
 
   return (

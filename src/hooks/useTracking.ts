@@ -10,9 +10,24 @@ export const TRACKING_JOINTS: SkeletonKey[] = [
 export type TrackingMode = 'off' | 'active';
 
 export interface TrackingState {
-  mode:  TrackingMode;
-  error: string | null;
+  mode:   TrackingMode;
+  source: 'skeleton' | 'trajectory' | null;
+  error:  string | null;
 }
+
+const MAX_HISTORY = 64; // suffisant pour le dessin incrémental (on ne redessine jamais depuis zéro)
+
+export interface TrajectoryEntry {
+  color:      string;
+  initialX:   number;   // position initiale en coords naturelles (permanente)
+  initialY:   number;
+  totalAdded: number;   // total de points jamais ajoutés (index absolu pour la couleur)
+  points:     { x: number; y: number }[];  // buffer tournant, MAX_HISTORY derniers points
+}
+
+export type TrajectoryHistory = Map<string, TrajectoryEntry>;
+
+export const FREE_COLORS = ['#84cc16', '#06b6d4', '#f97316', '#a855f7', '#f43f5e', '#22d3ee', '#fb923c'];
 
 interface UseTrackingOptions {
   videoRef:         React.RefObject<HTMLVideoElement | null>;
@@ -20,13 +35,15 @@ interface UseTrackingOptions {
 }
 
 export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) {
-  const [state, setState] = useState<TrackingState>({ mode: 'off', error: null });
+  const [state, setState] = useState<TrackingState>({ mode: 'off', source: null, error: null });
 
   const workerRef        = useRef<Worker | null>(null);
   const rafRef           = useRef<number | null>(null);
   const captureCanvasRef = useRef<OffscreenCanvas | null>(null);
   const onUpdateRef      = useRef(onUpdateSkeleton);
   useEffect(() => { onUpdateRef.current = onUpdateSkeleton; }, [onUpdateSkeleton]);
+
+  const trajectoryHistoryRef = useRef<TrajectoryHistory>(new Map());
 
   // ── Nettoyage ─────────────────────────────────────────────────────────────
 
@@ -77,10 +94,9 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
 
   // ── API publique ──────────────────────────────────────────────────────────
 
-  /** Démarre le tracking avec les points fournis (coords vidéo naturelles).
-   *  Appelé depuis VideoPane qui extrait les positions du squelette actif. */
-  const startTracking = useCallback((initPoints: LKPoint[]) => {
+  const startTracking = useCallback((initPoints: LKPoint[], source: 'skeleton' | 'trajectory' = 'skeleton') => {
     destroyWorker();
+    trajectoryHistoryRef.current.clear();
 
     const worker = new Worker(
       new URL('../workers/tracker.worker.ts', import.meta.url),
@@ -90,11 +106,21 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     worker.onmessage = (e: MessageEvent<{ type: 'tracked'; points: LKPoint[] }>) => {
       if (e.data.type !== 'tracked') return;
       const skPos: Partial<Record<SkeletonKey, Point>> = {};
+
       for (const pt of e.data.points) {
-        if (!pt.lost && (SKELETON_KEYS as readonly string[]).includes(pt.key)) {
+        if (pt.lost) continue;
+        if ((SKELETON_KEYS as readonly string[]).includes(pt.key)) {
           skPos[pt.key as SkeletonKey] = { x: pt.x, y: pt.y };
+        } else if (!pt.key.startsWith('sk-')) {
+          const entry = trajectoryHistoryRef.current.get(pt.key);
+          if (entry) {
+            entry.points.push({ x: pt.x, y: pt.y });
+            entry.totalAdded++;
+            if (entry.points.length > MAX_HISTORY) entry.points.shift();
+          }
         }
       }
+
       onUpdateRef.current(skPos);
     };
 
@@ -106,15 +132,24 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     workerRef.current = worker;
     worker.postMessage({ type: 'init', points: initPoints });
     rafRef.current = requestAnimationFrame(loop);
-    setState({ mode: 'active', error: null });
+    setState({ mode: 'active', source, error: null });
   }, [destroyWorker, loop]);
 
   const stopTracking = useCallback(() => {
     destroyWorker();
-    setState({ mode: 'off', error: null });
+    trajectoryHistoryRef.current.clear();
+    setState({ mode: 'off', source: null, error: null });
   }, [destroyWorker]);
 
-  return { tracking: state, startTracking, stopTracking };
+  /** Ajoute un point libre au tracking. La clé = ID du calque associé. */
+  const addFreePoint = useCallback((natX: number, natY: number, key: string, color: string) => {
+    const worker = workerRef.current;
+    if (!worker) return;
+    trajectoryHistoryRef.current.set(key, { color, initialX: natX, initialY: natY, totalAdded: 0, points: [] });
+    worker.postMessage({ type: 'add-point', point: { key, x: natX, y: natY, lost: false } });
+  }, []);
+
+  return { tracking: state, startTracking, stopTracking, addFreePoint, trajectoryHistoryRef };
 }
 
 // ── Helper exporté ────────────────────────────────────────────────────────────

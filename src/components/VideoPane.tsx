@@ -9,8 +9,9 @@ import { GuideOverlay } from './GuideOverlay';
 import { GridOverlay } from './GridOverlay';
 import { capturePane } from '../utils/captureFrame';
 import { computeVideoRect, type VideoRect } from '../hooks/useVideoRect';
-import { useTracking, applyTrackingToSkeleton, TRACKING_JOINTS } from '../hooks/useTracking';
+import { useTracking, applyTrackingToSkeleton, TRACKING_JOINTS, FREE_COLORS } from '../hooks/useTracking';
 import { TrackingOverlay } from './TrackingOverlay';
+import { TrajectoryCanvas } from './TrajectoryCanvas';
 
 interface Props {
   source: PaneSource;
@@ -45,6 +46,7 @@ export interface AnnotationProps {
   onDeleteElement: (layerId: string, elementId: string) => void;
   onBeginDrag: () => void;
   onRescaleElements?: (sx: number, sy: number) => void;
+  onAddNamedLayer?: (name: string) => string;
   discipline?: Discipline;
 }
 
@@ -121,7 +123,9 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     ap.onUpdateElement(ap.activeLayerId, applyTrackingToSkeleton(sk, worldPos));
   }, [naturalToWorld]);
 
-  const { tracking, startTracking, stopTracking } = useTracking({
+  const trajCounterRef = useRef(0);  // pour nommer les calques "Trajectoire 1", "Trajectoire 2"…
+
+  const { tracking, startTracking, stopTracking, addFreePoint, trajectoryHistoryRef } = useTracking({
     videoRef,
     onUpdateSkeleton,
   });
@@ -144,6 +148,41 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     if (initPoints.length === 0) return;
     startTracking(initPoints);
   }, [worldToNatural, startTracking]);
+
+  // Clic outil "trajectory" : auto-start si besoin + ajout du point
+  const handleTrajectoryClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const container = zoomState.containerRef.current;
+    const vr  = videoRectRef2.current;
+    const dim = imgDimsRef.current;
+    if (!container || !vr || !dim.w) return;
+
+    const rect = container.getBoundingClientRect();
+    const cx   = e.clientX - rect.left;
+    const cy   = e.clientY - rect.top;
+
+    const { zoom, pan } = zoomState;
+    const tx   = zoom * (pan.x + vr.x) + container.clientWidth  / 2 * (1 - zoom);
+    const ty   = zoom * (pan.y + vr.y) + container.clientHeight / 2 * (1 - zoom);
+    const wx   = (cx - tx) / zoom;
+    const wy   = (cy - ty) / zoom;
+    const natX = (wx / vr.w) * dim.w;
+    const natY = (wy / vr.h) * dim.h;
+
+    if (natX < 0 || natX > dim.w || natY < 0 || natY > dim.h) return;
+
+    if (tracking.mode === 'off') startTracking([], 'trajectory');
+
+    const ap = annotationPropsRef.current;
+    if (!ap?.onAddNamedLayer) return;
+
+    const colorIdx  = trajCounterRef.current % FREE_COLORS.length;
+    const color     = FREE_COLORS[colorIdx];
+    const layerName = `Trajectoire ${++trajCounterRef.current}`;
+    const layerId   = ap.onAddNamedLayer(layerName);
+
+    addFreePoint(natX, natY, layerId, color);
+  }, [zoomState, tracking.mode, startTracking, addFreePoint]);
 
   const isVideoSource = source.type === 'camera' || source.type === 'recording';
 
@@ -401,7 +440,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           imgW={imgDims.w}
           imgH={imgDims.h}
           discipline={annotationProps.discipline}
-          style={annotationProps.tool === 'pan' ? { pointerEvents: 'none' } : undefined}
+          style={annotationProps.tool === 'pan' || annotationProps.tool === 'trajectory' ? { pointerEvents: 'none' } : undefined}
         />
       )}
 
@@ -409,8 +448,34 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       <GridOverlay visible={showGrid} gridSize={gridSize} zoom={zoomState.zoom} pan={zoomState.pan} />
       <ZoomControls state={zoomState} />
 
-      {/* Indicateur tracking actif + bouton stop */}
-      {isVideoSource && <TrackingOverlay mode={tracking.mode} onStop={stopTracking} />}
+      {/* Trajectoires — canvas overlay séparé */}
+      {isVideoSource && (
+        <TrajectoryCanvas
+          trajectoryHistoryRef={trajectoryHistoryRef}
+          layers={annotationProps?.layers ?? []}
+          zoom={zoomState.zoom}
+          pan={zoomState.pan}
+          videoRect={videoRect}
+          imgW={imgDims.w}
+          imgH={imgDims.h}
+        />
+      )}
+
+      {isVideoSource && tracking.source === 'skeleton' && (
+        <TrackingOverlay
+          mode={tracking.mode}
+          onStop={stopTracking}
+        />
+      )}
+
+      {/* Overlay transparent outil trajectory — capte les clics sur la vidéo */}
+      {annotationProps?.tool === 'trajectory' && isVideoSource && (
+        <div
+          className="absolute inset-0"
+          style={{ zIndex: 55, cursor: 'crosshair' }}
+          onClick={handleTrajectoryClick}
+        />
+      )}
 
       {/* Bottom-right buttons: tracking + capture */}
       <div className="absolute flex items-center gap-2" style={{ bottom: 8, right: 8, zIndex: 300 }}>
@@ -418,7 +483,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           <button
             onClick={e => {
               e.stopPropagation();
-              if (tracking.mode !== 'off') { stopTracking(); return; }
+              if (tracking.source === 'skeleton' && tracking.mode !== 'off') { stopTracking(); return; }
               if (!hasSkeleton) return;
               handleStartTracking();
             }}
@@ -426,7 +491,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
             disabled={!hasSkeleton && tracking.mode === 'off'}
             className={[
               'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium backdrop-blur-sm transition-colors',
-              tracking.mode !== 'off'
+              tracking.source === 'skeleton' && tracking.mode !== 'off'
                 ? 'bg-red-600/70 hover:bg-red-600/90 border-red-400/30 text-white'
                 : hasSkeleton
                   ? 'bg-black/60 hover:bg-black/80 border-white/20 text-white'

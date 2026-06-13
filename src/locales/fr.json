@@ -20,6 +20,8 @@
     "line": "Trait (L)",
     "angle": "Angle (G)",
     "hv_angle": "Angle H/V",
+    "skeleton": "Squelette cycliste",
+    "trajectory": "Tracer une trajectoire",
     "undo": "Annuler (Ctrl+Z)",
     "redo": "Rétablir (Ctrl+Y)",
     "clear": "Effacer le calque actif"
@@ -466,6 +468,9 @@
     "active": "Suivi actif",
     "noSkeleton": "Ajoutez d'abord un squelette",
     "clickJointHint": "Cliquez sur la gommette {{n}}/{{total}}",
+    "addPoint": "Tracer",
+    "clickToPlace": "Cliquez sur la vidéo…",
+    "clearTrails": "Effacer les traces",
     "joints": {
       "shoulder": "Épaule",
       "elbow": "Coude",

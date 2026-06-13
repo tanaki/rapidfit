@@ -12,6 +12,7 @@ export type Tool =
   | 'h-angle'
   | 'v-angle'
   | 'skeleton'
+  | 'trajectory'
   | 'eraser';
 
 export interface PathElement {

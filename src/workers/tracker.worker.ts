@@ -1,12 +1,14 @@
 /** Web Worker — LK tracking isolé du thread principal.
  *
  *  Protocole (main → worker) :
- *    { type: 'init',  points: LKPoint[] }          — définit les points initiaux
- *    { type: 'frame', buffer, width, height }       — nouvelle frame (buffer transféré)
- *    { type: 'reset' }                              — remet tout à zéro
+ *    { type: 'init',              points: LKPoint[] }   — définit les points initiaux
+ *    { type: 'frame',             buffer, width, height } — nouvelle frame (buffer transféré)
+ *    { type: 'add-point',         point: LKPoint }      — ajoute un point libre à chaud
+ *    { type: 'clear-free-points' }                      — supprime tous les points free-*
+ *    { type: 'reset' }                                  — remet tout à zéro
  *
  *  Protocole (worker → main) :
- *    { type: 'tracked', points: LKPoint[] }         — positions mises à jour
+ *    { type: 'tracked', points: LKPoint[] }             — positions mises à jour
  */
 
 import { toGrayscale, trackPoints, type LKPoint } from '../utils/lkFlow';
@@ -21,8 +23,10 @@ let pts: LKPoint[] = [];
 // ── Messages entrants ─────────────────────────────────────────────────────────
 
 type InMsg =
-  | { type: 'init';  points: LKPoint[] }
-  | { type: 'frame'; buffer: ArrayBuffer; width: number; height: number }
+  | { type: 'init';              points: LKPoint[] }
+  | { type: 'frame';             buffer: ArrayBuffer; width: number; height: number }
+  | { type: 'add-point';         point: LKPoint }
+  | { type: 'clear-free-points' }
   | { type: 'reset' };
 
 self.onmessage = (e: MessageEvent<InMsg>) => {
@@ -43,12 +47,21 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
 
       if (prevGray !== null && pts.length > 0) {
         pts = trackPoints(prevGray, next, imgW, imgH, pts);
-        (self as DedicatedWorkerGlobalScope).postMessage({ type: 'tracked', points: pts });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (self as any).postMessage({ type: 'tracked', points: pts });
       }
 
       prevGray = next;
       break;
     }
+
+    case 'add-point':
+      pts = [...pts, msg.point];
+      break;
+
+    case 'clear-free-points':
+      pts = pts.filter(pt => !pt.key.startsWith('free-'));
+      break;
 
     case 'reset':
       prevGray = null;

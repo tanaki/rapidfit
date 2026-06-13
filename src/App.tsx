@@ -279,6 +279,7 @@ export default function App() {
       onDeleteElement: ls.deleteElement,
       onBeginDrag: ls.beginDrag,
       onRescaleElements: ls.rescaleElements,
+      onAddNamedLayer: ls.addNamedLayer,
       discipline: sessions.activeSession?.discipline ?? 'route',
     };
   }
@@ -318,29 +319,17 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [activeLayers, stepFrame, handlePlayPause]);
 
-  // ── Space bar — temporary pan ──────────────────────────────────────────────
-  const toolRef      = useRef<Tool>(tool);
-  const preSpaceTool = useRef<Tool | null>(null);
-  useEffect(() => { toolRef.current = tool; }, [tool]);
+  // ── Space bar — play / pause ──────────────────────────────────────────────
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
       if (e.key !== ' ' || e.repeat) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       e.preventDefault();
-      if (preSpaceTool.current === null && toolRef.current !== 'pan') {
-        preSpaceTool.current = toolRef.current;
-        setTool('pan');
-      }
-    };
-    const onUp = (e: KeyboardEvent) => {
-      if (e.key !== ' ') return;
-      e.preventDefault();
-      if (preSpaceTool.current !== null) { setTool(preSpaceTool.current); preSpaceTool.current = null; }
+      handlePlayPause();
     };
     window.addEventListener('keydown', onDown);
-    window.addEventListener('keyup',   onUp);
-    return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
-  }, []);
+    return () => window.removeEventListener('keydown', onDown);
+  }, [handlePlayPause]);
 
   const handleToggleSplit = useCallback(() => {
     if (!splitMode && media.activeRecording) {
