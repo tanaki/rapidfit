@@ -26,6 +26,7 @@ type InMsg =
   | { type: 'init';              points: LKPoint[] }
   | { type: 'frame';             buffer: ArrayBuffer; width: number; height: number }
   | { type: 'add-point';         point: LKPoint }
+  | { type: 'update-point';      key: string; x: number; y: number }
   | { type: 'clear-free-points' }
   | { type: 'reset' };
 
@@ -57,6 +58,12 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
 
     case 'add-point':
       pts = [...pts, msg.point];
+      break;
+
+    case 'update-point':
+      pts = pts.map(pt =>
+        pt.key === msg.key ? { ...pt, x: msg.x, y: msg.y, lost: false, err: 1 } : pt,
+      );
       break;
 
     case 'clear-free-points':
