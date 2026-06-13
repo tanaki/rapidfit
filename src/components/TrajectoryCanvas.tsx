@@ -2,10 +2,12 @@ import { useRef, useEffect } from 'react';
 import { contentTransform } from '../utils/canvas';
 import type { VideoRect } from '../hooks/useVideoRect';
 import type { TrajectoryHistory, TrajectoryEntry } from '../hooks/useTracking';
-import type { Layer } from '../types';
+import type { Layer, SkeletonKey, SkeletonElement } from '../types';
 
 interface Props {
   trajectoryHistoryRef: React.MutableRefObject<TrajectoryHistory>;
+  lostJointsRef:        React.MutableRefObject<Set<SkeletonKey>>;
+  jointConfidenceRef:   React.MutableRefObject<Map<SkeletonKey, number>>;
   layers:    Layer[];
   zoom:      number;
   pan:       { x: number; y: number };
@@ -61,7 +63,10 @@ function appendSegments(
 
 // ── Composant ─────────────────────────────────────────────────────────────────
 
-export function TrajectoryCanvas({ trajectoryHistoryRef, layers, zoom, pan, videoRect, imgW, imgH }: Props) {
+export function TrajectoryCanvas({
+  trajectoryHistoryRef, lostJointsRef, jointConfidenceRef,
+  layers, zoom, pan, videoRect, imgW, imgH,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const layersRef = useRef(layers);
@@ -204,13 +209,73 @@ export function TrajectoryCanvas({ trajectoryHistoryRef, layers, zoom, pan, vide
         }
       }
 
+      // ── Indicateurs de confiance joints squelette ────────────────────────
+      const lost       = lostJointsRef.current;
+      const confidence = jointConfidenceRef.current;
+
+      if (lost.size > 0 || confidence.size > 0) {
+        // Trouver le premier SkeletonElement visible dans les calques
+        let skEl: SkeletonElement | null = null;
+        for (const l of layersRef.current) {
+          if (l.visible === false) continue;
+          const sk = l.elements.find(e => e.type === 'skeleton');
+          if (sk) { skEl = sk as SkeletonElement; break; }
+        }
+
+        if (skEl) {
+          const t = performance.now() / 1000; // secondes — pour l'animation pulse
+
+          ctx.lineWidth = 2 / z;
+          ctx.lineCap   = 'round';
+          ctx.setLineDash([]);
+
+          for (const key of Object.keys(skEl.points) as SkeletonKey[]) {
+            const pt = skEl.points[key];
+            const isLost = lost.has(key);
+            const conf   = confidence.get(key) ?? 1;
+            const uncertain = !isLost && conf < 0.6;
+
+            if (!isLost && !uncertain) continue; // joint bien tracké — rien à afficher
+
+            const r = (isLost ? 7 : 6) / z;
+
+            if (isLost) {
+              // Anneau rouge pulsant
+              const pulse  = 0.55 + 0.45 * Math.sin(t * 4);
+              ctx.globalAlpha  = pulse;
+              ctx.strokeStyle  = '#ef4444';
+              ctx.fillStyle    = 'rgba(239,68,68,0.15)';
+              ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+              ctx.stroke();
+
+              // Croix ×
+              const cr = r * 0.5;
+              ctx.beginPath();
+              ctx.moveTo(pt.x - cr, pt.y - cr); ctx.lineTo(pt.x + cr, pt.y + cr);
+              ctx.moveTo(pt.x + cr, pt.y - cr); ctx.lineTo(pt.x - cr, pt.y + cr);
+              ctx.stroke();
+              ctx.globalAlpha = 1;
+            } else {
+              // Anneau orange — confiance partielle
+              ctx.globalAlpha  = 0.75;
+              ctx.strokeStyle  = '#f97316';
+              ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+              ctx.stroke();
+              ctx.globalAlpha = 1;
+            }
+          }
+        }
+      }
+
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       rafId = requestAnimationFrame(draw);
     };
 
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
-  }, [trajectoryHistoryRef]);
+  }, [trajectoryHistoryRef, lostJointsRef, jointConfidenceRef]);
 
   return (
     <canvas

@@ -73,7 +73,11 @@ beforeEach(() => {
 });
 
 function makeVideoRef() {
-  const video = { videoWidth: 1280, videoHeight: 720, paused: true, ended: false } as HTMLVideoElement;
+  const video = {
+    videoWidth: 1280, videoHeight: 720, paused: true, ended: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  } as unknown as HTMLVideoElement;
   return { current: video } as React.RefObject<HTMLVideoElement>;
 }
 
@@ -148,7 +152,7 @@ describe('useTracking', () => {
 
     expect(mockWorker.messages).toContainEqual({
       type: 'add-point',
-      point: { key: 'layer-xyz', x: 50, y: 75, lost: false },
+      point: { key: 'layer-xyz', x: 50, y: 75, lost: false, err: 1 },
     });
   });
 

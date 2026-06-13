@@ -6,10 +6,13 @@
  *  sur une fenêtre WIN×WIN autour du point, de manière itérative. */
 
 export interface LKPoint {
-  key: string;
-  x: number;
-  y: number;
+  key:  string;
+  x:    number;
+  y:    number;
   lost: boolean;
+  /** Confiance 0..1 (0 = perdu, 1 = parfaitement tracké).
+   *  Basée sur l'eigenvalue minimale du tenseur de structure LK. */
+  err:  number;
 }
 
 const WIN_HALF = 10;     // fenêtre 21×21 — adaptée à 1080p
@@ -55,8 +58,9 @@ export function trackPoint(
   h: number,
   px: number,
   py: number,
-): { x: number; y: number; lost: boolean } {
+): { x: number; y: number; lost: boolean; err: number } {
   let gx = px, gy = py;   // estimé courant dans next
+  let lastLmin = MIN_EIG;  // conservé pour le calcul de confiance final
 
   for (let iter = 0; iter < MAX_ITER; iter++) {
     let A = 0, B = 0, C = 0;   // tenseur de structure [A B; B C]
@@ -89,10 +93,12 @@ export function trackPoint(
     const trace = A + C;
     const disc  = Math.sqrt((A - C) ** 2 + 4 * B * B);
     const lmin  = (trace - disc) * 0.5;
-    if (lmin < MIN_EIG) return { x: px, y: py, lost: true };
+    if (lmin < MIN_EIG) return { x: px, y: py, lost: true, err: 0 };
 
     const det = A * C - B * B;
-    if (Math.abs(det) < 1e-10) return { x: px, y: py, lost: true };
+    if (Math.abs(det) < 1e-10) return { x: px, y: py, lost: true, err: 0 };
+
+    lastLmin = lmin;
 
     // Cramer : [A B; B C][u;v] = [-bx;-by]
     const u = (B * by - C * bx) / det;
@@ -104,8 +110,10 @@ export function trackPoint(
     if (u * u + v * v < EPS2) break;
   }
 
-  if (gx < 0 || gx >= w || gy < 0 || gy >= h) return { x: px, y: py, lost: true };
-  return { x: gx, y: gy, lost: false };
+  if (gx < 0 || gx >= w || gy < 0 || gy >= h) return { x: px, y: py, lost: true, err: 0 };
+  // err normalisée : lmin ≥ 0.05 → confiance 1, entre MIN_EIG et 0.05 → 0..1
+  const GOOD_EIG = 0.05;
+  return { x: gx, y: gy, lost: false, err: Math.min(lastLmin / GOOD_EIG, 1) };
 }
 
 /** Suit tous les points non-perdus. */
@@ -117,7 +125,7 @@ export function trackPoints(
   points: LKPoint[],
 ): LKPoint[] {
   return points.map(pt => {
-    if (pt.lost) return pt;
+    if (pt.lost) return pt; // point déjà perdu — on ne retente pas
     return { ...pt, ...trackPoint(prev, next, w, h, pt.x, pt.y) };
   });
 }

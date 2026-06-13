@@ -125,10 +125,10 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
 
   const trajCounterRef = useRef(0);  // pour nommer les calques "Trajectoire 1", "Trajectoire 2"…
 
-  const { tracking, startTracking, stopTracking, addFreePoint, trajectoryHistoryRef } = useTracking({
-    videoRef,
-    onUpdateSkeleton,
-  });
+  const {
+    tracking, startTracking, stopTracking, addFreePoint,
+    trajectoryHistoryRef, lostJointsRef, jointConfidenceRef,
+  } = useTracking({ videoRef, onUpdateSkeleton });
 
   // Démarre le tracking en extrayant les positions du squelette actif
   const handleStartTracking = useCallback(() => {
@@ -142,7 +142,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       .filter(key => sk.points[key] !== undefined)
       .map(key => {
         const nat = worldToNatural(sk.points[key].x, sk.points[key].y);
-        return { key, x: nat.x, y: nat.y, lost: false };
+        return { key, x: nat.x, y: nat.y, lost: false, err: 1 };
       });
 
     if (initPoints.length === 0) return;
@@ -452,6 +452,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       {isVideoSource && (
         <TrajectoryCanvas
           trajectoryHistoryRef={trajectoryHistoryRef}
+          lostJointsRef={lostJointsRef}
+          jointConfidenceRef={jointConfidenceRef}
           layers={annotationProps?.layers ?? []}
           zoom={zoomState.zoom}
           pan={zoomState.pan}

@@ -43,7 +43,10 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
   const onUpdateRef      = useRef(onUpdateSkeleton);
   useEffect(() => { onUpdateRef.current = onUpdateSkeleton; }, [onUpdateSkeleton]);
 
-  const trajectoryHistoryRef = useRef<TrajectoryHistory>(new Map());
+  const trajectoryHistoryRef  = useRef<TrajectoryHistory>(new Map());
+  // Joints squelette perdus (lost=true) et confiance (err 0..1) — mis à jour chaque frame trackée
+  const lostJointsRef         = useRef<Set<SkeletonKey>>(new Set());
+  const jointConfidenceRef    = useRef<Map<SkeletonKey, number>>(new Map());
 
   // ── Nettoyage ─────────────────────────────────────────────────────────────
 
@@ -55,18 +58,23 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     stopLoop();
     workerRef.current?.terminate();
     workerRef.current = null;
+    lostJointsRef.current.clear();
+    jointConfidenceRef.current.clear();
   }, [stopLoop]);
 
   useEffect(() => () => destroyWorker(), [destroyWorker]);
 
-  // ── Boucle RAF ────────────────────────────────────────────────────────────
+  // ── Boucle RAF — ne tourne que quand la vidéo joue ────────────────────────
 
   const loop = useCallback(() => {
     const video  = videoRef.current;
     const worker = workerRef.current;
 
-    if (!video || !worker || !video.videoWidth || video.paused || video.ended) {
-      rafRef.current = requestAnimationFrame(loop);
+    if (!video || !worker) { rafRef.current = null; return; }
+
+    // Vidéo en pause ou terminée → on arrête le RAF ; il sera relancé sur 'play'
+    if (!video.videoWidth || video.paused || video.ended) {
+      rafRef.current = null;
       return;
     }
 
@@ -107,16 +115,27 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
       if (e.data.type !== 'tracked') return;
       const skPos: Partial<Record<SkeletonKey, Point>> = {};
 
+      // Reset lost + confidence pour les joints squelette avant de repeupler
+      lostJointsRef.current.clear();
+
       for (const pt of e.data.points) {
-        if (pt.lost) continue;
         if ((SKELETON_KEYS as readonly string[]).includes(pt.key)) {
-          skPos[pt.key as SkeletonKey] = { x: pt.x, y: pt.y };
+          const key = pt.key as SkeletonKey;
+          if (pt.lost) {
+            lostJointsRef.current.add(key);
+          } else {
+            skPos[key] = { x: pt.x, y: pt.y };
+            jointConfidenceRef.current.set(key, pt.err);
+          }
         } else if (!pt.key.startsWith('sk-')) {
-          const entry = trajectoryHistoryRef.current.get(pt.key);
-          if (entry) {
-            entry.points.push({ x: pt.x, y: pt.y });
-            entry.totalAdded++;
-            if (entry.points.length > MAX_HISTORY) entry.points.shift();
+          // Point libre (trajectoire)
+          if (!pt.lost) {
+            const entry = trajectoryHistoryRef.current.get(pt.key);
+            if (entry) {
+              entry.points.push({ x: pt.x, y: pt.y });
+              entry.totalAdded++;
+              if (entry.points.length > MAX_HISTORY) entry.points.shift();
+            }
           }
         }
       }
@@ -131,25 +150,51 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
 
     workerRef.current = worker;
     worker.postMessage({ type: 'init', points: initPoints });
-    rafRef.current = requestAnimationFrame(loop);
-    setState({ mode: 'active', source, error: null });
-  }, [destroyWorker, loop]);
 
+    // Démarrer le RAF uniquement si la vidéo joue déjà
+    const video = videoRef.current;
+    if (video && !video.paused && !video.ended) {
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    // Relancer le RAF à chaque 'play' (pause → lecture)
+    const onPlay = () => {
+      if (workerRef.current && rafRef.current === null) {
+        rafRef.current = requestAnimationFrame(loop);
+      }
+    };
+    video?.addEventListener('play', onPlay);
+    // Stocker le handler pour le retirer au destroyWorker suivant
+    (workerRef.current as unknown as { _onPlay?: () => void })._onPlay = onPlay;
+
+    setState({ mode: 'active', source, error: null });
+  }, [destroyWorker, loop, videoRef]);
+
+  // Retirer l'écouteur 'play' à l'arrêt du tracking
   const stopTracking = useCallback(() => {
+    const video = videoRef.current;
+    const w = workerRef.current as unknown as { _onPlay?: () => void } | null;
+    if (video && w?._onPlay) video.removeEventListener('play', w._onPlay);
     destroyWorker();
     trajectoryHistoryRef.current.clear();
     setState({ mode: 'off', source: null, error: null });
-  }, [destroyWorker]);
+  }, [destroyWorker, videoRef]);
 
   /** Ajoute un point libre au tracking. La clé = ID du calque associé. */
   const addFreePoint = useCallback((natX: number, natY: number, key: string, color: string) => {
     const worker = workerRef.current;
     if (!worker) return;
     trajectoryHistoryRef.current.set(key, { color, initialX: natX, initialY: natY, totalAdded: 0, points: [] });
-    worker.postMessage({ type: 'add-point', point: { key, x: natX, y: natY, lost: false } });
+    worker.postMessage({ type: 'add-point', point: { key, x: natX, y: natY, lost: false, err: 1 } });
   }, []);
 
-  return { tracking: state, startTracking, stopTracking, addFreePoint, trajectoryHistoryRef };
+  return {
+    tracking: state,
+    startTracking, stopTracking, addFreePoint,
+    trajectoryHistoryRef,
+    lostJointsRef,
+    jointConfidenceRef,
+  };
 }
 
 // ── Helper exporté ────────────────────────────────────────────────────────────
