@@ -126,14 +126,9 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   const trajCounterRef = useRef(0);  // pour nommer les calques "Trajectoire 1", "Trajectoire 2"…
 
   const {
-    tracking, startTracking, stopTracking, addFreePoint, updateSkeletonPoint,
+    tracking, startTracking, stopTracking, addFreePoint,
     trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, definitiveLostRef,
   } = useTracking({ videoRef, onUpdateSkeleton });
-
-  // ── Drag de joint squelette en mode tracking ──────────────────────────────
-  const dragStateRef     = useRef<import('./TrajectoryCanvas').DragState | null>(null);
-  const hoveredJointRef  = useRef<SkeletonKey | null>(null);
-  const dragOverlayRef   = useRef<HTMLDivElement>(null);
 
   // Démarre le tracking en extrayant les positions du squelette actif
   const handleStartTracking = useCallback(() => {
@@ -189,137 +184,6 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     addFreePoint(natX, natY, layerId, color);
   }, [zoomState, tracking.mode, startTracking, addFreePoint]);
 
-  // ── Helpers drag squelette ────────────────────────────────────────────────
-
-  /** Convertit un événement souris en coordonnées naturelles vidéo. */
-  const eventToNatural = useCallback((e: React.MouseEvent): { natX: number; natY: number } | null => {
-    const container = zoomState.containerRef.current;
-    const vr  = videoRectRef2.current;
-    const dim = imgDimsRef.current;
-    if (!container || !vr || !dim.w) return null;
-    const rect = container.getBoundingClientRect();
-    const { zoom, pan } = zoomState;
-    const tx  = zoom * (pan.x + vr.x) + container.clientWidth  / 2 * (1 - zoom);
-    const ty  = zoom * (pan.y + vr.y) + container.clientHeight / 2 * (1 - zoom);
-    const wx  = (e.clientX - rect.left - tx) / zoom;
-    const wy  = (e.clientY - rect.top  - ty) / zoom;
-    const natX = (wx / vr.w) * dim.w;
-    const natY = (wy / vr.h) * dim.h;
-    if (natX < 0 || natX > dim.w || natY < 0 || natY > dim.h) return null;
-    return { natX, natY };
-  }, [zoomState]);
-
-  /** Trouve le joint squelette le plus proche du point naturel donné (rayon max en px écran). */
-  const findNearestJoint = useCallback((natX: number, natY: number): SkeletonKey | null => {
-    const ap = annotationPropsRef.current;
-    if (!ap) return null;
-    const vr  = videoRectRef2.current;
-    const dim = imgDimsRef.current;
-    if (!vr || !dim.w) return null;
-    // Points du squelette en coords monde ; rayon max = 20px écran → coords monde = 20/zoom
-    const { zoom } = zoomState;
-    const radiusWorld = 20 / zoom;
-    // Convertir natX/natY → coords monde
-    const wx = (natX / dim.w) * vr.w;
-    const wy = (natY / dim.h) * vr.h;
-    let best: SkeletonKey | null = null;
-    let bestDist = radiusWorld;
-    for (const l of ap.layers) {
-      if (l.visible === false) continue;
-      for (const el of l.elements) {
-        if (el.type !== 'skeleton') continue;
-        for (const [key, pt] of Object.entries(el.points) as [SkeletonKey, Point][]) {
-          const d = Math.hypot(pt.x - wx, pt.y - wy);
-          if (d < bestDist) { bestDist = d; best = key; }
-        }
-      }
-    }
-    return best;
-  }, [zoomState]);
-
-  const handleSkeletonDragStart = useCallback((e: React.MouseEvent) => {
-    const coords = eventToNatural(e);
-    if (!coords) return;
-    const key = findNearestJoint(coords.natX, coords.natY);
-    if (!key) return;
-    e.stopPropagation();
-    dragStateRef.current = { key, natX: coords.natX, natY: coords.natY };
-  }, [eventToNatural, findNearestJoint]);
-
-  const handleSkeletonDragMove = useCallback((e: React.MouseEvent) => {
-    const coords = eventToNatural(e);
-    if (!coords) return;
-
-    // Mise à jour du curseur selon proximité d'un joint
-    const key = dragStateRef.current?.key ?? findNearestJoint(coords.natX, coords.natY);
-    hoveredJointRef.current = key;
-    if (dragOverlayRef.current) {
-      dragOverlayRef.current.style.cursor = dragStateRef.current
-        ? 'grabbing'
-        : key ? 'grab' : 'default';
-    }
-
-    if (!dragStateRef.current) return;
-    e.stopPropagation();
-    dragStateRef.current = { ...dragStateRef.current, natX: coords.natX, natY: coords.natY };
-  }, [eventToNatural, findNearestJoint]);
-
-  /** Double-clic sur un joint → le reseede à partir de la position dessinée du squelette. */
-  const handleSkeletonDoubleClick = useCallback((e: React.MouseEvent) => {
-    const coords = eventToNatural(e);
-    if (!coords) return;
-    const key = findNearestJoint(coords.natX, coords.natY);
-    if (!key) return;
-    e.stopPropagation();
-
-    // Position courante du joint dans le squelette dessiné → convertir en naturel
-    const ap = annotationPropsRef.current;
-    if (!ap) return;
-    for (const l of ap.layers) {
-      if (l.visible === false) continue;
-      for (const el of l.elements) {
-        if (el.type !== 'skeleton') continue;
-        const pt = el.points[key];
-        if (!pt) return;
-        const nat = worldToNatural(pt.x, pt.y);
-        updateSkeletonPoint(key, nat.x, nat.y);
-        return;
-      }
-    }
-  }, [eventToNatural, findNearestJoint, worldToNatural, updateSkeletonPoint]);
-
-  const handleSkeletonDragEnd = useCallback((e: React.MouseEvent) => {
-    const drag = dragStateRef.current;
-    if (!drag) return;
-    e.stopPropagation();
-    dragStateRef.current = null;
-
-    const ap = annotationPropsRef.current;
-    const vr  = videoRectRef2.current;
-    const dim = imgDimsRef.current;
-    if (!ap || !vr || !dim.w) return;
-
-    // Coordonnées monde du joint corrigé
-    const worldX = (drag.natX / dim.w) * vr.w;
-    const worldY = (drag.natY / dim.h) * vr.h;
-
-    // Mettre à jour l'élément squelette dans le calque
-    for (const l of ap.layers) {
-      if (l.visible === false) continue;
-      for (const el of l.elements) {
-        if (el.type !== 'skeleton') continue;
-        const updated = {
-          ...el,
-          points: { ...el.points, [drag.key]: { x: worldX, y: worldY } },
-        } as SkeletonElement;
-        ap.onUpdateElement(l.id, updated);
-        break;
-      }
-    }
-
-    // Reseed du worker
-    updateSkeletonPoint(drag.key, drag.natX, drag.natY);
-  }, [updateSkeletonPoint]);
 
   const isVideoSource = source.type === 'camera' || source.type === 'recording';
 
@@ -591,7 +455,6 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           trajectoryHistoryRef={trajectoryHistoryRef}
           lostJointsRef={lostJointsRef}
           jointConfidenceRef={jointConfidenceRef}
-          dragStateRef={dragStateRef}
           definitiveLostRef={definitiveLostRef}
           layers={annotationProps?.layers ?? []}
           zoom={zoomState.zoom}
@@ -603,24 +466,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       )}
 
       {isVideoSource && tracking.source === 'skeleton' && (
-        <TrackingOverlay
-          mode={tracking.mode}
-          onStop={stopTracking}
-        />
-      )}
-
-      {/* Overlay drag joints squelette — actif uniquement pendant le tracking squelette */}
-      {isVideoSource && tracking.source === 'skeleton' && tracking.mode === 'active' && (
-        <div
-          ref={dragOverlayRef}
-          className="absolute inset-0"
-          style={{ zIndex: 65, cursor: 'default' }}
-          onMouseDown={handleSkeletonDragStart}
-          onMouseMove={handleSkeletonDragMove}
-          onMouseUp={handleSkeletonDragEnd}
-          onMouseLeave={() => { dragStateRef.current = null; hoveredJointRef.current = null; }}
-          onDoubleClick={handleSkeletonDoubleClick}
-        />
+        <TrackingOverlay mode={tracking.mode} />
       )}
 
       {/* Overlay transparent outil trajectory — capte les clics sur la vidéo */}

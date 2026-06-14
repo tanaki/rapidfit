@@ -5,18 +5,11 @@ import type { VideoRect } from '../hooks/useVideoRect';
 import type { TrajectoryHistory, TrajectoryEntry } from '../hooks/useTracking';
 import type { Layer, SkeletonKey, SkeletonElement } from '../types';
 
-export interface DragState {
-  key:  SkeletonKey;
-  natX: number;
-  natY: number;
-}
-
 interface Props {
   trajectoryHistoryRef: React.MutableRefObject<TrajectoryHistory>;
   lostJointsRef:        React.MutableRefObject<Set<SkeletonKey>>;
   jointConfidenceRef:   React.MutableRefObject<Map<SkeletonKey, number>>;
   definitiveLostRef:    React.MutableRefObject<Set<SkeletonKey>>;
-  dragStateRef:         React.MutableRefObject<DragState | null>;
   layers:    Layer[];
   zoom:      number;
   pan:       { x: number; y: number };
@@ -71,7 +64,7 @@ function appendSegments(
 // ── Composant ─────────────────────────────────────────────────────────────────
 
 export function TrajectoryCanvas({
-  trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, definitiveLostRef, dragStateRef,
+  trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, definitiveLostRef,
   layers, zoom, pan, videoRect, imgW, imgH,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -343,34 +336,13 @@ export function TrajectoryCanvas({
         }
       }
 
-      // ── Fantôme de drag ──────────────────────────────────────────────────
-      const drag = dragStateRef.current;
-      if (drag) {
-        const cx = (drag.natX / iW) * vr.w;
-        const cy = (drag.natY / iH) * vr.h;
-        const r  = 8 / z;
-        ctx.globalAlpha = 0.9;
-        ctx.strokeStyle = '#ffffff';
-        ctx.fillStyle   = 'rgba(255,255,255,0.25)';
-        ctx.lineWidth   = 2 / z;
-        ctx.setLineDash([]);
-        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath(); ctx.arc(cx, cy, 2 / z, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       rafId = requestAnimationFrame(draw);
     };
 
     rafId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafId);
-  }, [trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, definitiveLostRef, dragStateRef]);
+  }, [trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, definitiveLostRef]);
 
   return (
     <canvas

@@ -233,26 +233,6 @@ describe('useTracking', () => {
     expect(result.current.definitiveLostRef.current.has('knee')).toBe(true);
   });
 
-  it('updateSkeletonPoint efface definitiveLost pour le joint', () => {
-    const { result } = renderHook(() =>
-      useTracking({ videoRef: makeVideoRef(), onUpdateSkeleton: vi.fn() }),
-    );
-    act(() => { result.current.startTracking([]); });
-
-    // Rendre le joint definitif
-    for (let i = 0; i < 30; i++) {
-      act(() => {
-        mockWorker.onmessage?.({
-          data: { type: 'tracked', points: [{ key: 'knee', x: 0, y: 0, lost: true, err: 0 }] },
-        } as MessageEvent);
-      });
-    }
-    expect(result.current.definitiveLostRef.current.has('knee')).toBe(true);
-
-    act(() => { result.current.updateSkeletonPoint('knee', 200, 300); });
-    expect(result.current.definitiveLostRef.current.has('knee')).toBe(false);
-  });
-
   it('un point lost ne s ajoute pas a entree', () => {
     const { result } = renderHook(() =>
       useTracking({ videoRef: makeVideoRef(), onUpdateSkeleton: vi.fn() }),

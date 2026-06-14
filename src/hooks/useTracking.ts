@@ -196,17 +196,6 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     setState({ mode: 'off', source: null, error: null });
   }, [destroyWorker, videoRef]);
 
-  /** Repositionne un joint squelette existant et reseed le worker. */
-  const updateSkeletonPoint = useCallback((key: SkeletonKey, natX: number, natY: number) => {
-    const worker = workerRef.current;
-    if (!worker) return;
-    lostJointsRef.current.delete(key);
-    jointConfidenceRef.current.set(key, 1);
-    lostFramesRef.current.set(key, 0);
-    definitiveLostRef.current.delete(key);
-    worker.postMessage({ type: 'update-point', key, x: natX, y: natY });
-  }, []);
-
   /** Ajoute un point libre au tracking. La clé = ID du calque associé. */
   const addFreePoint = useCallback((natX: number, natY: number, key: string, color: string) => {
     const worker = workerRef.current;
@@ -219,7 +208,7 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
 
   return {
     tracking: state,
-    startTracking, stopTracking, addFreePoint, updateSkeletonPoint,
+    startTracking, stopTracking, addFreePoint,
     trajectoryHistoryRef,
     lostJointsRef,
     jointConfidenceRef,
