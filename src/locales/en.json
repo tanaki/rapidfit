@@ -458,7 +458,20 @@
     "cotes_desc3": "The layer containing the matching angle is automatically renamed with the measurement name — undo with Ctrl+Z.",
     "report_desc1": "Report button in the header — 7 accordion sections: client info, profile, diagnosis, physio tests, assessment, measurements, captures.",
     "report_desc2": "Auto-save writes the form to report.json 800 ms after each edit.",
-    "report_desc3": "Export PDF generates a structured document with company header, bike diagram, measurement tables and selected captures."
+    "report_desc3": "Export PDF generates a structured document with company header, bike diagram, measurement tables and selected captures.",
+    "tracking": "Motion tracking",
+    "tool_skeleton": "Skeleton",
+    "tool_skeleton_desc": "Place anatomical joints on the video. Start tracking (⊙ button) to animate them automatically frame by frame.",
+    "tool_trajectory": "Trajectory",
+    "tool_trajectory_desc": "Click on a point in the video to start tracking it — one layer is created automatically per trajectory.",
+    "tracking_skeleton_title": "Skeleton tracking",
+    "tracking_skeleton_desc1": "⊙ button at the bottom-right of the pane — only active when the layer contains a skeleton.",
+    "tracking_skeleton_desc2": "Tracking pauses automatically when the video is paused and resumes on play. Each joint shows its confidence: orange ring = uncertain, pulsing red = recently lost, solid red = definitively lost.",
+    "tracking_skeleton_desc3": "Drag a joint to reposition it live — the worker is reseeded immediately. Double-click a definitively lost joint to reseed it from the drawn skeleton position.",
+    "tracking_trajectory_title": "Free-point tracking",
+    "tracking_trajectory_desc1": "T tool (Trajectory) — click on the video to place a tracking point. Multiple clicks = multiple simultaneous trajectories.",
+    "tracking_trajectory_desc2": "The trajectory displays in real time with a colour drift (lightens over ~60 s). Hiding/showing the layer does not erase the trail.",
+    "tracking_trajectory_desc3": "Once 20 points are accumulated, a dashed PCA ellipse appears with its circularity score (100% = perfect circle) and point count."
   },
   "tracking": {
     "activate": "Enable tracking",

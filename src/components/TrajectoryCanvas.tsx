@@ -102,6 +102,8 @@ export function TrajectoryCanvas({
 
   const perKeyRef    = useRef<Map<string, HTMLCanvasElement>>(new Map());
   const drawnUpToRef = useRef<Map<string, number>>(new Map());
+  // Cache ellipse PCA : recalcul uniquement quand allPoints.length change
+  const ellipseCacheRef = useRef<Map<string, { n: number; result: ReturnType<typeof fitEllipse> }>>(new Map());
 
   useEffect(() => {
     let rafId: number;
@@ -128,11 +130,12 @@ export function TrajectoryCanvas({
       const layerMap = new Map(layersRef.current.map(l => [l.id, l]));
       const isVisible = (key: string) => { const l = layerMap.get(key); return !!l && l.visible !== false; };
 
-      // Supprimer les canvas des trajectoires effacées
+      // Supprimer les canvas et caches des trajectoires effacées
       for (const key of perKeyRef.current.keys()) {
         if (!history.has(key)) {
           perKeyRef.current.delete(key);
           drawnUpToRef.current.delete(key);
+          ellipseCacheRef.current.delete(key);
         }
       }
 
@@ -173,11 +176,19 @@ export function TrajectoryCanvas({
       }
 
       // ── Ellipses PCA (sur canvas principal, avant les marqueurs) ─────────
-      const scale = vr.w / iW; // mapping natural → vr (uniforme si aspect conservé)
+      // Cache par trajectoire : fitEllipse n'est recalculé que quand allPoints.length change
+      const scale = vr.w / iW;
       for (const [key, entry] of history) {
         if (!isVisible(key) || entry.allPoints.length < 20) continue;
 
-        const el = fitEllipse(entry.allPoints);
+        const cached = ellipseCacheRef.current.get(key);
+        let el: ReturnType<typeof fitEllipse>;
+        if (cached && cached.n === entry.allPoints.length) {
+          el = cached.result;
+        } else {
+          el = fitEllipse(entry.allPoints);
+          ellipseCacheRef.current.set(key, { n: entry.allPoints.length, result: el });
+        }
         if (!el || el.a < 1) continue;
 
         const cxE = el.cx * scale;
@@ -196,8 +207,7 @@ export function TrajectoryCanvas({
         ctx.ellipse(0, 0, aE, Math.max(bE, 0.5), 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.restore();
-        ctx.globalAlpha = 1;
+        ctx.restore(); // restore resets globalAlpha
 
         // Label : circularité + nb points
         const pct   = Math.round(el.circularity * 100);
@@ -205,13 +215,14 @@ export function TrajectoryCanvas({
         const lx    = cxE;
         const ly    = cyE - aE - 8 / z;
 
-        ctx.globalAlpha = 0.85;
-        ctx.font        = `${11 / z}px ui-monospace, monospace`;
-        ctx.fillStyle   = entry.color;
-        ctx.textAlign   = 'center';
+        ctx.save();
+        ctx.globalAlpha  = 0.85;
+        ctx.font         = `${Math.round(11 / z)}px ui-monospace, monospace`;
+        ctx.fillStyle    = entry.color;
+        ctx.textAlign    = 'center';
         ctx.textBaseline = 'bottom';
         ctx.fillText(label, lx, ly);
-        ctx.globalAlpha = 1;
+        ctx.restore();
       }
 
       // ── Marqueurs dynamiques (crosshair au point courant) ────────────────

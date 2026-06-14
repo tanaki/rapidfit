@@ -458,7 +458,20 @@
     "cotes_desc3": "Le calque contenant l'angle correspondant est automatiquement renommé avec le nom de la cote — annulable avec Ctrl+Z.",
     "report_desc1": "Bouton Compte rendu dans l'en-tête — 7 sections accordéon : infos client, profil, diagnostic, tests physio, bilan, cotes, captures.",
     "report_desc2": "L'auto-save enregistre le formulaire 800 ms après chaque modification dans report.json de la session.",
-    "report_desc3": "Exporter PDF génère un document structuré avec en-tête entreprise, diagramme vélo, tableaux de cotes et captures sélectionnées."
+    "report_desc3": "Exporter PDF génère un document structuré avec en-tête entreprise, diagramme vélo, tableaux de cotes et captures sélectionnées.",
+    "tracking": "Suivi de trajectoire",
+    "tool_skeleton": "Squelette",
+    "tool_skeleton_desc": "Pose les joints anatomiques du cycliste sur la vidéo. Lancer le suivi (bouton ⊙) pour les animer automatiquement frame par frame.",
+    "tool_trajectory": "Trajectoire",
+    "tool_trajectory_desc": "Cliquer sur un point de la vidéo pour lancer son suivi — un calque par trajectoire est créé automatiquement.",
+    "tracking_skeleton_title": "Suivi squelette",
+    "tracking_skeleton_desc1": "Bouton ⊙ en bas à droite de la pane — actif uniquement si le calque contient un squelette.",
+    "tracking_skeleton_desc2": "Le suivi s'arrête automatiquement sur pause ; reprend à la lecture. Chaque joint affiche sa confiance : anneau orange = incertain, rouge pulsant = perdu temporairement, rouge fixe = perdu définitivement.",
+    "tracking_skeleton_desc3": "Glisser un joint pour le repositionner à la volée — le worker est reseeded immédiatement. Double-cliquer sur un joint perdu définitivement le reseede depuis la position dessinée du squelette.",
+    "tracking_trajectory_title": "Suivi de points libres",
+    "tracking_trajectory_desc1": "Outil T (Trajectoire) — cliquer sur la vidéo pour poser un point de suivi. Plusieurs clics = plusieurs trajectoires simultanées.",
+    "tracking_trajectory_desc2": "La trajectoire s'affiche en temps réel avec dérive de couleur (s'éclaircit sur ~60 s). Masquer/afficher le calque n'efface pas le tracé.",
+    "tracking_trajectory_desc3": "Dès 20 points accumulés, une ellipse PCA en tirets apparaît avec son taux de circularité (100 % = cercle parfait) et le nombre de points."
   },
   "tracking": {
     "activate": "Activer le suivi",

@@ -155,10 +155,12 @@ export function HelpModal({ onClose }: Props) {
           <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.tools')}</h3>
           <div className="flex flex-col gap-1.5">
             {[
-              ['H', '✋', t('help.tool_pan'),    t('help.tool_pan_desc')],
-              ['V', '⊙', t('help.tool_select'), t('help.tool_select_desc')],
-              ['L', '╱', t('help.tool_line'),   t('help.tool_line_desc')],
-              ['G', '∠', t('help.tool_angle'),  t('help.tool_angle_desc')],
+              ['H', '✋', t('help.tool_pan'),      t('help.tool_pan_desc')],
+              ['V', '⊙', t('help.tool_select'),   t('help.tool_select_desc')],
+              ['L', '╱', t('help.tool_line'),     t('help.tool_line_desc')],
+              ['G', '∠', t('help.tool_angle'),    t('help.tool_angle_desc')],
+              ['S', '🦴', t('help.tool_skeleton'), t('help.tool_skeleton_desc')],
+              ['T', '〰', t('help.tool_trajectory'), t('help.tool_trajectory_desc')],
             ].map(([key, icon, name, desc]) => (
               <div key={key} className="flex items-start gap-3 bg-[#1a1a2e] rounded-lg px-3 py-2">
                 <kbd className="shrink-0 w-6 h-6 bg-[#3d3d5c] rounded text-xs font-mono text-slate-300 flex items-center justify-center">{key}</kbd>
@@ -277,6 +279,31 @@ export function HelpModal({ onClose }: Props) {
             <p>• {t('help.report_desc1')}</p>
             <p>• {t('help.report_desc2')}</p>
             <p>• {t('help.report_desc3')}</p>
+          </div>
+        </section>
+
+        {/* ── Suivi de trajectoire ── */}
+        <section className="mb-5">
+          <h3 className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-3">{t('help.tracking')}</h3>
+          <div className="flex flex-col gap-3">
+            {/* Squelette */}
+            <div>
+              <p className="text-xs font-medium text-slate-300 mb-1">{t('help.tracking_skeleton_title')}</p>
+              <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
+                <p>• {t('help.tracking_skeleton_desc1')}</p>
+                <p>• {t('help.tracking_skeleton_desc2')}</p>
+                <p>• {t('help.tracking_skeleton_desc3')}</p>
+              </div>
+            </div>
+            {/* Trajectoires libres */}
+            <div>
+              <p className="text-xs font-medium text-slate-300 mb-1">{t('help.tracking_trajectory_title')}</p>
+              <div className="flex flex-col gap-1 text-xs text-slate-400 leading-relaxed">
+                <p>• {t('help.tracking_trajectory_desc1')}</p>
+                <p>• {t('help.tracking_trajectory_desc2')}</p>
+                <p>• {t('help.tracking_trajectory_desc3')}</p>
+              </div>
+            </div>
           </div>
         </section>
 
