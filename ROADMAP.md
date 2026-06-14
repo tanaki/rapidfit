@@ -529,7 +529,7 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 ```
 Branche active : dev
 Dernière version taguée : v1.5.16
-Version courante sur dev : v1.5.26 (non tagué — Phase 7 en cours)
+Version courante sur dev : v1.6.0 (non tagué — prêt pour release)
 Pour publier : bump version dans package.json → git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 

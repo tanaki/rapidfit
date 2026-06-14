@@ -1,27 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useTracking, FREE_COLORS } from '../hooks/useTracking';
+import { segmentColor } from '../components/TrajectoryCanvas';
 
-// ── segmentColor (copie locale de la fonction pure) ───────────────────────────
+// ── Tests segmentColor ────────────────────────────────────────────────────────
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
 }
 
-function lighten(hex: string, factor: number): string {
-  const [r, g, b] = hexToRgb(hex);
-  return `rgb(${Math.round(r + (255 - r) * factor)},${Math.round(g + (255 - g) * factor)},${Math.round(b + (255 - b) * factor)})`;
-}
-
 const COLOR_DRIFT_FRAMES = 1800;
-const COLOR_DRIFT_MAX    = 0.55;
-
-function segmentColor(baseColor: string, globalIdx: number): string {
-  return lighten(baseColor, Math.min(globalIdx / COLOR_DRIFT_FRAMES, 1) * COLOR_DRIFT_MAX);
-}
-
-// ── Tests segmentColor ────────────────────────────────────────────────────────
 
 describe('segmentColor', () => {
   const base = '#84cc16';

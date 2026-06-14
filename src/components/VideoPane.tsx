@@ -1,7 +1,6 @@
 import { useRef, useEffect, useCallback, useState, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { PaneSource, Recording, Capture, Layer, Tool, Discipline, SkeletonElement, Point, SkeletonKey } from '../types';
-import type { AnnotationElement } from '../types';
+import type { PaneSource, Recording, Capture, Layer, Tool, Discipline, SkeletonElement, Point, SkeletonKey, AnnotationElement } from '../types';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { useZoomPan } from '../hooks/useZoomPan';
 import { ZoomControls } from './ZoomControls';
