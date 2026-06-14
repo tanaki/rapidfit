@@ -24,7 +24,6 @@ export interface TrajectoryEntry {
   initialY:   number;
   totalAdded: number;   // total de points jamais ajoutés (index absolu pour la couleur)
   points:     { x: number; y: number }[];  // buffer tournant MAX_HISTORY — pour le dessin incrémental
-  allPoints:  { x: number; y: number }[];  // tous les points — pour l'analyse ellipse
 }
 
 export type TrajectoryHistory = Map<string, TrajectoryEntry>;
@@ -146,9 +145,7 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
           if (!pt.lost) {
             const entry = trajectoryHistoryRef.current.get(pt.key);
             if (entry) {
-              const p = { x: pt.x, y: pt.y };
-              entry.points.push(p);
-              entry.allPoints.push(p);
+              entry.points.push({ x: pt.x, y: pt.y });
               entry.totalAdded++;
               if (entry.points.length > MAX_HISTORY) entry.points.shift();
             }
@@ -201,7 +198,7 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
     const worker = workerRef.current;
     if (!worker) return;
     trajectoryHistoryRef.current.set(key, {
-      color, initialX: natX, initialY: natY, totalAdded: 0, points: [], allPoints: [],
+      color, initialX: natX, initialY: natY, totalAdded: 0, points: [],
     });
     worker.postMessage({ type: 'add-point', point: { key, x: natX, y: natY, lost: false, err: 1 } });
   }, []);
