@@ -5,20 +5,17 @@ on:
     tags:
       - 'v*.*.*'
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # opt-in to Node.js 24 for actions
-
 jobs:
   build-mac:
     runs-on: macos-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci
@@ -26,6 +23,7 @@ jobs:
       - name: Build renderer + main process
         env:
           ELECTRON: 'true'
+          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
         run: |
           npx tsc -b
           npx vite build
@@ -33,6 +31,7 @@ jobs:
       - name: Package & publish Mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
           ELECTRON: 'true'
         run: npx electron-builder --mac --publish always
 
@@ -41,11 +40,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci
@@ -53,6 +52,7 @@ jobs:
       - name: Build renderer + main process
         env:
           ELECTRON: 'true'
+          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
         run: |
           npx tsc -b
           npx vite build
@@ -60,5 +60,6 @@ jobs:
       - name: Package & publish Windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
           ELECTRON: 'true'
         run: npx electron-builder --win --publish always

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Client, Discipline } from '../types';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   clients: Client[];
@@ -28,6 +29,7 @@ export function NewSessionModal({
   onCreateClientAndSession, onCreateSessionForClient,
 }: Props) {
   const { t } = useTranslation();
+  useEscapeKey(onClose, canClose);
 
   const [mode, setMode] = useState<'new-client' | 'existing-client'>(
     clients.length === 0 ? 'new-client' : 'new-client',

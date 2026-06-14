@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import type { Recording } from '../types';
-import { uid } from '../utils/canvas';
+import { uid } from '../utils/uid';
 
 export function useRecorder() {
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -58,10 +58,10 @@ export function useRecorder() {
     timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000);
   }, []);
 
-  const stop = useCallback((): Promise<Recording> => {
+  const stop = useCallback((): Promise<Recording | null> => {
     return new Promise(resolve => {
       const rec = recorderRef.current;
-      if (!rec) return;
+      if (!rec) { resolve(null); return; }
       if (timerRef.current) clearInterval(timerRef.current);
 
       rec.onstop = () => {

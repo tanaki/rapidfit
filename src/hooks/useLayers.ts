@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import type { Layer, AnnotationElement } from '../types';
-import { uid, rescaleElement } from '../utils/canvas';
+import { uid } from '../utils/uid';
+import { rescaleElement } from '../utils/canvas';
 import i18n from '../i18n';
 
 function makeLayer(name: string): Layer {
@@ -39,6 +40,16 @@ export function useLayers(initialName = 'Calque 1') {
     setFuture([]);
     setLayers(prev => [...prev, { ...newLayer, elements: [el] }]);
     setActiveLayerId(newLayer.id);
+  }, [layers]);
+
+  /** Crée un calque nommé vide ; retourne l'id du calque. */
+  const addNamedLayer = useCallback((name: string): string => {
+    const newLayer = makeLayer(name);
+    setHistory(h => [...h.slice(-49), layers]);
+    setFuture([]);
+    setLayers(prev => [...prev, { ...newLayer }]);
+    setActiveLayerId(newLayer.id);
+    return newLayer.id;
   }, [layers]);
 
   const eraseAt = useCallback((layerId: string, p: { x: number; y: number }, radius: number) => {
@@ -95,7 +106,7 @@ export function useLayers(initialName = 'Calque 1') {
 
   const layerActions = {
     onAdd: () => {
-      const l = makeLayer(`Calque ${layers.length + 1}`);
+      const l = makeLayer(i18n.t('layers.default', { n: layers.length + 1 }));
       setLayers(prev => [...prev, l]);
       setActiveLayerId(l.id);
     },
@@ -112,6 +123,8 @@ export function useLayers(initialName = 'Calque 1') {
       setLayers(prev => prev.map(l => l.id === id ? { ...l, locked: !l.locked } : l)),
     onRename: (id: string, name: string) =>
       setLayers(prev => prev.map(l => l.id === id ? { ...l, name } : l)),
+    onLinkCote: (id: string, coteKey: string | null) =>
+      setLayers(prev => prev.map(l => l.id === id ? { ...l, coteKey: coteKey ?? undefined } : l)),
     onOpacity: (id: string, opacity: number) =>
       setLayers(prev => prev.map(l => l.id === id ? { ...l, opacity } : l)),
     onMoveUp: (id: string) => {
@@ -149,7 +162,7 @@ export function useLayers(initialName = 'Calque 1') {
   return {
     layers, activeLayerId, setActiveLayerId,
     history, future,
-    addElement, addElementOnNewLayer, eraseAt, updateElement, deleteElement, beginDrag,
+    addElement, addElementOnNewLayer, addNamedLayer, eraseAt, updateElement, deleteElement, beginDrag,
     undo, redo, clearActiveLayer, importLayers, rescaleElements,
     layerActions,
   };

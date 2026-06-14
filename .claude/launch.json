@@ -2,11 +2,19 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "video-annotator",
-      "cwd": "/Users/nico/Work/Freelance/rapidfit",
+      "name": "rapidfit-website",
+      "cwd": "/Users/nico/Work/Freelance/rapidfit/website",
+      "runtimeExecutable": "/bin/bash",
+      "runtimeArgs": ["-c", "python3 -m http.server 5174"],
+      "port": 5174
+    },
+    {
+      "name": "rapidfit-dev",
+      "cwd": "/Users/nico/Work/Freelance/rapidfit/rapidfit",
       "runtimeExecutable": "/bin/bash",
       "runtimeArgs": ["-c", "source ~/.nvm/nvm.sh && nvm use 23 && npm run dev -- --port 5173"],
-      "port": 5173
+      "port": 5173,
+      "autoPort": false
     }
   ]
 }

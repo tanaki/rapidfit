@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Client } from '../types';
+import { useEscapeKey } from '../hooks/useEscapeKey';
 
 interface Props {
   client: Client;
@@ -14,6 +15,7 @@ const input =
 
 export function EditClientModal({ client, onSave, onClose }: Props) {
   const { t } = useTranslation();
+  useEscapeKey(onClose);
 
   const [nom, setNom] = useState(client.nom);
   const [prenom, setPrenom] = useState(client.prenom);

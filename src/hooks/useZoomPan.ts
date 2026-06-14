@@ -44,7 +44,19 @@ export function useZoomPan(panMode = false, onWheelScroll?: (deltaY: number) => 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) {
-        zoomAt(e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP, e.clientX, e.clientY);
+        // Trackpad pinch: deltaMode=0 (pixels) + small deltaY values, many events.
+        // Mouse wheel: typically deltaMode=1 (lines) or deltaMode=0 with large deltaY.
+        // → Use proportional delta for trackpad so the gesture feels 1:1,
+        //   fixed step for mouse wheel so one click = one distinct zoom level.
+        const isTrackpad = e.deltaMode === 0 && Math.abs(e.deltaY) < 40;
+        const delta = isTrackpad
+          ? -e.deltaY * 0.008                           // smooth, proportional
+          : (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP);   // discrete step for mouse
+        // Clamp so a single event never exceeds one ZOOM_STEP regardless of input
+        zoomAt(
+          Math.max(-ZOOM_STEP, Math.min(ZOOM_STEP, delta)),
+          e.clientX, e.clientY,
+        );
       } else {
         onWheelScroll?.(e.deltaY);
       }

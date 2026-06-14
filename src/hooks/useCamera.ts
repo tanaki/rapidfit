@@ -25,7 +25,9 @@ export function useCamera(config: VideoConfig) {
 
       const constraints: MediaStreamConstraints = {
         video: {
-          deviceId: config.deviceId ? { exact: config.deviceId } : undefined,
+          // `ideal` (not `exact`) so the app falls back gracefully to any available
+          // camera when the stored deviceId doesn't exist on the current machine.
+          deviceId: config.deviceId ? { ideal: config.deviceId } : undefined,
           width:     { ideal: config.width },
           height:    { ideal: config.height },
           frameRate: { ideal: config.frameRate },
@@ -66,12 +68,32 @@ export function useDevices() {
 
   const refresh = useCallback(async () => {
     try {
-      const probe = await navigator.mediaDevices.getUserMedia({ video: true });
-      probe.getTracks().forEach(t => t.stop());
-      const all = await navigator.mediaDevices.enumerateDevices();
-      setDevices(all.filter(d => d.kind === 'videoinput'));
+      // Step 1 — enumerate directly.
+      // In Electron with setPermissionCheckHandler returning true the browser
+      // exposes device labels without a prior getUserMedia call, unlike a plain
+      // web browser. This avoids the situation where the probe itself fails
+      // (camera not yet connected, TCC not yet granted) and silently empties
+      // the device list forever.
+      let all = await navigator.mediaDevices.enumerateDevices();
+      let inputs = all.filter(d => d.kind === 'videoinput');
+
+      // Step 2 — if labels are absent (pure web-browser fallback path), do a
+      // lightweight probe to unlock them, then re-enumerate.
+      if (inputs.length > 0 && inputs.every(d => !d.label)) {
+        try {
+          const probe = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          probe.getTracks().forEach(t => t.stop());
+          all    = await navigator.mediaDevices.enumerateDevices();
+          inputs = all.filter(d => d.kind === 'videoinput');
+        } catch {
+          // Probe failed — keep the unlabelled entries so the deviceIds are at
+          // least available for getUserMedia.
+        }
+      }
+
+      setDevices(inputs);
     } catch {
-      // permission denied or no device
+      // MediaDevices API unavailable (non-secure context, etc.)
     }
   }, []);
 

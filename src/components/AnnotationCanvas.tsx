@@ -1,8 +1,10 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import type { Layer, Tool, Point, AnnotationElement, AngleElement } from '../types';
+import type { Layer, Tool, Point, AnnotationElement, AngleElement, Discipline } from '../types';
 import {
   renderLayersWithDraft,
   computeAngle,
+  computeHVAngle,
+  defaultSkeletonPoints,
   uid,
   getCanvasPoint,
   getHandles,
@@ -30,6 +32,9 @@ interface Props {
   onBeginDrag: () => void;
   onRescaleElements?: (sx: number, sy: number) => void;
   videoRect?: VideoRect | null;
+  imgW?: number;
+  imgH?: number;
+  discipline?: Discipline;
   style?: React.CSSProperties;
 }
 
@@ -37,7 +42,7 @@ export function AnnotationCanvas({
   layers, activeLayerId, tool, color, strokeWidth, filled,
   zoom = 1,
   pan = { x: 0, y: 0 },
-  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, style,
+  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, imgW = 0, imgH = 0, discipline = 'route', style,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -136,6 +141,8 @@ export function AnnotationCanvas({
       selectedElementIdRef.current ?? undefined,
       zoom,
       adjustedPan,
+      imgW,
+      imgH,
     );
   });
 
@@ -306,7 +313,14 @@ export function AnnotationCanvas({
       return;
     }
 
-    if (tool === 'line')        draftRef.current = { type: 'line',    id: '__draft__', p1: start, p2: p, color, strokeWidth };
+    if (tool === 'skeleton') {
+      // No live preview — skeleton is placed instantly on mouseUp
+    }
+    else if (tool === 'h-angle' || tool === 'v-angle') {
+      const mode = tool === 'h-angle' ? 'h' : 'v';
+      draftRef.current = { type: 'hv-angle', id: '__draft__', p1: start, p2: p, color, strokeWidth, angle: computeHVAngle(start, p, mode), mode };
+    }
+    else if (tool === 'line')   draftRef.current = { type: 'line',    id: '__draft__', p1: start, p2: p, color, strokeWidth };
     else if (tool === 'arrow')  draftRef.current = { type: 'arrow',   id: '__draft__', p1: start, p2: p, color, strokeWidth };
     else if (tool === 'rect')   draftRef.current = { type: 'rect',    id: '__draft__', x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y), color, strokeWidth, filled };
     else if (tool === 'ellipse') draftRef.current = { type: 'ellipse', id: '__draft__', cx: (start.x + p.x) / 2, cy: (start.y + p.y) / 2, rx: Math.abs(p.x - start.x) / 2, ry: Math.abs(p.y - start.y) / 2, color, strokeWidth, filled };
@@ -332,7 +346,15 @@ export function AnnotationCanvas({
       pathPtsRef.current = [];
       return;
     }
-    if (tool === 'line')         onAddElement(activeLayerId, { type: 'line',    id: uid(), p1: start, p2: p, color, strokeWidth });
+    if (tool === 'skeleton') {
+      const scale = imgH > 0 ? imgH / 4 : 160;
+      onAddElement(activeLayerId, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale, discipline) });
+    }
+    else if (tool === 'h-angle' || tool === 'v-angle') {
+      const mode = tool === 'h-angle' ? 'h' : 'v';
+      onAddElement(activeLayerId, { type: 'hv-angle', id: uid(), p1: start, p2: p, color, strokeWidth, angle: computeHVAngle(start, p, mode), mode });
+    }
+    else if (tool === 'line')    onAddElement(activeLayerId, { type: 'line',    id: uid(), p1: start, p2: p, color, strokeWidth });
     else if (tool === 'arrow')   onAddElement(activeLayerId, { type: 'arrow',   id: uid(), p1: start, p2: p, color, strokeWidth });
     else if (tool === 'rect')    onAddElement(activeLayerId, { type: 'rect',    id: uid(), x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y), color, strokeWidth, filled });
     else if (tool === 'ellipse') onAddElement(activeLayerId, { type: 'ellipse', id: uid(), cx: (start.x + p.x) / 2, cy: (start.y + p.y) / 2, rx: Math.abs(p.x - start.x) / 2, ry: Math.abs(p.y - start.y) / 2, color, strokeWidth, filled });
@@ -362,6 +384,12 @@ export function AnnotationCanvas({
           {anglePoints.length === 1
             ? 'Cliquez pour placer le sommet (2/3)'
             : 'Cliquez pour le 3e point (3/3)'}
+        </div>
+      )}
+
+      {tool === 'skeleton' && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/70 text-yellow-300 text-xs px-3 py-1 rounded-full pointer-events-none select-none">
+          Cliquez pour placer la hanche — puis ⊙ pour ajuster les articulations
         </div>
       )}
     </div>

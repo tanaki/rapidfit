@@ -9,6 +9,10 @@ export type Tool =
   | 'rect'
   | 'ellipse'
   | 'angle'
+  | 'h-angle'
+  | 'v-angle'
+  | 'skeleton'
+  | 'trajectory'
   | 'eraser';
 
 export interface PathElement {
@@ -76,6 +80,29 @@ export interface AngleElement {
   angle: number; // degrees
 }
 
+export interface HVAngleElement {
+  type: 'hv-angle';
+  id: string;
+  p1: Point; // origin
+  p2: Point; // end of measured line
+  color: string;
+  strokeWidth: number;
+  angle: number; // degrees from fixed axis
+  mode: 'h' | 'v'; // h = horizontal reference, v = vertical reference
+}
+
+/** Ordered list of skeleton joint keys — index = handle index */
+export const SKELETON_KEYS = ['shoulder', 'elbow', 'wrist', 'hip', 'knee', 'ankle', 'toes', 'head'] as const;
+export type SkeletonKey = typeof SKELETON_KEYS[number];
+
+export interface SkeletonElement {
+  type: 'skeleton';
+  id: string;
+  color: string;
+  strokeWidth: number;
+  points: Record<SkeletonKey, Point>;
+}
+
 export type AnnotationElement =
   | PathElement
   | LineElement
@@ -83,7 +110,9 @@ export type AnnotationElement =
   | RectElement
   | EllipseElement
   | TextElement
-  | AngleElement;
+  | AngleElement
+  | HVAngleElement
+  | SkeletonElement;
 
 export interface Layer {
   id: string;
@@ -92,32 +121,36 @@ export interface Layer {
   opacity: number;
   locked: boolean;
   elements: AnnotationElement[];
+  coteKey?: string; // lien persistant vers une cote du guide (clé i18n guide.<key>)
 }
 
 export interface Recording {
   id: string;
   name: string;
-  blob?: Blob;        // undefined for disk-backed recordings (loaded from filesystem)
-  url: string;        // object URL (fresh) or localfile:// URL (disk-backed)
+  blob?: Blob;
+  url: string;
   createdAt: Date;
   duration: number;
+  filePath?: string;  // absolute path on disk (disk-backed only)
 }
 
 export interface Capture {
   id: string;
   name: string;
-  blob?: Blob;        // undefined for disk-backed captures (loaded from filesystem)
-  url: string;        // object URL (fresh) or localfile:// URL (disk-backed)
+  blob?: Blob;
+  url: string;
   createdAt: Date;
-  paneLabel?: string; // 'A' | 'B' | undefined (single mode)
+  paneLabel?: string;
+  filePath?: string;  // absolute path on disk (disk-backed only)
 }
 
 export type AppMode = 'capture' | 'playback';
 
-export type PaneSourceType = 'camera' | 'recording' | 'none';
+export type PaneSourceType = 'camera' | 'recording' | 'image' | 'none';
 export type PaneSource =
   | { type: 'camera'; deviceId: string }
   | { type: 'recording'; recording: Recording }
+  | { type: 'image'; capture: Capture }
   | { type: 'none' };
 
 export interface VideoConfig {
@@ -160,7 +193,8 @@ export interface Session {
 export type SavedPaneSource =
   | { type: 'none' }
   | { type: 'camera'; deviceId: string }
-  | { type: 'recording'; filename: string };
+  | { type: 'recording'; filename: string }
+  | { type: 'image'; captureId: string };
 
 export interface SavedPaneState {
   source: SavedPaneSource;
@@ -172,7 +206,80 @@ export interface SavedPaneState {
 export interface PersistedSessionState {
   paneA: SavedPaneState;
   paneB: SavedPaneState;
+  /** Display-name overrides for captures and recordings (keyed by id). */
+  mediaLabels?: {
+    captures:   Record<string, string>;
+    recordings: Record<string, string>;
+  };
 }
+
+export interface CompanySettings {
+  name: string;
+  subtitle: string;
+  email: string;
+  phone: string;
+  logoDataUrl: string; // base64 data URL (resized at pick time)
+}
+
+export const DEFAULT_COMPANY: CompanySettings = { name: '', subtitle: '', email: '', phone: '', logoDataUrl: '' };
+
+export interface ReportData {
+  // Pratique
+  practiceLevel: '' | 'loisir' | 'sport' | 'competition' | 'pro';
+  practiceYears: string;
+  weeklyVolume: string;
+  annualVolume: string;
+  // Diagnostic
+  motif: string;
+  douleurs: string;
+  anciennesBlessures: string;
+  blessuresRecentes: string;
+  veloDepuis: string;
+  veloPrecedent: string;
+  autresSports: string;
+  // Tests physios
+  piedAllure: '' | 'neutre' | 'varus' | 'valgus';
+  piedNote: string;
+  genouAllure: '' | 'neutre' | 'dedans' | 'dehors';
+  genouNote: string;
+  souplesseChaine: '' | 'bonne' | 'moyenne' | 'limitee';
+  souplesseNote: string;
+  squat: '' | 'bon' | 'moyen' | 'compensations';
+  squatNote: string;
+  fente: '' | 'bonne' | 'moyenne' | 'asymetrique';
+  fenteNote: string;
+  // Bilan
+  bilan: string;
+  // Matériel
+  veloModele: string;
+  veloTaille: string;
+  selleMateriel: string;
+  pedales: string;
+  chaussures: string;
+  // Cotes (cm)
+  cotesA: string; cotesD: string; cotesC: string; cotesG: string;
+  cotesP: string; cotesR: string; cotesS: string; cotesM: string;
+  cotes1: string; cotes2: string; cotes3: string;
+  cotes4: string; cotes5: string;
+  // Captures
+  capturesBefore: string[];
+  capturesAfter: string[];
+}
+
+export const DEFAULT_REPORT: ReportData = {
+  practiceLevel: '', practiceYears: '', weeklyVolume: '', annualVolume: '',
+  motif: '', douleurs: '', anciennesBlessures: '', blessuresRecentes: '',
+  veloDepuis: '', veloPrecedent: '', autresSports: '',
+  piedAllure: '', piedNote: '', genouAllure: '', genouNote: '',
+  souplesseChaine: '', souplesseNote: '', squat: '', squatNote: '',
+  fente: '', fenteNote: '',
+  bilan: '',
+  veloModele: '', veloTaille: '', selleMateriel: '', pedales: '', chaussures: '',
+  cotesA: '', cotesD: '', cotesC: '', cotesG: '', cotesP: '', cotesR: '', cotesS: '', cotesM: '',
+  cotes1: '', cotes2: '', cotes3: '', cotes4: '', cotes5: '',
+  capturesBefore: [],
+  capturesAfter: [],
+};
 
 export const RESOLUTIONS: Record<string, { width: number; height: number; label: string }> = {
   '480p':  { width: 854,  height: 480,  label: '480p  (854×480)' },

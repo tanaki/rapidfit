@@ -10,13 +10,18 @@
     "report": "📋 Report",
     "split": "⊞ Split",
     "settings": "⚙ Settings",
-    "help": "? Help"
+    "help": "? Help",
+    "painGuide": "🩹 Pain guide",
+    "painGuideTitle": "Pain & Adjustments — troubleshooting guide"
   },
   "toolbar": {
     "pan": "Pan (H)",
     "select": "Select (V)",
     "line": "Line (L)",
     "angle": "Angle (G)",
+    "hv_angle": "H/V Angle",
+    "skeleton": "Cyclist skeleton",
+    "trajectory": "Trace a trajectory",
     "undo": "Undo (Ctrl+Z)",
     "redo": "Redo (Ctrl+Y)",
     "clear": "Clear active layer"
@@ -50,8 +55,6 @@
     "moveDown": "Move down",
     "delete": "Delete",
     "opacity": "Opacity",
-    "elements_one": "{{count}} element",
-    "elements_other": "{{count}} elements",
     "default": "Layer {{n}}",
     "initialA": "Layer 1",
     "initialB": "Layer B-1"
@@ -66,10 +69,14 @@
     "captureTitle": "Capture frame with layers",
     "cameraLabel": "Camera {{id}}",
     "cameraError": "Camera error",
-    "sourceLabel": "Source"
+    "sourceLabel": "Source",
+    "refreshCameras": "Refresh cameras"
   },
   "settings": {
-    "title": "Video settings",
+    "title": "Settings",
+    "tabVideo": "Video",
+    "tabCompany": "Company",
+    "tabInterface": "Interface",
     "camera": "Camera",
     "defaultCamera": "Default camera",
     "resolution": "Resolution",
@@ -78,7 +85,17 @@
     "bitrateMin": "500 kbps",
     "bitrateMax": "50 Mbps",
     "apply": "Apply",
-    "language": "Language"
+    "language": "Language",
+    "company": "Company",
+    "companyName": "Company name",
+    "companyNamePlaceholder": "Posture & Bike Studio",
+    "companySubtitle": "Subtitle / City",
+    "companySubtitlePlaceholder": "Lyon — Bike fitting",
+    "companyEmail": "Email",
+    "companyPhone": "Phone",
+    "companyLogo": "Logo",
+    "companyLogoEmpty": "No logo",
+    "companyLogoPick": "Choose…"
   },
   "report": {
     "title": "📋 Report",
@@ -106,7 +123,72 @@
     "pdfFieldFirstName": "First name:",
     "pdfFieldEmail": "Email:",
     "pdfFieldPhone": "Phone:",
-    "pdfImageUnavailable": "Image unavailable"
+    "pdfImageUnavailable": "Image unavailable",
+    "s2_title": "Practice profile",
+    "s2_level": "Level",
+    "s2_level_loisir": "Recreational",
+    "s2_level_sport": "Sport",
+    "s2_level_competition": "Competition",
+    "s2_level_pro": "Professional",
+    "s2_years": "Cycling since (years)",
+    "s2_weekly": "Weekly volume (h/week)",
+    "s2_annual": "Annual volume (km/year)",
+    "s3_title": "Diagnosis",
+    "s3_motif": "Reason for consultation",
+    "s3_douleurs": "Current pain / discomfort",
+    "s3_anciennesBlessures": "Past injuries",
+    "s3_blessuresRecentes": "Recent injuries",
+    "s3_veloDepuis": "This bike since",
+    "s3_veloPrecedent": "Previous bike",
+    "s3_autresSports": "Other sports",
+    "s4_title": "Quick physical assessment",
+    "s4_pieds": "Natural gait — feet",
+    "s4_genoux": "Natural gait — knees",
+    "s4_souplesse": "Posterior chain flexibility",
+    "s4_squat": "Squat",
+    "s4_fente": "Forward lunge",
+    "s4_note": "Comment",
+    "s4_neutre": "Neutral",
+    "s4_varus": "Varus (toes out)",
+    "s4_valgus": "Valgus (toes in)",
+    "s4_dedans": "Inward",
+    "s4_dehors": "Outward",
+    "s4_bonne": "Good",
+    "s4_moyenne": "Average",
+    "s4_limitee": "Limited",
+    "s4_bon": "Good",
+    "s4_moyen": "Average",
+    "s4_compensations": "With compensations",
+    "s4_asymetrique": "Asymmetric",
+    "s5_title": "Assessment",
+    "s5_placeholder": "Observations, adjustments made, recommendations, follow-up…",
+    "s6_title": "Measurement sheet",
+    "s6_materiel": "Equipment",
+    "s6_veloModele": "Bike model",
+    "s6_veloTaille": "Frame size",
+    "s6_selle": "Saddle",
+    "s6_pedales": "Pedals",
+    "s6_chaussures": "Shoes (size)",
+    "s6_cotes": "Measurements",
+    "s6_ref": "Ref.",
+    "s6_designation": "Description",
+    "s6_valeur": "Value (cm)",
+    "s6_cintre": "Handlebar",
+    "s6_potence": "Stem",
+    "s6_cote_A": "Bottom bracket — Handlebar axis",
+    "s6_cote_D": "Saddle–Handlebar difference",
+    "s6_cote_C": "Saddle — handlebar drop",
+    "s6_cote_G": "Saddle — handlebar",
+    "s6_cote_P": "Saddle — grips",
+    "s6_cote_R": "Saddle setback",
+    "s6_cote_S": "Saddle height",
+    "s6_cote_M": "Crank arm length",
+    "s6_cote_1": "Width",
+    "s6_cote_2": "Reach",
+    "s6_cote_3": "Drop",
+    "s6_cote_4": "Length",
+    "s6_cote_5": "Angle",
+    "s7_title": "Captures"
   },
   "session": {
     "newSession": "+ New session",
@@ -140,33 +222,185 @@
     "deleteClient": "Delete this client",
     "deleteClientConfirm": "Delete {{prenom}} {{nom}} and all their sessions? This action is irreversible."
   },
+  "guide": {
+    "title": "Angle Reference Guide",
+    "noSession": "No active session",
+    "measuredAngles": "Measured angles",
+    "noAngles": "Draw angles on the canvas to see the comparison.",
+    "targetRange": "Target",
+    "measured": "Measured",
+    "notApplicable": "—",
+    "checkReminder": "Visual check",
+    "noAngle": "no angle measured yet",
+    "kneeExtension": "Knee extension",
+    "ankleExtension": "Ankle extension",
+    "ankleKneeFlex": "Ankle (knee flexed)",
+    "ankleKneeFlexNote": "Verification",
+    "hipAngle": "Hip angle",
+    "hipAngleNote": "Endurance · competition: 50-55°",
+    "trunkAngle": "Trunk angle",
+    "trunkAngleNote": "Endurance · competition: ~35°",
+    "shoulderAngle": "Shoulder angle",
+    "shoulderAngleNote": "Endurance · competition: <85°",
+    "elbowAngle": "Elbow angle",
+    "tibialAlignment": "Tibial tuberosity alignment"
+  },
   "update": {
-    "available": "Update v{{version}} available — downloading…",
-    "downloaded": "Update v{{version}} ready to install.",
-    "install": "Install and relaunch"
+    "errorTitle": "Update error",
+    "downloading": "Downloading update v{{version}}…",
+    "ready": "Update ready",
+    "clickToRestart": "Click to restart",
+    "check": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "✓ up to date",
+    "downloadingShort": "⬇ v{{version}}…",
+    "readyShort": "✓ v{{version}} ready — Install",
+    "errorShort": "⚠ Error",
+    "timeout": "Timed out — check your internet connection"
+  },
+  "painGuide": {
+    "title": "Pain & Adjustments",
+    "subtitle": "Troubleshooting guide — quick fixes by pain zone",
+    "disclaimer": "Apply these tips once the equipment has been checked. They are not a substitute for a comprehensive assessment by a healthcare professional.",
+    "close": "Close",
+    "pied": {
+      "title": "Lower limb — Foot",
+      "engoudissement-pied": {
+        "name": "Foot numbness",
+        "c0": { "p": "Shoes too tight", "s0": "Go up a shoe size or loosen the straps", "s1": "Use wider shoes (\"wide\" models: Shimano, Lake, Specialized)", "s2": "Thinner or custom insoles made by a sports podiatrist" }
+      },
+      "douleur-cou-pied": {
+        "name": "Top-of-foot pain",
+        "c0": { "p": "Shoe too tight with the tongue pressing on the area (pedal at top or excessive dorsiflexion)", "s0": "Replace shoes with a more open model at that point (e.g. Lake brand)", "s1": "Cut part of the tongue with scissors (common with Sidi shoes)", "s2": "Thinner or custom insoles from a sports podiatrist", "s3": "Review cleat position (too far forward) and saddle height (too low): the ankle may be working through a poor range of motion" }
+      },
+      "douleurs-pieds": {
+        "name": "Foot pain",
+        "c0": { "p": "Excessive pressure on the outer edge of the foot or another maximum pressure point", "s0": "Shoes too tight or too narrow at the front — use \"wide\" shoes", "s1": "Custom insoles from a sports podiatrist", "s2": "Move cleats toward the inside of the shoe to push the feet away from the cranks" }
+      },
+      "crampes-pieds": {
+        "name": "Foot cramps",
+        "c0": { "p": "Shoes too tight", "s0": "Go up a shoe size or loosen the straps", "s1": "Thinner or custom insoles" },
+        "c1": { "p": "Feet not held firmly enough (toes work harder to maintain stability)", "s0": "Go down a shoe size, thicker or custom insoles", "s1": "Narrower and shorter shoes", "s2": "Engage the foot more (move cleat toward the heel)" },
+        "c2": { "p": "Incorrectly adjusted cleats or saddle too low", "s0": "Review cleat engagement (often too far forward)", "s1": "Review saddle settings (often too low)" },
+        "c3": { "p": "Unsuitable shoes", "s0": "Replace shoes with a model better suited to your foot morphology" }
+      },
+      "tendon-achille": {
+        "name": "Achilles tendon",
+        "c0": { "p": "Excessive maximum plantar flexion", "s0": "Review cleat position (often too far forward)", "s1": "Review saddle height (often too low)", "s2": "Engage the foot more (move cleat toward the heel)" },
+        "c1": { "p": "Unsuitable shoes", "s0": "Replace shoes with a model that does not press on the tendon" },
+        "c2": { "p": "Lots of positive elevation (low cadence, greater ankle mobilisation) or excessive force work", "s0": "Reduce training volume, especially force work and hilly routes", "s1": "Increase pedalling cadence", "s2": "Raise the saddle to the optimal angle for your discipline" }
+      }
+    },
+    "genou": {
+      "title": "Lower limb — Knee",
+      "genou-anterieur": {
+        "name": "Front of knee (anterior)",
+        "c0": { "p": "Excessive quadriceps load, too much knee flexion", "s0": "Raise and/or move the saddle back", "s1": "Review cleat position", "s2": "Engage the foot more (move cleat toward the heel)", "s3": "Reduce training volume, especially force work and hilly routes", "s4": "Increase pedalling cadence" },
+        "c1": { "p": "Too much force work", "s0": "Increase average pedalling cadence", "s1": "Reduce training volume" },
+        "c2": { "p": "Excessive knee range of motion", "s0": "Switch to shorter cranks" }
+      },
+      "genou-posterieur": {
+        "name": "Back of knee (posterior)",
+        "c0": { "p": "Excessive hamstring load (too much knee extension)", "s0": "Lower the saddle", "s1": "Move the saddle forward", "s2": "Saddle-to-bar distance too great: shorten the stem", "s3": "Review cleat position", "s4": "Rotate the cleat to bring the heel closer to the frame", "s5": "Replace worn cleats and/or pedals — reduce float if adjustable" }
+      },
+      "patte-oie": {
+        "name": "Pes anserinus (inner knee, lower area)",
+        "c0": { "p": "Excessive maximum leg extension", "s0": "Lower the saddle" },
+        "c1": { "p": "Excessive external foot rotation (heel too close to the frame)", "s0": "Rotate the cleat to move the heel away from the frame", "s1": "Replace worn cleats and/or pedals — reduce float if adjustable" },
+        "c2": { "p": "Feet too far from the frame", "s0": "Reduce Q-factor: move cleats toward the outside of the shoes to bring the feet closer to the cranks" }
+      },
+      "rotule-interne": {
+        "name": "Inner edge of the kneecap",
+        "c0": { "p": "Excessive stress on the inner edge of the kneecap", "s0": "Reduce training volume, especially force work and hilly routes", "s1": "Increase pedalling cadence", "s2": "Saddle too low or too far forward: correct the height", "s3": "Rotate the cleat to bring the heel closer to the frame" },
+        "c1": { "p": "Femoro-patellar dysplasia or other structural cause", "s0": "See a specialist" }
+      },
+      "rotule-externe": {
+        "name": "Outer edge of the kneecap",
+        "c0": { "p": "Excessive stress on the outer edge of the kneecap (same logic as the inner side)", "s0": "Reduce training volume, especially force work and hilly routes", "s1": "Increase pedalling cadence", "s2": "Saddle too low or too far forward: correct the height", "s3": "Rotate the cleat to move the heel away from the frame (opposite to inner side)" }
+      },
+      "bandelette": {
+        "name": "Outer knee (lateral) — IT band",
+        "c0": { "p": "Excessive internal foot rotation (heel too far from the frame)", "s0": "Rotate the cleat to bring the heel closer to the frame", "s1": "Replace worn cleats and/or pedals — reduce float if adjustable" },
+        "c1": { "p": "Ankle too free / feet too close to the frame", "s0": "Increase Q-factor: move cleats toward the inside of the shoes to push the feet further from the cranks", "s1": "If insufficient, use spacers or pedals with a longer axle" },
+        "c2": { "p": "IT-band friction caused by incorrect saddle height", "s0": "Check the saddle height" }
+      }
+    },
+    "hanche-dos": {
+      "title": "Hip & Back",
+      "hanches": {
+        "name": "Hip pain",
+        "c0": { "p": "Excessive hip flexion", "s0": "Lower the saddle to the optimal angle for your discipline", "s1": "Move the saddle forward", "s2": "Shorten the stem", "s3": "Raise the handlebar", "s4": "Use shorter cranks" },
+        "c1": { "p": "Excessive range of motion or poor hip/knee/ankle alignment", "s0": "Check saddle height", "s1": "Adjust cleat rotation and Q-factor", "s2": "Saddle misaligned: recalibrate", "s3": "Switch to shorter cranks", "s4": "Consult a sports podiatrist" },
+        "c2": { "p": "Pelvic compensation due to lower-limb asymmetry", "s0": "Identify the cause of the asymmetry with a podiatrist", "s1": "Orient the cleat of the inward-turning knee outward to restore alignment (move heel closer to the crank)", "s2": "Leg length discrepancy: consult a podiatrist for a precise diagnosis" },
+        "c3": { "p": "Hip dysplasia or other structural cause", "s0": "See a specialist" }
+      },
+      "lombaires": {
+        "name": "Lower back pain",
+        "c0": { "p": "Posterior muscle chain under too much tension / torso too far forward", "s0": "Shorten the stem", "s1": "Raise the handlebar", "s2": "Lower the saddle (and possibly move it forward)" },
+        "c1": { "p": "Torso too far back (posterior pelvic tilt)", "s0": "Tilt the saddle nose down", "s1": "Use a better-suited saddle (wide and short models for more stability)" },
+        "c2": { "p": "Hip swaying / pelvic instability", "s0": "Saddle too high or too far back: correct height and setback", "s1": "Raise the handlebar", "s2": "Saddle model not suitable", "s3": "Leg length discrepancy: consult a podiatrist for a precise diagnosis", "s4": "Consult a sports podiatrist" }
+      }
+    },
+    "assise": {
+      "title": "Saddle contact",
+      "perinee": {
+        "name": "Perineal compression (front of saddle)",
+        "c0": { "p": "Too much pressure on the front and nose of the saddle / pelvis rotated too far forward", "s0": "Tilt the saddle nose down", "s1": "Lower the saddle", "s2": "Raise the handlebar", "s3": "Switch to a better-suited saddle" },
+        "c1": { "p": "Low-quality shorts or chafing", "s0": "Use higher-quality cycling shorts", "s1": "Apply Akileine NOK cream" }
+      },
+      "appuis-selle": {
+        "name": "Rear saddle pain (sit bones)",
+        "c0": { "p": "Too much pressure at the rear — saddle tilted too far back", "s0": "Switch to a better-suited saddle", "s1": "Tilt the saddle nose down", "s2": "Use higher-quality cycling shorts", "s3": "Apply Akileine NOK cream" },
+        "c1": { "p": "Saddle too wide", "s0": "Use a narrower saddle, particularly at the nose" }
+      },
+      "irritation-cuisses": {
+        "name": "Inner thigh irritation",
+        "c0": { "p": "Low-quality shorts and chafing", "s0": "Use higher-quality cycling shorts", "s1": "Apply Akileine NOK cream", "s2": "Tilt the saddle nose up slightly", "s3": "Shorten the stem and move the saddle back" }
+      }
+    },
+    "superieur": {
+      "title": "Upper limb — Shoulders, Neck & Hands",
+      "epaules-cervicales": {
+        "name": "Shoulders & Neck",
+        "c0": { "p": "Too much weight on the arms (excessive forward reach)", "s0": "Tilt the saddle nose up", "s1": "Shorten the stem and move the saddle back", "s2": "Raise the handlebar" },
+        "c1": { "p": "Arms too wide apart", "s0": "Shorten the stem", "s1": "Raise the handlebar", "s2": "Reduce saddle setback" },
+        "c2": { "p": "Shoulders too closed", "s0": "Widen the handlebar (= width between the two acromions)" },
+        "c3": { "p": "Excessive cervical tension compressing nerve roots", "s0": "Shorten the stem", "s1": "Raise the handlebar", "s2": "Many other possible causes — see a specialist if symptoms persist" }
+      },
+      "mains-poignets": {
+        "name": "Wrist / hand numbness or pain",
+        "c0": { "p": "Too much weight on the wrists", "s0": "Tilt the saddle nose up", "s1": "Shorten the stem", "s2": "Check handlebar height" },
+        "c1": { "p": "Poor handlebar grip position", "s0": "Shorten the stem if the bars are hard to reach", "s1": "Check handlebar height" },
+        "c2": { "p": "Low-quality bar tape or vibrations", "s0": "Try a different bar tape model", "s1": "Use two layers of bar tape to absorb vibrations" },
+        "c3": { "p": "Anterior forearm tension", "s0": "Narrow the handlebar (= width between the two acromions)" }
+      }
+    }
   },
   "help": {
     "title": "User guide",
     "close": "Close",
-    "tools": "Tools",
+    "tools": "Annotation tools",
     "shortcuts": "Keyboard shortcuts",
-    "mouse": "Mouse & scroll wheel",
-    "split": "Split screen",
+    "mouse": "Mouse & trackpad",
+    "split": "Split mode (two panels)",
     "layers": "Layers",
+    "media": "Captures & videos",
+    "cotes": "Measurement reference guide",
+    "report": "PDF report",
     "tool_pan": "Pan",
-    "tool_pan_desc": "Drag to pan the view (zoom > 1).",
+    "tool_pan_desc": "Drag to pan the view (zoom > 1). Temporarily activate with Space.",
     "tool_select": "Select",
-    "tool_select_desc": "Click to select, drag handles to edit. Del/⌫ to delete.",
+    "tool_select_desc": "Click to select an element, drag its handles to edit. Del/⌫ to delete.",
     "tool_line": "Line",
-    "tool_line_desc": "Click and drag to draw a straight line.",
+    "tool_line_desc": "Click and drag to draw an annotated straight line.",
     "tool_angle": "Angle",
-    "tool_angle_desc": "3 clicks: 1st point → vertex → 3rd point. Arc and degree value appear automatically.",
+    "tool_angle_desc": "3 clicks: 1st point → vertex → 3rd point. Arc and degree value appear automatically. Colour advances automatically.",
     "shortcut_pan": "Pan tool",
     "shortcut_select": "Select tool",
     "shortcut_line": "Line tool",
     "shortcut_angle": "Angle tool",
     "shortcut_space_key": "Space (hold)",
-    "shortcut_space": "Temporary pan → release to restore tool",
+    "shortcut_space": "Temporary pan — release to restore active tool",
     "shortcut_undo_key": "Ctrl/Cmd + Z",
     "shortcut_undo": "Undo",
     "shortcut_redo_key": "Ctrl/Cmd + Y",
@@ -174,13 +408,15 @@
     "shortcut_delete_key": "Del / ⌫",
     "shortcut_delete": "Delete selected element",
     "shortcut_enter_key": "Enter",
-    "shortcut_enter": "Play / Pause video",
-    "shortcut_arrows_key": "←  →",
+    "shortcut_enter": "Play / Pause (video paused)",
+    "shortcut_arrows_key": "← →",
     "shortcut_arrows": "Previous / next frame (video paused)",
-    "shortcut_shift_key": "SHIFT + ←  →",
-    "shortcut_shift": "Go back / forward 10 frames",
+    "shortcut_shift_key": "SHIFT + ← →",
+    "shortcut_shift": "Go back / forward 10 frames at once",
     "mouse_zoom_key": "Ctrl/Cmd + scroll",
-    "mouse_zoom": "Zoom centered on cursor",
+    "mouse_zoom": "Zoom centred on cursor",
+    "mouse_pinch_key": "Trackpad pinch",
+    "mouse_pinch": "Smooth zoom (proportional to gesture intensity)",
     "mouse_pan_middle_key": "Middle click + drag",
     "mouse_pan_middle": "Pan view (zoom > 1)",
     "mouse_pan_space_key": "Space + drag",
@@ -188,7 +424,7 @@
     "mouse_wheel_key": "Scroll only (video)",
     "mouse_wheel": "Previous / next frame",
     "mouse_seekbar_key": "Click seekbar",
-    "mouse_seekbar": "Jump to that point in video",
+    "mouse_seekbar": "Jump to that point in the video",
     "mouse_seekbar_drag_key": "Drag seekbar",
     "mouse_seekbar_drag": "Continuous navigation in video",
     "mouse_handle_key": "Click handle",
@@ -198,12 +434,73 @@
     "split_desc1": "Each panel A / B has its own independent layers, zoom, and pan.",
     "split_desc1_highlight": "independent layers, zoom, and pan",
     "split_desc2": "Click a panel to activate it — tools and layers apply to it.",
-    "split_desc3": "← → and SHIFT+← → apply to the active panel.",
+    "split_desc3": "← → and SHIFT+← → advance/rewind the active panel's video.",
     "layers_desc1_create": "+",
     "layers_desc1_hide": "👁",
     "layers_desc1_lock": "🔒",
     "layers_desc1_reorder": "▲▼",
     "layers_desc1_text": "Create · Hide · Lock · Reorder",
-    "layers_desc2": "Opacity slider 0–100% per layer · each stroke automatically creates its own layer."
+    "layers_desc2": "Opacity slider 0–100% per layer · each stroke automatically creates its own layer.",
+    "media_capture": "📸 Capture",
+    "media_capture_desc": "Button at the bottom-right of each pane — saves the frame with all visible annotations.",
+    "media_panel": "📁 Media",
+    "media_panel_desc": "Opens the media library at the bottom. Opens automatically when a new capture or recording is created.",
+    "media_view": "Click a thumbnail",
+    "media_view_desc": "Displays the capture full-screen in the active pane (or pane B in split mode).",
+    "media_rename": "Double-click a name",
+    "media_rename_desc": "Renames the capture or video (display label only — the file on disk is not renamed).",
+    "media_import": "Import",
+    "media_import_desc": "Opens a video file (WebM, MP4, MOV) or image (PNG, JPG, WebP) from disk.",
+    "media_source": "Source selector",
+    "media_source_desc": "The dropdown above each pane lists cameras, videos and captures — selecting a capture displays it directly.",
+    "cotes_desc1": "The right sidebar lists reference measurements for the active client's discipline.",
+    "cotes_desc2": "Clicking a row selects it and shows the closest measured angle (green/orange/red badge).",
+    "cotes_desc3": "The layer containing the matching angle is automatically renamed with the measurement name — undo with Ctrl+Z.",
+    "report_desc1": "Report button in the header — 7 accordion sections: client info, profile, diagnosis, physio tests, assessment, measurements, captures.",
+    "report_desc2": "Auto-save writes the form to report.json 800 ms after each edit.",
+    "report_desc3": "Export PDF generates a structured document with company header, bike diagram, measurement tables and selected captures.",
+    "tracking": "Motion tracking",
+    "tool_skeleton": "Skeleton",
+    "tool_skeleton_desc": "Place anatomical joints on the video. Start tracking (⊙ button) to animate them automatically frame by frame.",
+    "tool_trajectory": "Trajectory",
+    "tool_trajectory_desc": "Click on a point in the video to start tracking it — one layer is created automatically per trajectory.",
+    "tracking_skeleton_title": "Skeleton tracking",
+    "tracking_skeleton_desc1": "⊙ button at the bottom-right of the pane — only active when the layer contains a skeleton.",
+    "tracking_skeleton_desc2": "Tracking pauses automatically when the video is paused and resumes on play. Each joint shows its confidence: orange ring = uncertain, pulsing red = recently lost, solid red = definitively lost.",
+    "tracking_skeleton_desc3": "Drag a joint to reposition it live — the worker is reseeded immediately. Double-click a definitively lost joint to reseed it from the drawn skeleton position.",
+    "tracking_trajectory_title": "Free-point tracking",
+    "tracking_trajectory_desc1": "T tool (Trajectory) — click on the video to place a tracking point. Multiple clicks = multiple simultaneous trajectories.",
+    "tracking_trajectory_desc2": "The trajectory displays in real time with a colour drift (lightens over ~60 s). Hiding/showing the layer does not erase the trail.",
+    "tracking_trajectory_desc3": "Once 20 points are accumulated, a dashed PCA ellipse appears with its circularity score (100% = perfect circle) and point count."
+  },
+  "tracking": {
+    "activate": "Enable tracking",
+    "stop": "Stop tracking",
+    "cancel": "Cancel",
+    "loading": "Starting tracking…",
+    "active": "Tracking active",
+    "noSkeleton": "Add a skeleton first",
+    "clickJointHint": "Click the sticker {{n}}/{{total}}",
+    "addPoint": "Trace",
+    "clickToPlace": "Click on the video…",
+    "clearTrails": "Clear trails",
+    "joints": {
+      "shoulder": "Shoulder",
+      "elbow": "Elbow",
+      "wrist": "Wrist",
+      "hip": "Hip",
+      "knee": "Knee",
+      "ankle": "Ankle",
+      "toes": "Toes"
+    }
+  },
+  "media": {
+    "library": "Media",
+    "toggle": "Media library (captures & videos)",
+    "captures": "Captures",
+    "recordings": "Videos",
+    "noCaptures": "No captures",
+    "noRecordings": "No videos",
+    "doubleClickRename": "Double-click to rename"
   }
 }

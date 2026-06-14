@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Tool } from '../types';
 
@@ -20,7 +21,6 @@ interface Props {
   onColor: (c: string) => void;
   onUndo: () => void;
   onRedo: () => void;
-  onClear: () => void;
   canUndo: boolean;
   canRedo: boolean;
 }
@@ -28,15 +28,47 @@ interface Props {
 export function Toolbar({
   tool, color,
   onTool, onColor,
-  onUndo, onRedo, onClear, canUndo, canRedo,
+  onUndo, onRedo, canUndo, canRedo,
 }: Props) {
   const { t } = useTranslation();
 
-  const TOOLS: { id: Tool; icon: string; label: string }[] = [
+  const TOOLS: { id: Tool; icon: ReactNode; label: string }[] = [
     { id: 'pan',    icon: '✋', label: t('toolbar.pan') },
     { id: 'select', icon: '⊙', label: t('toolbar.select') },
     { id: 'line',   icon: '╱', label: t('toolbar.line') },
     { id: 'angle',  icon: '∠', label: t('toolbar.angle') },
+    {
+      id: 'h-angle',
+      label: t('toolbar.h_angle', 'Angle / Horiz.'),
+      icon: <span className="flex items-end leading-none gap-[1px]">
+        <span className="text-lg">∠</span>
+        <span className="text-[9px] font-bold mb-[2px]">H</span>
+      </span>,
+    },
+    {
+      id: 'v-angle',
+      label: t('toolbar.v_angle', 'Angle / Vert.'),
+      icon: <span className="flex items-end leading-none gap-[1px]">
+        <span className="text-lg">∠</span>
+        <span className="text-[9px] font-bold mb-[2px]">V</span>
+      </span>,
+    },
+    {
+      id: 'skeleton',
+      label: t('toolbar.skeleton', 'Squelette cycliste'),
+      icon: '🩻',
+    },
+    {
+      id: 'trajectory',
+      label: t('toolbar.trajectory', 'Tracer une trajectoire'),
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="14" cy="4" r="2" stroke="currentColor" strokeWidth="1.3"/>
+          <path d="M4 14 Q5 8 9 7 Q13 6 12 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" fill="none" strokeDasharray="2 1.5"/>
+          <circle cx="4" cy="14" r="1.5" fill="currentColor"/>
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -64,8 +96,6 @@ export function Toolbar({
         className="w-10 h-10 rounded-lg bg-[#22223b] text-slate-300 hover:bg-[#2d2d48] disabled:opacity-30 text-sm">↩</button>
       <button title={t('toolbar.redo')} onClick={onRedo} disabled={!canRedo}
         className="w-10 h-10 rounded-lg bg-[#22223b] text-slate-300 hover:bg-[#2d2d48] disabled:opacity-30 text-sm">↪</button>
-      <button title={t('toolbar.clear')} onClick={onClear}
-        className="w-10 h-10 rounded-lg bg-[#22223b] text-red-400 hover:bg-red-900/30 text-sm">🗑</button>
 
       <div className="w-8 border-t border-[#22223b]" />
 

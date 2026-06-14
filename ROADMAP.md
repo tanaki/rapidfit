@@ -168,7 +168,7 @@ src/App.tsx                         intégrer sélecteur + démarrage
 
 ---
 
-## 🔄 Phase 4 — Aides visuelles (tableau des cotes) — PROCHAINE
+## ✅ Phase 4 — Aides visuelles (tableau des cotes) — TERMINÉE
 
 ### Objectif
 Tableau de référence des angles/cotes à mesurer selon la discipline du client actif.
@@ -192,16 +192,83 @@ Tableau de référence des angles/cotes à mesurer selon la discipline du client
 4. **Comparaison** : mesure réelle vs valeur cible → indicateur vert/orange/rouge
 5. **i18n** : labels FR/EN pour chaque mesure
 
-> **Action requise** : valider les valeurs de référence métier avant implémentation (fournies le 04/06/2026)
+### Ce qui est fait ✅
+- `src/data/referenceAngles.ts` : données par discipline (route/gravel/clm/vtt), `findClosestRow`, `getStatus`
+- `src/components/GuidePanel.tsx` : panneau latéral 256px, tableau cotes + section angles mesurés avec badge vert/orange/rouge
+- `src/App.tsx` : extraction `AngleElement` des calques actifs, `<GuidePanel>` togglé par le bouton Guides existant
+- i18n FR + EN : toutes les clés `guide.*`
+
+### Fichiers créés/modifiés
+```
+src/data/referenceAngles.ts     données de référence + logique de statut
+src/components/GuidePanel.tsx   composant panneau
+src/locales/fr.json             clés guide.*
+src/locales/en.json             clés guide.*
+src/App.tsx                     intégration (import AngleElement + GuidePanel)
+```
+
+### Notes métier intégrées
+- Gravel = valeurs route endurance
+- Hanche / Tronc / Épaule : valeurs endurance affichées, note compétition en sous-label
+- Cheville genou fléchi : `~110°` affiché comme plage 105–115° avec flag `approx`
+- Alignement tubérosité tibiale : ligne "vérification visuelle" (non mesurable)
+- Matching mesure réelle → par proximité de centre de plage sur la discipline active
 
 ---
 
-## ⏳ Phase 5 — Compte rendu amélioré (PDF + mail)
+## ✅ Phase 5 — Compte rendu amélioré (PDF) — TERMINÉE
 
 ### Objectif
 Export PDF structuré + envoi mail direct depuis l'app + paramètres entreprise.
 
-### Plan d'action
+### Ce qui est fait ✅
+
+**5.3 Paramètres entreprise**
+- Nom, sous-titre, logo (upload → resize → base64) stockés dans `userData/company-settings.json`
+- Éditable depuis ⚙ Paramètres (section Entreprise en bas)
+- Logo affiché dans l'en-tête PDF, nom + "Étude posturale — date" répété sur chaque page
+
+**5.1 PDF enrichi (7 sections en accordéon)**
+- Section 1 : Informations client (pré-remplies depuis session)
+- Section 2 : Profil de pratique (niveau, ancienneté, volume hebdo/annuel)
+- Section 3 : Diagnostic (motif, douleurs, vélo, blessures, autres sports)
+- Section 4 : Tests physiologiques (pieds, genoux, souplesse, squat, fente avant — boutons radio + commentaire)
+- Section 5 : Bilan de l'étude (champ libre)
+- Section 6 : Fiche de cotes (matériel + diagramme SVG vélo + tableaux A-M et 1-5 éditables)
+- Section 7 : Captures (sélection)
+- Persistance : `report.json` par session (auto-save débounced 800ms)
+- Génération PDF jsPDF : 3 pages structurées + pages captures
+
+**Fichiers créés/modifiés**
+```
+src/types/index.ts                     CompanySettings, ReportData, DEFAULT_REPORT
+electron/main.ts                       IPC company:get/save, sessions:save/load-report
+electron/preload.ts                    exposition des 4 nouveaux IPC
+src/hooks/useCompany.ts                hook load/save paramètres entreprise
+src/hooks/useSessions.ts               saveReport, loadReport
+src/components/SettingsModal.tsx       section Entreprise (nom, sous-titre, logo)
+src/components/BikeMeasurementDiagram.tsx  SVG vélo avec annotations A-M + insets cintre/potence
+src/components/ReportModal.tsx         redesign complet (7 sections accordéon + PDF)
+src/App.tsx                            branché useCompany + chargement report.json
+```
+
+**5.2 Envoi mail** — reporté à une version ultérieure
+
+### Fixes post-livraison (tous mergés sur dev)
+- Captures Avant/Après côte à côte dans le PDF
+- Discipline dans le nom de fichier PDF
+- Overlaps label/valeur dans le PDF (field() dynamique)
+- Canvas tainted → CORS headers + crossOrigin sur video
+- Perte de données compte rendu au changement de session (debounce + save-on-close)
+- Email + téléphone entreprise dans le header PDF
+- Header PDF redesigné (3 colonnes : logo | infos | date)
+- Hauteur image bike-diagram calculée sur les dimensions réelles du PNG
+- Image bike-diagram.png intégrée dans le PDF
+- `public/bike-diagram.png` à fournir par l'utilisateur (slot prêt, SVG en fallback)
+
+### Dernière version taguée : v1.5.6 — version courante sur dev : v1.5.6
+
+### Plan d'action original (archivé)
 
 **5.1 PDF enrichi**
 - Template : infos client, date, discipline, tableau des mesures, captures avec légendes
@@ -220,25 +287,165 @@ Export PDF structuré + envoi mail direct depuis l'app + paramètres entreprise.
 
 ---
 
-## ⏳ Phase 6 — Features avancées
+## ✅ Post-Phase 5 — Stabilisation & polissage (v1.4.0, non tagué)
 
-À prioriser selon les retours utilisateurs :
+### Corrections de bugs
 
-- **Double caméra simultanée** : 2 flux live côte à côte avec enregistrement synchronisé (mode Split existe déjà, mais enregistrements séparés)
-- **Mesure de distance** : outil px ou étalonnage réel (cm)
-- **Timecode synchronisé** : entre les deux panneaux en split
-- **Comparaison avant/après** : session N vs session N-1 pour un même client
-- **Export vidéo annotée** : rendu vidéo avec annotations incrustées
+- **Promise non résolue** : `useRecorder.stop()` ne résolvait jamais si `recorderRef` était null → retourne `null` proprement
+- **Chaîne FR codée en dur** : `useLayers.layerActions.onAdd` utilisait `"Calque X"` au lieu de `i18n.t('layers.default')` → corrigé
+- **Dead code** : `renderCaptureGroup` (32 lignes) supprimée de `ReportModal` — remplacée par `renderCol` mais jamais retirée ; props `captures`/`otherLabel` inutilisées dans `CaptureSlot`
+- **Erreurs TypeScript** : les 3 erreurs `TS6133` (unused) ci-dessus, maintenant zéro erreur
+- **`bike-diagram.png` absent du PDF packagé** : `window.location.origin = "null"` en `file://` → URL invalide. Fix : IPC `app:get-asset-path` + `getAppAssetUrl()` utilise le file server local en production
+- **Caméra non détectée sur autre ordinateur** (USB / iPhone Continuity Camera) :
+  - `{ exact: deviceId }` → `{ ideal: deviceId }` dans `useCamera.ts` (fallback si deviceId inconnu)
+  - `useDevices` : `enumerateDevices()` en premier (fonctionne en Electron sans probe), probe seulement si labels vides — l'ancienne probe `getUserMedia` comme seule stratégie échouait silencieusement
+  - `setPermissionCheckHandler` / `RequestHandler` élargis à `'camera'` et `'microphone'` (Electron 42 / Chromium 130)
+
+### Nouvelles fonctionnalités
+
+- **Source image dans les panes** : clic sur une miniature de capture → affichée dans la pane active (ou splitview B) ; import PNG/JPG/WebP → crée une Capture ; `SourceSelector` liste les captures comme source ; `VideoPane` rend `<img>` avec `object-contain` + canvas d'annotations au-dessus ; persistance dans `session-state.json`
+- **Zoom trackpad moins sensible** : détection trackpad (`deltaMode=0 && |deltaY|<40`) → delta proportionnel `×0.008` au lieu de saut fixe `±0.25` par event
+- **Renommage calque au clic sur cote** : clic sur une ligne du guide des cotes → `findBestAngleForRow` identifie l'angle le plus proche → calque renommé avec le libellé i18n de la cote (annulable Ctrl+Z)
+- **Bouton ↺ Actualiser les caméras** : dans chaque SourceSelector, permet de re-scanner sans redémarrer l'app (utile si caméra branchée après démarrage ou TCC accordé mid-session)
+
+### Fichiers principaux touchés
+```
+package.json                       version 1.1.0 → 1.4.0
+electron/main.ts                   IPC app:get-asset-path, permissions caméra élargies
+electron/preload.ts                expose appGetAssetPath
+src/hooks/useCamera.ts             exact→ideal, useDevices robuste
+src/hooks/useRecorder.ts           stop() résout null au lieu de pendre
+src/hooks/useLayers.ts             layerActions.onAdd i18n
+src/hooks/useZoomPan.ts            zoom trackpad proportionnel
+src/components/ReportModal.tsx     getAppAssetUrl(), dead code supprimé
+src/components/VideoPane.tsx       source image, SourceSelector + bouton ↺ + onRefreshDevices
+src/components/RecordingBar.tsx    onSelectCapture + bouton 👁
+src/types/index.ts                 PaneSource + SavedPaneSource + type image
+src/App.tsx                        activeImage state, handleSelectCapture, handleSelectCote renommage
+src/locales/fr.json + en.json      clé video.refreshCameras
+```
+
+---
+
+## ⏳ Phase 6 — Double caméra synchronisée
+
+### Objectif
+Deux flux caméra live côte à côte, enregistrement **synchronisé** (même timestamp de départ), lecture synchronisée (scrubbing des deux panes en même temps).
+
+Le mode Split existe déjà mais les deux enregistrements sont indépendants — un fitter ne peut pas comparer avant/après pédalage si les vidéos ne sont pas calées.
+
+### Plan d'action
+1. **Sync démarrage** : un seul bouton "Enregistrer" démarre les deux `MediaRecorder` avec le même timestamp `t0` — stocker `t0` dans le sidecar `.info.json`
+2. **Sync lecture** : en mode Split, le scrubbing de la pane A pilote la pane B (même `currentTime`) — opt-in via un bouton "🔗 Sync"
+3. **Sync pause/lecture** : espace / Enter agit sur les deux panes quand le lien est actif
+4. **UI** : indicateur visuel "SYNC" dans la barre quand le lien est actif ; désactivable pour lecture indépendante
+5. **Persistance** : `session-state.json` mémorise si le sync était actif
+
+### Fichiers à créer/modifier
+```
+src/App.tsx                  état syncEnabled, handler scrubbing pane A → pane B
+src/components/RecordingBar.tsx   bouton 🔗 Sync + indicateur
+src/hooks/useRecorder.ts     start() retourne le timestamp t0
+electron/main.ts             sessions:save-recording → stocker syncT0 dans .info.json
+src/types/index.ts           Recording.syncT0?: number
+```
+
+---
+
+## ✅ Phase 7 — Suivi de points (tracking) — TERMINÉE (v1.5.26)
+
+### Objectif
+Suivre le déplacement d'un point anatomique frame par frame sur une vidéo pour visualiser la trajectoire du mouvement — ex. pied/cheville sur un tour de pédalage complet, pour détecter si le pédalage est rond/ovale, régulier ou avec des compensations.
+
+### Ce que ça apporte au fitter
+- Tracé de la trajectoire réelle du pied en ellipse (ou pas)
+- Détection d'asymétrie gauche/droite (Split mode)
+- Visualisation de la régularité du pédalage tour par tour
+- Exportable en PNG dans le compte rendu PDF
+
+### Ce qui est fait ✅
+
+**Outil Trajectoire (Phase C)**
+- Lucas-Kanade sparse optical flow — pure TypeScript, Web Worker, Transferable ArrayBuffer
+- Outil `trajectory` dans la Toolbar (icône courbe pointillée) — indépendant du squelette
+- Clic sur la vidéo → crée un calque nommé ("Trajectoire 1"…) et démarre le tracking du point
+- `TrajectoryCanvas` : canvas offscreen **par trajectoire** en coordonnées vidéo (imgW × imgH)
+  - Segments accumulés de façon incrémentale, jamais effacés
+  - Hide / delete du calque → composite skip, pixels intacts (pas de redraw depuis les points)
+  - Zoom / pan → `drawImage` repositionne sans redraw
+  - Drift couleur : `segmentColor(base, globalIdx)` — s'éclaircit sur 1800 frames (~60 s), stable
+- Crosshair dynamique (cercle + 4 ticks) au dernier point tracké
+- Buffer tournant `MAX_HISTORY = 64` (suffisant pour dessin incrémental — pas de stockage de toute l'historique)
+- `TrackingState.source: 'skeleton' | 'trajectory' | null` — découplage complet :
+  - Bandeau "Stop tracking" et bouton crosshair n'apparaissent que pour `source === 'skeleton'`
+- Touche Espace → play/pause vidéo (plus de pan temporaire)
+- Tests : 17 tests Vitest (`segmentColor`, `useTracking` complet)
+
+### Ce qui est fait ✅ (complet)
+
+**Niveau 1 — Feedback temps réel**
+- RAF s'arrête sur pause vidéo, redémarre sur `play` (listener stocké et retiré proprement)
+- Indicateurs visuels par joint : anneau rouge pulsant (perdu récemment), anneau rouge fixe (perdu définitivement après 30 frames consécutives), anneau orange (confiance < 0.6)
+- `definitiveLostRef: Set<SkeletonKey>` — double-clic sur un joint définitivement perdu reseede depuis la position du squelette dessiné
+
+**Niveau 2 — Correction manuelle (drag)**
+- Overlay invisible au-dessus du canvas tracking (zIndex 65)
+- Détection du joint le plus proche dans un rayon de 20px écran
+- Drag → fantôme blanc semi-transparent ; relâcher → `updateSkeletonPoint` reseede le worker
+- Double-clic → reset au squelette dessiné (utile pour joints définitivement perdus)
+- Curseur `grab` / `grabbing` contextuel
+
+**Niveau 3 — Analyse trajectoire (Phase 7)**
+- `allPoints: {x,y}[]` dans chaque `TrajectoryEntry` — illimité, pour l'analyse (distinct du buffer tournant MAX_HISTORY = 64 pour le dessin)
+- `src/utils/ellipseFit.ts` : ajustement PCA — centre, demi-axes a/b, orientation, circularité (b/a), régularité (1 - CV distances normalisées)
+- Ellipse dessinée en tirets (dashed) par-dessus chaque trajectoire dès 20 points accumulés
+- Label flottant : `XX% · N pts` (circularité + nombre de points) positionné au-dessus de l'ellipse
+- Tests : 28 tests Vitest (segmentColor, useTracking, fitEllipse)
+
+### Plan d'action initial (archivé)
+1. Outil "tracking" dans la Toolbar ✅
+2. Pose d'un point sur la vidéo ✅ (outil trajectoire)
+3. Propagation semi-auto (tracking LK) ✅
+4. Visualisation trajectoire ✅
+5. Analyse ellipse / régularité ✅
+6. Export PNG → PDF ✅ (via capture d'écran existante)
+
+---
+
+## ⏳ Phase 8 — Comparaison avant/après
+
+### Objectif
+Comparer deux sessions d'un même client côte à côte — session N (fitting du jour) vs session N-1 (fitting précédent) — pour montrer la progression ou valider les ajustements.
+
+### Plan d'action
+1. Sélecteur "Comparer avec…" dans le `SessionSelector` → charge une session archivée en pane B
+2. Chargement des captures/vidéos de la session historique via le file server existant
+3. Les annotations de la session historique sont en lecture seule (calques grisés)
+4. Export PDF : page de comparaison avec captures des deux sessions côte à côte
+
+---
+
+## ⏳ Phase 9 — Export vidéo annotée
+
+### Objectif
+Exporter une vidéo MP4 avec les annotations incrustées (calques dessinés frame par frame sur la vidéo).
+
+### Complexité
+Élevée — nécessite un rendu off-screen canvas frame par frame + encodage vidéo côté main process (ffmpeg via `@ffmpeg/ffmpeg` WASM ou binaire natif). À faire après les phases de tracking et comparaison qui auront stabilisé le modèle de calques.
 
 ---
 
 ## Dépendances entre phases
 ```
-Phase 2 (i18n)          ← peut commencer maintenant
-    └── Phase 3 (Clients)     ← nécessite Electron filesystem IPC
-            ├── Phase 4 (Cotes)      ← nécessite le profil discipline
-            └── Phase 5 (PDF/mail)   ← nécessite le profil client
-                        └── Phase 6 (features avancées)
+Phase 1 (Electron)
+  └── Phase 2 (i18n)
+        └── Phase 3 (Clients/Sessions)
+              ├── Phase 4 (Cotes)
+              └── Phase 5 (PDF)
+                    └── Phase 6 (Double caméra sync)   ← PROCHAINE
+                          └── Phase 7 (Tracking points)
+                                └── Phase 8 (Comparaison avant/après)
+                                      └── Phase 9 (Export vidéo annotée)
 ```
 
 ---
@@ -279,12 +486,51 @@ Ces erreurs existaient avant la Phase 1 et ne bloquent pas le build ni les tests
 
 ---
 
+## ✅ Post-Phase 5 — Session bugfix & polish (v1.5.16+, non tagué)
+
+### Fixes split view / player
+- **PanePlayer** : nouveau composant player indépendant par pane (seekbar + play/pause + frame step). En mode normal et split, chaque pane a son propre player sous la vidéo. La RecordingBar ne contient plus de player.
+- **États player séparés** : `playbackTime/Duration/Paused` (pane A) + `playbackTimeB/DurationB/PausedB` (pane B). `setPaneBSource` réinitialise les états B.
+- **Flèches clavier** : handler clavier utilise des refs pour `isLiveMode`/`activePaneIsB`/`paneBSource` → plus de closures périmées. Vérifie le live mode de la pane **active** (pas toujours pane A).
+- **Auto-pause sur step** : `VideoPane.stepFrame` fait `v.pause()` si nécessaire avant de changer `currentTime`.
+- **Frame non mise à jour** : workaround bug Chromium — `v.play().then(() => v.pause())` après `currentTime = X` force le rendu de la frame.
+- **Seekbar vs frame** : suppression des `requestAnimationFrame` prématurés dans `stepFrame` App + handlers PanePlayer. La seekbar se met à jour via l'event `seeked` → `onTimeUpdate`, en même temps que la frame.
+
+### Fix captures
+- **Résolution native** : `capturePane` génère maintenant au format natif de la source (`video.videoWidth × videoHeight` ou `img.naturalWidth × naturalHeight`) au lieu de la taille CSS du conteneur.
+- **Annotations alignées** : re-rendu des calques à zoom=1 sur un canvas intermédiaire `videoRect.w × videoRect.h`, puis scaling vers la résolution native. Aucun décalage quel que soit le zoom courant.
+
+### Compte rendu
+- **Lightbox captures** : dans CaptureSlot, cliquer sur une miniature ouvre un aperçu plein écran (overlay). Bouton ✕ séparé pour retirer.
+- **Exclusion mutuelle** : prop `excluded` sur CaptureSlot — une capture déjà dans "Avant" disparaît de la liste disponible de "Après" et vice versa.
+- **Dates** : utilitaire `src/utils/formatDate.ts` → `formatDateFR(iso)`. Appliqué dans `reportPdf.ts` (birthDate, bikeFitDate) et `ReportModal.tsx`.
+
+### Suppression fichiers disque
+- `Capture.filePath` et `Recording.filePath` ajoutés au type, populés depuis `list-captures` / `list-recordings`.
+- IPC `sessions:delete-capture` + `sessions:delete-recording` (unlink + sidecar `.info.json`).
+- Confirmation inline dans `CaptureCard` et `RecordingRow` avant suppression effective.
+
+### Mises à jour manuelles
+- IPC `updater:check-now` → déclenche `checkForUpdatesMac` ou `autoUpdater.checkForUpdates()`.
+- Event `update-not-available` ajouté (Mac + Windows).
+- Section "Mises à jour" dans `HelpModal` : états `idle / checking / up-to-date / downloading / ready / error`, bouton "Installer et redémarrer" quand prêt.
+
+### Nouvel outil : Angle H/V
+- Type `HVAngleElement` (`type: 'hv-angle'`, `p1`, `p2`, `angle`).
+- Interaction : clic-glisser (identique à `line`).
+- Rendu : ligne pleine + ligne de référence pointillée (H si angle ≤ 45°, V sinon) + arc + label en degrés.
+- Intégré dans `hitTestElement`, `getHandles`, `applyHandleDrag`, `moveElement`, `drawElement`.
+- Bouton ⊾ dans la Toolbar, clés i18n FR/EN.
+
+---
+
 ## État Git
 
 ```
-Branche active : dev (= main, tout est mergé)
-Dernière version taguée : v1.1.0 (Phase 3 complète — build CI en cours)
-Prochain tag prévu : v1.2.0 (fin Phase 4)
+Branche active : dev
+Dernière version taguée : v1.5.16
+Version courante sur dev : v1.6.0 (non tagué — prêt pour release)
+Pour publier : bump version dans package.json → git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
 ## Décisions techniques Phase 3 (ajouts)

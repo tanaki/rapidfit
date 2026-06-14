@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Client, Session, Discipline, Capture, Recording, PersistedSessionState } from '../types';
-import { uid } from '../utils/canvas';
+import type { Client, Session, Discipline, Capture, Recording, PersistedSessionState, ReportData } from '../types';
+import { uid } from '../utils/uid';
 
 interface DiskFile { name: string; path: string; createdAt: string; duration: number; }
 
@@ -37,6 +37,8 @@ type ElectronAPI = {
   sessionsListRecordings: (sessionFolderPath: string) => Promise<DiskFile[]>;
   sessionsGetLast: () => Promise<{ clientId: string; sessionId: string } | null>;
   sessionsSetLast: (d: { clientId: string; sessionId: string } | null) => Promise<void>;
+  sessionsSaveReport: (p: { sessionFolderPath: string; data: ReportData }) => Promise<void>;
+  sessionsLoadReport: (sessionFolderPath: string) => Promise<ReportData | null>;
 };
 
 function getAPI(): ElectronAPI | null {
@@ -270,6 +272,7 @@ export function useSessions() {
       name: f.name,
       url: buildUrl(f.path),
       createdAt: new Date(f.createdAt),
+      filePath: f.path,
     }));
 
     const recordings: Recording[] = recordingFiles.map(f => ({
@@ -278,6 +281,7 @@ export function useSessions() {
       url: buildUrl(f.path),
       createdAt: new Date(f.createdAt),
       duration: f.duration,
+      filePath: f.path,
     }));
 
     return { captures, recordings };
@@ -297,5 +301,13 @@ export function useSessions() {
     deleteClient,
     loadSessionAssets,
     reload: load,
+
+    saveReport: useCallback(async (folderPath: string, data: ReportData) => {
+      await getAPI()?.sessionsSaveReport({ sessionFolderPath: folderPath, data });
+    }, []),
+
+    loadReport: useCallback(async (folderPath: string): Promise<ReportData | null> => {
+      return getAPI()?.sessionsLoadReport(folderPath) ?? null;
+    }, []),
   };
 }

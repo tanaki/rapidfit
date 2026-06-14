@@ -1,49 +1,76 @@
+import type { Layer } from '../types';
+import type { VideoRect } from '../hooks/useVideoRect';
+import { renderLayersWithDraft } from './canvas';
+
 /**
- * Composite a video frame + annotation canvas into a PNG blob.
+ * Composite a video frame + annotations into a PNG blob at the source's
+ * native resolution.
  *
- * - `container` is the outermost div of the pane (ZoomPane or VideoPane).
- * - The video is drawn letterboxed (object-fit: contain behaviour).
- * - The annotation canvas is drawn on top at container size.
+ * - Output size = video.videoWidth × video.videoHeight (or image natural size,
+ *   or container CSS size as fallback).
+ * - Annotations are always re-rendered at zoom=1 so they align regardless of
+ *   the current zoom/pan state the user may have on screen.
+ * - `layers` + `videoRect` are required for correct annotation placement.
+ *   `videoRect` is in container-CSS-pixel space (from useVideoRect / computeVideoRect).
  */
 export async function capturePane(
   container: HTMLDivElement,
   paneLabel?: string,
+  layers?: Layer[],
+  videoRect?: VideoRect | null,
 ): Promise<{ blob: Blob; name: string }> {
-  const w = container.clientWidth;
-  const h = container.clientHeight;
 
-  // ── Find the active (visible) video ──────────────────────────────────────
+  // ── Find source (video or image) ──────────────────────────────────────────
   const videos = Array.from(container.querySelectorAll('video')) as HTMLVideoElement[];
-  const video = videos.find(v => !v.classList.contains('hidden') && v.readyState >= 2) ?? null;
+  const video  = videos.find(v => !v.classList.contains('hidden') && v.readyState >= 2) ?? null;
+  const imgEl  = !video
+    ? (container.querySelector('img') as HTMLImageElement | null)
+    : null;
 
-  // ── Find the annotation canvas ────────────────────────────────────────────
-  // AnnotationCanvas is rendered as a direct sibling of the transform wrapper
-  // (outside the CSS zoom/pan transform), so we search the full container.
-  const annotCanvas = container.querySelector('canvas') as HTMLCanvasElement | null;
+  // ── Determine output resolution (native source size when possible) ────────
+  let outW: number;
+  let outH: number;
+  if (video && video.videoWidth) {
+    outW = video.videoWidth;
+    outH = video.videoHeight;
+  } else if (imgEl && imgEl.naturalWidth) {
+    outW = imgEl.naturalWidth;
+    outH = imgEl.naturalHeight;
+  } else {
+    outW = container.clientWidth;
+    outH = container.clientHeight;
+  }
 
   // ── Composite ─────────────────────────────────────────────────────────────
   const out = document.createElement('canvas');
-  out.width  = w;
-  out.height = h;
+  out.width  = outW;
+  out.height = outH;
   const ctx = out.getContext('2d')!;
 
-  // Black background
   ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, w, h);
+  ctx.fillRect(0, 0, outW, outH);
 
-  // Video frame — letterboxed to match CSS object-fit: contain
+  // Source frame at native resolution (no letterbox needed — output = source size)
   if (video && video.videoWidth) {
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
-    const scale = Math.min(w / vw, h / vh);
-    const dw = vw * scale;
-    const dh = vh * scale;
-    ctx.drawImage(video, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    ctx.drawImage(video, 0, 0, outW, outH);
+  } else if (imgEl && imgEl.naturalWidth) {
+    ctx.drawImage(imgEl, 0, 0, outW, outH);
   }
 
-  // Annotation layer
-  if (annotCanvas && annotCanvas.width > 0) {
-    ctx.drawImage(annotCanvas, 0, 0, w, h);
+  // Annotations — always at zoom=1, scaled from videoRect CSS space to native
+  if (layers && layers.length > 0 && videoRect && videoRect.w > 0 && videoRect.h > 0) {
+    // Intermediate canvas at video-rect CSS-pixel dimensions.
+    // Annotation coordinates are stored in this space (content space, origin at
+    // top-left of the video rect). renderLayersWithDraft at zoom=1 / pan=(0,0)
+    // draws them at their stored coordinates without any additional offset.
+    const annotTmp = document.createElement('canvas');
+    annotTmp.width  = Math.round(videoRect.w);
+    annotTmp.height = Math.round(videoRect.h);
+    const annotCtx = annotTmp.getContext('2d')!;
+    renderLayersWithDraft(annotCtx, layers, null, undefined, undefined, 1, { x: 0, y: 0 }, outW, outH);
+
+    // Scale the annotated rect onto the full native output
+    ctx.drawImage(annotTmp, 0, 0, outW, outH);
   }
 
   // ── Output ────────────────────────────────────────────────────────────────

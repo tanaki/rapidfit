@@ -7,7 +7,7 @@
     "email": "contact@escampette.bike"
   },
   "private": true,
-  "version": "1.1.0",
+  "version": "1.6.0",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -24,6 +24,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "electron-log": "^5.4.4",
     "electron-updater": "^6.8.3",
     "i18next": "^26.3.1",
     "jspdf": "^4.2.1",
@@ -70,11 +71,17 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "!dist-electron/**/*.map",
+      "!dist/**/*.map"
     ],
+    "artifactName": "RapidFit-${version}-${os}-${arch}.${ext}",
     "publish": {
       "provider": "github",
-      "private": true
+      "owner": "tanaki",
+      "repo": "rapidfit",
+      "private": true,
+      "releaseType": "release"
     },
     "mac": {
       "category": "public.app-category.sports",
@@ -82,7 +89,7 @@
       "entitlementsInherit": "build/entitlements.mac.inherit.plist",
       "target": [
         {
-          "target": "dmg",
+          "target": "zip",
           "arch": [
             "x64",
             "arm64"

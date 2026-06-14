@@ -1,11 +1,47 @@
-import type { Point, AnnotationElement, AngleElement, Layer } from '../types';
+import type { Point, AnnotationElement, AngleElement, HVAngleElement, SkeletonKey, Layer } from '../types';
+import { SKELETON_KEYS } from '../types';
+import {
+  SKELETON_SEGMENTS,
+  SKELETON_HEAD_SEGMENT,
+  drawSkeleton,
+} from './skeleton';
+
+// Re-export skeleton config so existing importers (AnnotationCanvas, etc.) need not change.
+export {
+  SKELETON_SEGMENTS,
+  SKELETON_HEAD_SEGMENT,
+  SKELETON_ANGLES,
+  SKELETON_LABELS,
+  defaultSkeletonPoints,
+} from './skeleton';
+
+// Re-export uid so existing importers (hooks, AnnotationCanvas) need not change.
+export { uid } from './uid';
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
+
+/** Angle (0–180°) between a line p1→p2 and the given fixed axis. */
+export function computeHVAngle(p1: Point, p2: Point, mode: 'h' | 'v' = 'h'): number {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  if (dx === 0 && dy === 0) return 0;
+  const rad = Math.atan2(dy, dx);
+  const deg = rad * 180 / Math.PI;
+  if (mode === 'h') {
+    const a = Math.abs(deg);
+    return Math.round((a > 90 ? 180 - a : a) * 10) / 10;
+  } else {
+    // Angle to vertical: 90° − acute-angle-to-horizontal
+    const toH = Math.abs(deg);
+    const acuteH = toH > 90 ? 180 - toH : toH;
+    return Math.round((90 - acuteH) * 10) / 10;
+  }
+}
 
 export function computeAngle(p0: Point, vertex: Point, p2: Point): number {
   const v1 = { x: p0.x - vertex.x, y: p0.y - vertex.y };
   const v2 = { x: p2.x - vertex.x, y: p2.y - vertex.y };
-  const dot = v1.x * v2.x + v1.y * v2.y;
+  const dot  = v1.x * v2.x + v1.y * v2.y;
   const mag1 = Math.hypot(v1.x, v1.y);
   const mag2 = Math.hypot(v2.x, v2.y);
   if (mag1 === 0 || mag2 === 0) return 0;
@@ -53,8 +89,14 @@ export function hitTestElement(el: AnnotationElement, p: Point, tol = 8): boolea
     }
     case 'text':
       return p.x >= el.x - tol && p.y >= el.y - tol && p.x <= el.x + 200 && p.y <= el.y + el.fontSize * 1.5;
+    case 'hv-angle':
+      return distToSegment(p, el.p1, el.p2) < tol;
     case 'angle':
       return distToSegment(p, el.p0, el.p1) < tol || distToSegment(p, el.p1, el.p2) < tol;
+    case 'skeleton': {
+      const segs: [SkeletonKey, SkeletonKey][] = [...SKELETON_SEGMENTS, SKELETON_HEAD_SEGMENT];
+      return segs.some(([a, b]) => distToSegment(p, el.points[a], el.points[b]) < tol);
+    }
   }
 }
 
@@ -64,6 +106,7 @@ export type Handle = { x: number; y: number; index: number; cursor: string };
 
 export function getHandles(el: AnnotationElement): Handle[] {
   switch (el.type) {
+    case 'hv-angle':
     case 'line':
     case 'arrow':
       return [
@@ -99,10 +142,10 @@ export function getHandles(el: AnnotationElement): Handle[] {
       ];
     case 'path': {
       const b = pathBounds(el.points);
-      return [
-        { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2, index: -1, cursor: 'move' },
-      ];
+      return [{ x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2, index: -1, cursor: 'move' }];
     }
+    case 'skeleton':
+      return SKELETON_KEYS.map((key, i) => ({ ...el.points[key], index: i, cursor: 'grab' }));
   }
 }
 
@@ -115,13 +158,17 @@ export function hitTestHandle(handles: Handle[], p: Point, radius = 8): Handle |
 
 export function applyHandleDrag(el: AnnotationElement, handleIndex: number, newPt: Point): AnnotationElement {
   switch (el.type) {
+    case 'hv-angle': {
+      const updated = handleIndex === 0 ? { ...el, p1: newPt } : { ...el, p2: newPt };
+      return { ...updated, angle: computeHVAngle(updated.p1, updated.p2, el.mode) };
+    }
     case 'line':
     case 'arrow':
       return handleIndex === 0 ? { ...el, p1: newPt } : { ...el, p2: newPt };
     case 'rect': {
       const x1 = el.x, y1 = el.y, x2 = el.x + el.w, y2 = el.y + el.h;
       let [nx1, ny1, nx2, ny2] = [x1, y1, x2, y2];
-      if (handleIndex === 0) { nx1 = newPt.x; ny1 = newPt.y; }
+      if      (handleIndex === 0) { nx1 = newPt.x; ny1 = newPt.y; }
       else if (handleIndex === 1) { nx2 = newPt.x; ny1 = newPt.y; }
       else if (handleIndex === 2) { nx2 = newPt.x; ny2 = newPt.y; }
       else if (handleIndex === 3) { nx1 = newPt.x; ny2 = newPt.y; }
@@ -143,8 +190,12 @@ export function applyHandleDrag(el: AnnotationElement, handleIndex: number, newP
         : { ...el, p2: newPt };
       return { ...updated, angle: computeAngle(updated.p0, updated.p1, updated.p2) };
     }
-    case 'path': {
+    case 'path':
       return el; // handled by moveElement
+    case 'skeleton': {
+      const key = SKELETON_KEYS[handleIndex];
+      if (!key) return el;
+      return { ...el, points: { ...el.points, [key]: newPt } };
     }
   }
 }
@@ -152,13 +203,19 @@ export function applyHandleDrag(el: AnnotationElement, handleIndex: number, newP
 export function moveElement(el: AnnotationElement, dx: number, dy: number): AnnotationElement {
   const m = (p: Point): Point => ({ x: p.x + dx, y: p.y + dy });
   switch (el.type) {
-    case 'path':    return { ...el, points: el.points.map(m) };
+    case 'path':      return { ...el, points: el.points.map(m) };
+    case 'hv-angle':
     case 'line':
-    case 'arrow':   return { ...el, p1: m(el.p1), p2: m(el.p2) };
-    case 'rect':    return { ...el, x: el.x + dx, y: el.y + dy };
-    case 'ellipse': return { ...el, cx: el.cx + dx, cy: el.cy + dy };
-    case 'text':    return { ...el, x: el.x + dx, y: el.y + dy };
-    case 'angle':   return { ...el, p0: m(el.p0), p1: m(el.p1), p2: m(el.p2) };
+    case 'arrow':     return { ...el, p1: m(el.p1), p2: m(el.p2) };
+    case 'rect':      return { ...el, x: el.x + dx, y: el.y + dy };
+    case 'ellipse':   return { ...el, cx: el.cx + dx, cy: el.cy + dy };
+    case 'text':      return { ...el, x: el.x + dx, y: el.y + dy };
+    case 'angle':     return { ...el, p0: m(el.p0), p1: m(el.p1), p2: m(el.p2) };
+    case 'skeleton': {
+      const moved = { ...el.points } as Record<SkeletonKey, Point>;
+      for (const key of SKELETON_KEYS) moved[key] = m(el.points[key]);
+      return { ...el, points: moved };
+    }
   }
 }
 
@@ -188,26 +245,27 @@ function drawAngleArc(ctx: CanvasRenderingContext2D, el: AngleElement, zoom: num
   const a1 = Math.atan2(p0.y - p1.y, p0.x - p1.x);
   const a2 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
 
-  const cwSweep = ((a2 - a1) + 2 * Math.PI) % (2 * Math.PI);
+  const cwSweep     = ((a2 - a1) + 2 * Math.PI) % (2 * Math.PI);
   const anticlockwise = cwSweep > Math.PI;
 
   ctx.strokeStyle = color;
-  ctx.lineWidth = strokeWidth / zoom;
+  ctx.lineWidth   = strokeWidth / zoom;
   ctx.beginPath();
   ctx.arc(p1.x, p1.y, radius, a1, a2, anticlockwise);
   ctx.stroke();
 
   const halfSweep = anticlockwise ? -((2 * Math.PI - cwSweep) / 2) : cwSweep / 2;
-  const midAngle = a1 + halfSweep;
+  const midAngle  = a1 + halfSweep;
   const labelDist = radius + 18 / zoom;
   const lx = p1.x + labelDist * Math.cos(midAngle);
   const ly = p1.y + labelDist * Math.sin(midAngle);
-  const label = `${el.angle}°`;
+
+  const label    = `${el.angle}°`;
   const fontSize = (12 + strokeWidth) / zoom;
   ctx.font = `bold ${fontSize}px system-ui`;
-  ctx.textAlign = 'center';
+  ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
-  const w = ctx.measureText(label).width + 8 / zoom;
+  const w    = ctx.measureText(label).width + 8 / zoom;
   const boxH = 22 / zoom;
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
   ctx.beginPath();
@@ -217,7 +275,76 @@ function drawAngleArc(ctx: CanvasRenderingContext2D, el: AngleElement, zoom: num
   ctx.fillText(label, lx, ly);
 }
 
-function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom = 1) {
+function drawHVAngle(
+  ctx: CanvasRenderingContext2D,
+  el: HVAngleElement,
+  zoom: number,
+  imgW = 0,
+  imgH = 0,
+) {
+  const { p1, p2, color, strokeWidth, mode } = el;
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  if (Math.hypot(dx, dy) < 1) return;
+
+  const rawRad = Math.atan2(dy, dx);
+
+  // Reference axis direction (same side as the drawn line)
+  const refAngle = mode === 'h'
+    ? (dx >= 0 ? 0 : Math.PI)
+    : (dy >= 0 ? Math.PI / 2 : -Math.PI / 2);
+
+  // Full-span dashed reference line
+  const refStart = mode === 'h'
+    ? { x: imgW > 0 ? 0 : p1.x - 2000, y: p1.y }
+    : { x: p1.x, y: imgH > 0 ? 0 : p1.y - 2000 };
+  const refEnd = mode === 'h'
+    ? { x: imgW > 0 ? imgW : p1.x + 2000, y: p1.y }
+    : { x: p1.x, y: imgH > 0 ? imgH : p1.y + 2000 };
+
+  ctx.strokeStyle = color;
+  ctx.lineCap     = 'round';
+
+  // Dashed reference line
+  ctx.lineWidth   = Math.max(1, strokeWidth * 0.7) / zoom;
+  ctx.globalAlpha = 0.55;
+  ctx.setLineDash([6 / zoom, 4 / zoom]);
+  ctx.beginPath(); ctx.moveTo(refStart.x, refStart.y); ctx.lineTo(refEnd.x, refEnd.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  // Measured line
+  ctx.lineWidth = strokeWidth / zoom;
+  ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+
+  // Arc
+  const radius = 36 / zoom;
+  let diff = rawRad - refAngle;
+  while (diff >  Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+  ctx.beginPath();
+  ctx.arc(p1.x, p1.y, radius, refAngle, rawRad, diff < 0);
+  ctx.stroke();
+
+  // Label
+  const midAngle  = refAngle + diff / 2;
+  const labelDist = radius + 16 / zoom;
+  const lx = p1.x + Math.cos(midAngle) * labelDist;
+  const ly = p1.y + Math.sin(midAngle) * labelDist;
+
+  const label    = `${el.angle}°`;
+  const fontSize = (12 + strokeWidth) / zoom;
+  ctx.font = `bold ${fontSize}px system-ui`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  const w  = ctx.measureText(label).width + 8 / zoom;
+  const bh = 22 / zoom;
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.beginPath(); ctx.roundRect(lx - w / 2, ly - bh / 2, w, bh, 4 / zoom); ctx.fill();
+  ctx.fillStyle = color;
+  ctx.fillText(label, lx, ly);
+}
+
+function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom = 1, imgW = 0, imgH = 0) {
   ctx.save();
   switch (el.type) {
     case 'path':
@@ -253,6 +380,9 @@ function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom 
       ctx.fillStyle = el.color; ctx.font = `${el.fontSize}px system-ui`; ctx.textBaseline = 'top';
       el.text.split('\n').forEach((line, i) => ctx.fillText(line, el.x, el.y + i * el.fontSize * 1.3));
       break;
+    case 'hv-angle':
+      drawHVAngle(ctx, el, zoom, imgW, imgH);
+      break;
     case 'angle':
       ctx.strokeStyle = el.color; ctx.lineWidth = el.strokeWidth / zoom; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(el.p0.x, el.p0.y); ctx.lineTo(el.p1.x, el.p1.y); ctx.lineTo(el.p2.x, el.p2.y); ctx.stroke();
@@ -262,6 +392,9 @@ function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom 
         ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
         ctx.fillStyle = el.color; ctx.fill();
       });
+      break;
+    case 'skeleton':
+      drawSkeleton(ctx, el, zoom);
       break;
   }
   ctx.restore();
@@ -274,7 +407,7 @@ export function drawSelectionHandles(ctx: CanvasRenderingContext2D, el: Annotati
   const pad6 = 6 / zoom;
 
   ctx.strokeStyle = 'rgba(99,102,241,0.6)';
-  ctx.lineWidth = 1 / zoom;
+  ctx.lineWidth   = 1 / zoom;
   ctx.setLineDash([5 / zoom, 4 / zoom]);
   switch (el.type) {
     case 'rect':
@@ -294,18 +427,19 @@ export function drawSelectionHandles(ctx: CanvasRenderingContext2D, el: Annotati
   }
   ctx.setLineDash([]);
 
-  const handles = getHandles(el);
-  for (const h of handles) {
+  for (const h of getHandles(el)) {
     ctx.beginPath();
     ctx.arc(h.x, h.y, 6 / zoom, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
     ctx.strokeStyle = '#6366f1';
-    ctx.lineWidth = 2 / zoom;
+    ctx.lineWidth   = 2 / zoom;
     ctx.stroke();
   }
   ctx.restore();
 }
+
+// ── Coordinate transform ──────────────────────────────────────────────────────
 
 // Compute the canvas 2D transform that maps content-space coords to screen
 // pixels, mirroring the CSS: scale(zoom) translate(pan) with origin=center.
@@ -322,69 +456,6 @@ export function contentTransform(
   };
 }
 
-export function renderLayers(
-  ctx: CanvasRenderingContext2D,
-  layers: Layer[],
-  zoom = 1,
-  pan = { x: 0, y: 0 },
-) {
-  const { width: W, height: H } = ctx.canvas;
-  const { tx, ty } = contentTransform(zoom, pan, W, H);
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, W, H);
-  ctx.setTransform(zoom, 0, 0, zoom, tx, ty);
-  for (const layer of layers) {
-    if (!layer.visible) continue;
-    ctx.save();
-    ctx.globalAlpha = layer.opacity / 100;
-    for (const el of layer.elements) drawElement(ctx, el, zoom);
-    ctx.restore();
-  }
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-}
-
-export function renderLayersWithDraft(
-  ctx: CanvasRenderingContext2D,
-  layers: Layer[],
-  draftElement: AnnotationElement | null,
-  selectedLayerId?: string,
-  selectedElementId?: string,
-  zoom = 1,
-  pan = { x: 0, y: 0 },
-) {
-  const { width: W, height: H } = ctx.canvas;
-  const { tx, ty } = contentTransform(zoom, pan, W, H);
-
-  // Clear in screen space, then switch to content space
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, W, H);
-  ctx.setTransform(zoom, 0, 0, zoom, tx, ty);
-
-  for (const layer of layers) {
-    if (!layer.visible) continue;
-    ctx.save();
-    ctx.globalAlpha = layer.opacity / 100;
-    for (const el of layer.elements) {
-      drawElement(ctx, el, zoom);
-      if (layer.id === selectedLayerId && el.id === selectedElementId) {
-        ctx.globalAlpha = 1;
-        drawSelectionHandles(ctx, el, zoom);
-      }
-    }
-    ctx.restore();
-  }
-  if (draftElement) drawElement(ctx, draftElement, zoom);
-
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-}
-
-export function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
-
-// Convert a mouse event to content-space coordinates.
-// The canvas sits at full screen resolution (no CSS transform). We invert the
-// same zoom/pan transform that was applied via ctx.setTransform when drawing.
 export function getCanvasPoint(
   e: React.MouseEvent<HTMLCanvasElement> | MouseEvent,
   canvas: HTMLCanvasElement,
@@ -401,26 +472,84 @@ export function getCanvasPoint(
   };
 }
 
-// Scale all coordinates of an element by (sx, sy).
-// Used when the canvas resizes (e.g. single ↔ split) to keep annotations
-// visually anchored to the same position on screen.
+// ── Layer rendering ───────────────────────────────────────────────────────────
+
+export function renderLayers(
+  ctx: CanvasRenderingContext2D,
+  layers: Layer[],
+  zoom = 1,
+  pan = { x: 0, y: 0 },
+  imgW = 0,
+  imgH = 0,
+) {
+  const { width: W, height: H } = ctx.canvas;
+  const { tx, ty } = contentTransform(zoom, pan, W, H);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.setTransform(zoom, 0, 0, zoom, tx, ty);
+  for (const layer of layers) {
+    if (!layer.visible) continue;
+    ctx.save();
+    ctx.globalAlpha = layer.opacity / 100;
+    for (const el of layer.elements) drawElement(ctx, el, zoom, imgW, imgH);
+    ctx.restore();
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+export function renderLayersWithDraft(
+  ctx: CanvasRenderingContext2D,
+  layers: Layer[],
+  draftElement: AnnotationElement | null,
+  selectedLayerId?: string,
+  selectedElementId?: string,
+  zoom = 1,
+  pan = { x: 0, y: 0 },
+  imgW = 0,
+  imgH = 0,
+) {
+  const { width: W, height: H } = ctx.canvas;
+  const { tx, ty } = contentTransform(zoom, pan, W, H);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.setTransform(zoom, 0, 0, zoom, tx, ty);
+
+  for (const layer of layers) {
+    if (!layer.visible) continue;
+    ctx.save();
+    ctx.globalAlpha = layer.opacity / 100;
+    for (const el of layer.elements) {
+      drawElement(ctx, el, zoom, imgW, imgH);
+      if (layer.id === selectedLayerId && el.id === selectedElementId) {
+        ctx.globalAlpha = 1;
+        drawSelectionHandles(ctx, el, zoom);
+      }
+    }
+    ctx.restore();
+  }
+  if (draftElement) drawElement(ctx, draftElement, zoom, imgW, imgH);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+// ── Element scaling (canvas resize: single ↔ split) ──────────────────────────
+
 export function rescaleElement(el: AnnotationElement, sx: number, sy: number): AnnotationElement {
   const sp = (p: Point): Point => ({ x: p.x * sx, y: p.y * sy });
   switch (el.type) {
     case 'line':
-    case 'arrow':
-      return { ...el, p1: sp(el.p1), p2: sp(el.p2) };
-    case 'rect':
-      return { ...el, x: el.x * sx, y: el.y * sy, w: el.w * sx, h: el.h * sy };
-    case 'ellipse':
-      return { ...el, cx: el.cx * sx, cy: el.cy * sy, rx: el.rx * sx, ry: el.ry * sy };
-    case 'path':
-      return { ...el, points: el.points.map(sp) };
-    case 'angle':
-      return { ...el, p0: sp(el.p0), p1: sp(el.p1), p2: sp(el.p2) };
-    case 'text':
-      return { ...el, x: el.x * sx, y: el.y * sy };
-    default:
-      return el;
+    case 'arrow':     return { ...el, p1: sp(el.p1), p2: sp(el.p2) };
+    case 'rect':      return { ...el, x: el.x * sx, y: el.y * sy, w: el.w * sx, h: el.h * sy };
+    case 'ellipse':   return { ...el, cx: el.cx * sx, cy: el.cy * sy, rx: el.rx * sx, ry: el.ry * sy };
+    case 'path':      return { ...el, points: el.points.map(sp) };
+    case 'angle':     return { ...el, p0: sp(el.p0), p1: sp(el.p1), p2: sp(el.p2) };
+    case 'text':      return { ...el, x: el.x * sx, y: el.y * sy };
+    case 'skeleton': {
+      const scaled = { ...el.points } as Record<SkeletonKey, Point>;
+      for (const key of SKELETON_KEYS) scaled[key] = sp(el.points[key]);
+      return { ...el, points: scaled };
+    }
+    default: return el;
   }
 }
