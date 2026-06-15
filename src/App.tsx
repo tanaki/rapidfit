@@ -113,8 +113,9 @@ export default function App() {
   const { devices, refresh: refreshDevices } = useDevices();
   const recorder = useRecorder();
 
-  // Camera state — fed by VideoPane A callbacks
-  const cameraStreamRef = useRef<MediaStream | null>(null);
+  // Camera state — fed by VideoPane A/B callbacks
+  const cameraStreamRef  = useRef<MediaStream | null>(null);
+  const cameraStreamBRef = useRef<MediaStream | null>(null);
   const [cameraIsActive, setCameraIsActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
@@ -151,7 +152,7 @@ export default function App() {
   }, []);
 
   // Tools (shared across all canvases)
-  const [tool, setTool] = useState<Tool>('angle');
+  const [tool, setTool] = useState<Tool>('pan');
   const [color, setColor] = useState('#ef4444');
 
   const advanceColor = useCallback(() => {
@@ -217,10 +218,10 @@ export default function App() {
 
   // ── Recording ──────────────────────────────────────────────────────────────
   const handleStartRecording = useCallback(() => {
-    const stream = cameraStreamRef.current;
+    const stream = activePaneIsB ? cameraStreamBRef.current : cameraStreamRef.current;
     if (!stream) return;
     recorder.start(stream, config.videoBitrate, config.audioBitrate);
-  }, [recorder, config]);
+  }, [recorder, config, activePaneIsB]);
 
   const handleStopRecording = useCallback(async () => {
     const rec = await recorder.stop();
@@ -464,6 +465,7 @@ export default function App() {
                           ? { ...r, duration: d } : r,
                       ));
                   }}
+                  onStreamChange={s => { cameraStreamBRef.current = s; }}
                   onPlayStateChange={setPlaybackPausedB}
                   onCapture={(blob, name) => media.handleCapture(blob, name, 'B')}
                   playerLabel="B"
