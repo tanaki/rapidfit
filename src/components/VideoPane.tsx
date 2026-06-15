@@ -245,7 +245,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       navigator.mediaDevices
         .getUserMedia({
           video: {
-            deviceId: source.deviceId ? { ideal: source.deviceId } : undefined,
+            deviceId: source.deviceId ? { exact: source.deviceId } : undefined,
             width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 },
           },
           audio: false,
