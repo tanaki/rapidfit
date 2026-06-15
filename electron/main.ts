@@ -331,7 +331,7 @@ async function checkForUpdatesMac(token: string) {
     }
 
     const arch = process.arch === 'arm64' ? 'arm64' : 'x64';
-    const assetName = `RapidFit-${latest}-${arch}-mac.zip`;
+    const assetName = `RapidFit-${latest}-mac-${arch}.zip`;
     const asset = release.assets.find(a => a.name === assetName);
     if (!asset) {
       log.warn(`[updater-mac] asset introuvable : ${assetName}`);
