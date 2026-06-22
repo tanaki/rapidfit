@@ -23,12 +23,15 @@ interface Props {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  skeletonFacing: 'left' | 'right';
+  onSkeletonFacing: (f: 'left' | 'right') => void;
 }
 
 export function Toolbar({
   tool, color,
   onTool, onColor,
   onUndo, onRedo, canUndo, canRedo,
+  skeletonFacing, onSkeletonFacing,
 }: Props) {
   const { t } = useTranslation();
 
@@ -89,6 +92,28 @@ export function Toolbar({
           </button>
         ))}
       </div>
+
+      {tool === 'skeleton' && (
+        <>
+          <div className="w-8 border-t border-[#22223b]" />
+          <div className="flex flex-col gap-1 w-full items-center" title={t('toolbar.skeletonFacing', 'Sens du cycliste')}>
+            <button
+              onClick={() => onSkeletonFacing('right')}
+              className={`w-10 h-8 rounded-lg text-base flex items-center justify-center transition-colors ${
+                skeletonFacing === 'right' ? 'bg-indigo-600 text-white' : 'bg-[#22223b] text-slate-400 hover:bg-[#2d2d48]'
+              }`}
+              title={t('toolbar.skeletonRight', 'Cycliste vers la droite')}
+            >→</button>
+            <button
+              onClick={() => onSkeletonFacing('left')}
+              className={`w-10 h-8 rounded-lg text-base flex items-center justify-center transition-colors ${
+                skeletonFacing === 'left' ? 'bg-indigo-600 text-white' : 'bg-[#22223b] text-slate-400 hover:bg-[#2d2d48]'
+              }`}
+              title={t('toolbar.skeletonLeft', 'Cycliste vers la gauche')}
+            >←</button>
+          </div>
+        </>
+      )}
 
       <div className="w-8 border-t border-[#22223b]" />
 

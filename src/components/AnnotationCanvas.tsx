@@ -35,6 +35,8 @@ interface Props {
   imgW?: number;
   imgH?: number;
   discipline?: Discipline;
+  skeletonFacing?: 'left' | 'right';
+  seedPrevVideoRect?: { w: number; h: number } | null;
   style?: React.CSSProperties;
 }
 
@@ -42,7 +44,7 @@ export function AnnotationCanvas({
   layers, activeLayerId, tool, color, strokeWidth, filled,
   zoom = 1,
   pan = { x: 0, y: 0 },
-  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, imgW = 0, imgH = 0, discipline = 'route', style,
+  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, imgW = 0, imgH = 0, discipline = 'route', skeletonFacing = 'right', seedPrevVideoRect, style,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -65,11 +67,21 @@ export function AnnotationCanvas({
   const draftRef = useRef<AnnotationElement | null>(null);
   const [, forceRedraw] = useState(0);
 
-  // Keep zoom/pan in refs so event handlers always see current values
-  const zoomRef = useRef(zoom);
-  const panRef  = useRef(pan);
-  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
-  useEffect(() => { panRef.current  = pan;  }, [pan]);
+  // Keep volatile props in refs so event handlers always see current values
+  const zoomRef           = useRef(zoom);
+  const panRef            = useRef(pan);
+  const onAddElementRef   = useRef(onAddElement);
+  const imgHRef           = useRef(imgH);
+  const disciplineRef     = useRef(discipline);
+  const skeletonFacingRef = useRef(skeletonFacing);
+  const activeLayerIdRef  = useRef(activeLayerId);
+  useEffect(() => { zoomRef.current           = zoom;           }, [zoom]);
+  useEffect(() => { panRef.current            = pan;            }, [pan]);
+  useEffect(() => { onAddElementRef.current   = onAddElement;   }, [onAddElement]);
+  useEffect(() => { imgHRef.current           = imgH;           }, [imgH]);
+  useEffect(() => { disciplineRef.current     = discipline;     }, [discipline]);
+  useEffect(() => { skeletonFacingRef.current = skeletonFacing; }, [skeletonFacing]);
+  useEffect(() => { activeLayerIdRef.current  = activeLayerId;  }, [activeLayerId]);
 
   useEffect(() => { selectedLayerIdRef.current = selectedLayerId; }, [selectedLayerId]);
   useEffect(() => { selectedElementIdRef.current = selectedElementId; }, [selectedElementId]);
@@ -110,6 +122,21 @@ export function AnnotationCanvas({
     prevVideoRectRef.current = next;
     videoRectRef.current = next;
   }, [videoRect]);
+
+  // Seed prevVideoRectRef with the saved videoRect from the previous session so
+  // the first real videoRect change triggers a corrective rescale if the layout differs.
+  useEffect(() => {
+    if (!seedPrevVideoRect) return;
+    if (prevVideoRectRef.current === null) {
+      prevVideoRectRef.current = { x: 0, y: 0, ...seedPrevVideoRect };
+    } else {
+      // videoRect already set (video loaded before seed arrived) — rescale now
+      const cur = prevVideoRectRef.current;
+      if ((cur.w !== seedPrevVideoRect.w || cur.h !== seedPrevVideoRect.h) && seedPrevVideoRect.w > 0 && seedPrevVideoRect.h > 0) {
+        onRescaleRef.current?.(cur.w / seedPrevVideoRect.w, cur.h / seedPrevVideoRect.h);
+      }
+    }
+  }, [seedPrevVideoRect]);
 
   useEffect(() => {
     const obs = new ResizeObserver(() => {
@@ -249,7 +276,7 @@ export function AnnotationCanvas({
       return;
     }
 
-    if (!activeLayer || activeLayer.locked) return;
+    if (tool !== 'skeleton' && (!activeLayer || activeLayer.locked)) return;
 
     isDownRef.current = true;
     startPtRef.current = p;
@@ -347,8 +374,9 @@ export function AnnotationCanvas({
       return;
     }
     if (tool === 'skeleton') {
-      const scale = imgH > 0 ? imgH / 4 : 160;
-      onAddElement(activeLayerId, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale, discipline) });
+      const h = imgHRef.current;
+      const scale = h > 0 ? h / 4 : 160;
+      onAddElementRef.current(activeLayerIdRef.current, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale, disciplineRef.current, skeletonFacingRef.current) });
     }
     else if (tool === 'h-angle' || tool === 'v-angle') {
       const mode = tool === 'h-angle' ? 'h' : 'v';
@@ -358,7 +386,7 @@ export function AnnotationCanvas({
     else if (tool === 'arrow')   onAddElement(activeLayerId, { type: 'arrow',   id: uid(), p1: start, p2: p, color, strokeWidth });
     else if (tool === 'rect')    onAddElement(activeLayerId, { type: 'rect',    id: uid(), x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y), color, strokeWidth, filled });
     else if (tool === 'ellipse') onAddElement(activeLayerId, { type: 'ellipse', id: uid(), cx: (start.x + p.x) / 2, cy: (start.y + p.y) / 2, rx: Math.abs(p.x - start.x) / 2, ry: Math.abs(p.y - start.y) / 2, color, strokeWidth, filled });
-  }, [tool, color, strokeWidth, filled, activeLayerId, onAddElement, getCursor, pt]);
+  }, [tool, color, strokeWidth, filled, onAddElement, getCursor, pt]);
 
   const onLeave = useCallback(() => {
     if (tool === 'select') { isDownRef.current = false; dragHandleRef.current = null; isDraggingBodyRef.current = false; }

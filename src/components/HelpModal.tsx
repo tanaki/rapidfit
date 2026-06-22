@@ -76,7 +76,7 @@ export function HelpModal({ onClose }: Props) {
       clearCheckTimeout();
       cleanups.forEach(fn => fn());
     };
-  }, []); // eslint-disable-line
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCheck = () => {
     if (!api) return;

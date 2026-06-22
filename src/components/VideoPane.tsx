@@ -47,12 +47,15 @@ export interface AnnotationProps {
   onRescaleElements?: (sx: number, sy: number) => void;
   onAddNamedLayer?: (name: string) => string;
   discipline?: Discipline;
+  skeletonFacing?: 'left' | 'right';
+  seedPrevVideoRect?: { w: number; h: number } | null;
 }
 
 export interface VideoPaneHandle {
   stepFrame: (dir: 1 | -1, fps?: number, frames?: number) => void;
   seekTo: (time: number) => void;
   getTime: () => number;
+  getVideoRect: () => { w: number; h: number } | null;
   isPaused: () => boolean;
   togglePlay: () => void;
 }
@@ -71,7 +74,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   const videoRef       = useRef<HTMLVideoElement>(null);
   const imageRef       = useRef<HTMLImageElement>(null);
   const streamRef      = useRef<MediaStream | null>(null);
-  const pendingSeekRef = useRef<number | null>(null);
+  const pendingSeekRef    = useRef<number | null>(null);
+  const fixingDurationRef = useRef(false);
   const isPanMode      = annotationProps?.tool === 'pan';
 
   // Track the video/image display rect (object-contain letterbox)
@@ -286,12 +290,12 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       // header — video.duration is Infinity. The standard fix is to seek to a
       // huge timestamp so the browser reads the last cluster and derives the
       // real duration, then seek back to 0 (or the pending restore position).
-      let fixingDuration = false;
+      fixingDurationRef.current = false;
       const onDur = () => {
         if (isFinite(video.duration) && video.duration > 0) {
           onDurationChange?.(video.duration);
-          if (fixingDuration) {
-            fixingDuration = false;
+          if (fixingDurationRef.current) {
+            fixingDurationRef.current = false;
             const seek = pendingSeekRef.current ?? 0;
             pendingSeekRef.current = null;
             video.currentTime = seek;
@@ -304,7 +308,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
         updateVideoRect();
         if (!isFinite(video.duration) || video.duration <= 0) {
           // Trigger the browser to seek to the end so it can determine duration.
-          fixingDuration = true;
+          fixingDurationRef.current = true;
           video.currentTime = 1e101; // browser clamps to actual end
         } else {
           onDur();
@@ -313,7 +317,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       };
 
       const onCanPlay = () => {
-        if (!fixingDuration) {
+        if (!fixingDurationRef.current) {
           onDur();
           if (pendingSeekRef.current !== null) {
             video.currentTime = pendingSeekRef.current;
@@ -358,7 +362,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     onStreamChange?.(null);
     video.srcObject = null;
     video.src = '';
-  }, [source]); // eslint-disable-line
+  }, [source]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Imperative handle ───────────────────────────────────────────────────────
   useImperativeHandle(ref, () => ({
@@ -374,10 +378,11 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     seekTo(time: number) {
       const v = videoRef.current;
       if (!v) return;
-      if (v.readyState >= 1) v.currentTime = time;
+      if (v.readyState >= 1 && !fixingDurationRef.current) v.currentTime = time;
       else pendingSeekRef.current = time;
     },
     getTime()    { return videoRef.current?.currentTime ?? 0; },
+    getVideoRect() { const vr = videoRectRef2.current; return vr ? { w: vr.w, h: vr.h } : null; },
     isPaused()   { return videoRef.current?.paused ?? true; },
     togglePlay() { const v = videoRef.current; if (!v) return; v.paused ? v.play() : v.pause(); },
   }));
@@ -441,6 +446,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           imgW={imgDims.w}
           imgH={imgDims.h}
           discipline={annotationProps.discipline}
+          skeletonFacing={annotationProps.skeletonFacing}
+          seedPrevVideoRect={annotationProps.seedPrevVideoRect}
           style={annotationProps.tool === 'pan' || annotationProps.tool === 'trajectory' ? { pointerEvents: 'none' } : undefined}
         />
       )}

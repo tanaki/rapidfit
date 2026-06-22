@@ -202,6 +202,7 @@ export interface SavedPaneState {
   playbackTime: number;
   layers: Layer[];
   activeLayerId: string;
+  videoRect?: { w: number; h: number };
 }
 
 export interface PersistedSessionState {

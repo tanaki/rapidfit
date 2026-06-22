@@ -179,6 +179,7 @@ export default function App() {
   // Tools (shared across all canvases)
   const [tool, setTool] = useState<Tool>('pan');
   const [color, setColor] = useState('#ef4444');
+  const [skeletonFacing, setSkeletonFacing] = useState<'left' | 'right'>('right');
 
   const advanceColor = useCallback(() => {
     setColor(prev => {
@@ -205,6 +206,9 @@ export default function App() {
     splitMode, activePaneIndex, setPaneBSource, sessions, persistRecording, removeRecording,
   });
 
+  const [savedVideoRectA, setSavedVideoRectA] = useState<{ w: number; h: number } | null>(null);
+  const [savedVideoRectB, setSavedVideoRectB] = useState<{ w: number; h: number } | null>(null);
+
   const appSession = useAppSession({
     sessions, singleLayers, paneLayers1, paneRef0, paneRef1,
     isLiveMode, deviceId: config.deviceId,
@@ -215,6 +219,7 @@ export default function App() {
     setActiveRecording: media.setActiveRecording, setActiveImage: media.setActiveImage,
     setIsLiveMode, setPaneBSource,
     setCaptureLabels: media.setCaptureLabels, setRecordingLabels: media.setRecordingLabels,
+    setSavedVideoRectA, setSavedVideoRectB,
   });
 
   // Playback state — pane A
@@ -289,7 +294,7 @@ export default function App() {
   }, [isLiveMode, media.activeRecording, media.activeImage, config.deviceId, devices]);
 
   // ── Shared annotation props factory ───────────────────────────────────────
-  function makeAnnotationProps(ls: LayersState, currentTime: number) {
+  function makeAnnotationProps(ls: LayersState, currentTime: number, seedVR?: { w: number; h: number } | null) {
     return {
       layers: ls.layers,
       activeLayerId: ls.activeLayerId,
@@ -308,6 +313,8 @@ export default function App() {
       onRescaleElements: ls.rescaleElements,
       onAddNamedLayer: ls.addNamedLayer,
       discipline: sessions.activeSession?.discipline ?? 'route',
+      skeletonFacing,
+      seedPrevVideoRect: seedVR ?? null,
     };
   }
 
@@ -408,13 +415,15 @@ export default function App() {
       />
 
       {/* ── Main ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         <Toolbar
           tool={tool} color={color}
           onTool={setTool} onColor={setColor}
           onUndo={activeLayers.undo} onRedo={activeLayers.redo}
           canUndo={activeLayers.history.length > 0}
           canRedo={activeLayers.future.length > 0}
+          skeletonFacing={skeletonFacing}
+          onSkeletonFacing={setSkeletonFacing}
         />
 
         <div className="flex-1 bg-black overflow-hidden flex flex-col">
@@ -449,7 +458,7 @@ export default function App() {
               active={splitMode && activePaneIndex === 0}
               label={splitMode ? 'A' : undefined}
               onFocus={splitMode ? () => setActivePaneIndex(0) : undefined}
-              annotationProps={makeAnnotationProps(singleLayers, playbackTime)}
+              annotationProps={makeAnnotationProps(singleLayers, playbackTime, savedVideoRectA)}
               onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
               onCameraError={setCameraError}
               onTimeUpdate={setPlaybackTime}
@@ -482,7 +491,7 @@ export default function App() {
                   active={activePaneIndex === 1}
                   label="B"
                   onFocus={() => setActivePaneIndex(1)}
-                  annotationProps={makeAnnotationProps(paneLayers1, playbackTimeB)}
+                  annotationProps={makeAnnotationProps(paneLayers1, playbackTimeB, savedVideoRectB)}
                   onTimeUpdate={setPlaybackTimeB}
                   onDurationChange={d => {
                     setPlaybackDurationB(d);
@@ -543,29 +552,32 @@ export default function App() {
             },
           } : undefined}
         />
+
+        {/* ── Media panel — overlay absolu pour ne pas réduire la zone vidéo ── */}
+        {media.showMediaPanel && (
+          <div className="absolute bottom-0 left-0 right-0 z-30">
+            <MediaPanel
+              captures={media.captures}
+              recordings={media.recordings}
+              activeRecordingId={media.activeRecording?.id ?? null}
+              captureLabels={media.captureLabels}
+              recordingLabels={media.recordingLabels}
+              onSelectCapture={media.handleSelectCapture}
+              onSelectRecording={rec => {
+                if (!splitMode || activePaneIndex === 0) setIsLiveMode(false);
+                media.handleSelectRecording(rec);
+              }}
+              onDownloadCapture={media.handleDownloadCapture}
+              onDeleteCapture={media.handleDeleteCapture}
+              onDownloadRecording={media.handleDownloadRecording}
+              onDeleteRecording={media.handleDeleteRecording}
+              onRenameCapture={media.handleRenameCapture}
+              onRenameRecording={media.handleRenameRecording}
+            />
+          </div>
+        )}
       </div>
 
-      {/* ── Media panel ── */}
-      {media.showMediaPanel && (
-        <MediaPanel
-          captures={media.captures}
-          recordings={media.recordings}
-          activeRecordingId={media.activeRecording?.id ?? null}
-          captureLabels={media.captureLabels}
-          recordingLabels={media.recordingLabels}
-          onSelectCapture={media.handleSelectCapture}
-          onSelectRecording={rec => {
-            if (!splitMode || activePaneIndex === 0) setIsLiveMode(false);
-            media.handleSelectRecording(rec);
-          }}
-          onDownloadCapture={media.handleDownloadCapture}
-          onDeleteCapture={media.handleDeleteCapture}
-          onDownloadRecording={media.handleDownloadRecording}
-          onDeleteRecording={media.handleDeleteRecording}
-          onRenameCapture={media.handleRenameCapture}
-          onRenameRecording={media.handleRenameRecording}
-        />
-      )}
 
       {/* ── Bottom bar ── */}
       <RecordingBar

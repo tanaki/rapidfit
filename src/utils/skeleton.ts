@@ -53,9 +53,11 @@ export function defaultSkeletonPoints(
   hip: Point,
   scale: number,
   discipline: Discipline = 'route',
+  facing: 'left' | 'right' = 'right',
 ): Record<SkeletonKey, Point> {
+  const dir = facing === 'right' ? -1 : 1;
   const o = (fx: number, fy: number): Point => ({
-    x: hip.x + fx * scale,
+    x: hip.x + dir * fx * scale,
     y: hip.y + fy * scale,
   });
 

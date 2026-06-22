@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import type { Recording } from '../types';
 import { uid } from '../utils/uid';
+import { fileTimestamp } from '../utils/formatDate';
 
 export function useRecorder() {
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -70,10 +71,7 @@ export function useRecorder() {
         const url = URL.createObjectURL(blob);
         const duration = elapsed;
         const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-        const now = new Date();
-        const pad = (n: number) => String(n).padStart(2, '0');
-        const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}h${pad(now.getMinutes())}m${pad(now.getSeconds())}`;
-        const name = `Vidéo_${stamp}.${ext}`;
+        const name = `Vidéo_${fileTimestamp()}.${ext}`;
         resolve({ id: uid(), name, blob, url, createdAt: new Date(), duration });
       };
 

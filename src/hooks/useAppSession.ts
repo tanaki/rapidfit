@@ -28,6 +28,8 @@ interface Params {
   setPaneBSource: (v: PaneSource) => void;
   setCaptureLabels: (v: Record<string, string>) => void;
   setRecordingLabels: (v: Record<string, string>) => void;
+  setSavedVideoRectA: (v: { w: number; h: number } | null) => void;
+  setSavedVideoRectB: (v: { w: number; h: number } | null) => void;
 }
 
 export function useAppSession({
@@ -36,6 +38,7 @@ export function useAppSession({
   captureLabels, recordingLabels,
   setCaptures, setRecordings, setActiveRecording, setActiveImage,
   setIsLiveMode, setPaneBSource, setCaptureLabels, setRecordingLabels,
+  setSavedVideoRectA, setSavedVideoRectB,
 }: Params) {
   const { t } = useTranslation();
   const [reportData, setReportData] = useState<ReportData | null>(null);
@@ -135,12 +138,14 @@ export function useAppSession({
         playbackTime:  isLiveMode ? 0 : (paneRef0.current?.getTime() ?? 0),
         layers:        singleLayers.layers,
         activeLayerId: singleLayers.activeLayerId,
+        videoRect:     paneRef0.current?.getVideoRect() ?? undefined,
       },
       paneB: {
         source:        paneBSrc,
         playbackTime:  paneRef1.current?.getTime() ?? 0,
         layers:        paneLayers1.layers,
         activeLayerId: paneLayers1.activeLayerId,
+        videoRect:     paneRef1.current?.getVideoRect() ?? undefined,
       },
       mediaLabels: { captures: captureLabels, recordings: recordingLabels },
     };
@@ -161,12 +166,15 @@ export function useAppSession({
       const l = makeDefaultLayer(t('layers.initialA'));
       singleLayers.importLayers([l], l.id);
     }
+    setSavedVideoRectA(state?.paneA.videoRect ?? null);
+
     if (state?.paneB.layers.length) {
       paneLayers1.importLayers(state.paneB.layers, state.paneB.activeLayerId);
     } else {
       const l = makeDefaultLayer(t('layers.initialB'));
       paneLayers1.importLayers([l], l.id);
     }
+    setSavedVideoRectB(state?.paneB.videoRect ?? null);
 
     const srcA = state?.paneA.source ?? { type: 'none' };
     if (srcA.type === 'camera') {
@@ -174,9 +182,10 @@ export function useAppSession({
     } else if (srcA.type === 'recording') {
       const rec = recs.find(r => r.name === srcA.filename) ?? null;
       setActiveRecording(rec); setActiveImage(null); setIsLiveMode(false);
-      if (rec && (state?.paneA.playbackTime ?? 0) > 0) {
-        const t0 = state!.paneA.playbackTime;
-        setTimeout(() => paneRef0.current?.seekTo(t0), 400);
+      if (rec) {
+        const activeLayerCue = state?.paneA.layers.find(l => l.id === state?.paneA.activeLayerId)?.cueTime;
+        const seekTarget = activeLayerCue ?? (state?.paneA.playbackTime ?? 0);
+        if (seekTarget > 0) setTimeout(() => paneRef0.current?.seekTo(seekTarget), 400);
       }
     } else {
       setIsLiveMode(false); setActiveRecording(null); setActiveImage(null);
@@ -189,10 +198,8 @@ export function useAppSession({
       const rec = recs.find(r => r.name === srcB.filename) ?? null;
       if (rec) {
         setPaneBSource({ type: 'recording', recording: rec });
-        if ((state?.paneB.playbackTime ?? 0) > 0) {
-          const t1 = state!.paneB.playbackTime;
-          setTimeout(() => paneRef1.current?.seekTo(t1), 400);
-        }
+        const t1 = state?.paneB.playbackTime ?? 0;
+        if (t1 > 0) setTimeout(() => paneRef1.current?.seekTo(t1), 400);
       } else {
         setPaneBSource({ type: 'none' });
       }

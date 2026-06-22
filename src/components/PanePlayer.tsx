@@ -54,7 +54,7 @@ function Seekbar({ time, duration, onSeek, cuePoints, onSeekToCue }: SeekbarProp
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, []); // eslint-disable-line
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const displayPct = dragPct !== null ? dragPct : (duration > 0 ? Math.min(100, (time / duration) * 100) : 0);
 

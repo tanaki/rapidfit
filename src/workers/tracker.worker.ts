@@ -41,8 +41,7 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
 
       if (prevGray !== null && pts.length > 0) {
         pts = trackPoints(prevGray, next, imgW, imgH, pts);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (self as any).postMessage({ type: 'tracked', points: pts });
+        (self as unknown as DedicatedWorkerGlobalScope).postMessage({ type: 'tracked', points: pts });
       }
 
       prevGray = next;
