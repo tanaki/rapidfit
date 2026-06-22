@@ -122,6 +122,7 @@ export interface Layer {
   locked: boolean;
   elements: AnnotationElement[];
   coteKey?: string; // lien persistant vers une cote du guide (clé i18n guide.<key>)
+  cueTime?: number; // timestamp (s) dans la vidéo source
 }
 
 export interface Recording {

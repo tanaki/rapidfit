@@ -34,13 +34,17 @@ export function useLayers(initialName = 'Calque 1') {
   }, [updateLayers]);
 
   // Crée automatiquement un nouveau calque pour chaque annotation
-  const addElementOnNewLayer = useCallback((el: AnnotationElement) => {
+  const addElementOnNewLayer = useCallback((el: AnnotationElement, cueTime?: number) => {
     const newLayer = makeLayer(i18n.t('layers.default', { n: layers.length + 1 }));
     setHistory(h => [...h.slice(-49), layers]);
     setFuture([]);
-    setLayers(prev => [...prev, { ...newLayer, elements: [el] }]);
+    setLayers(prev => [...prev, { ...newLayer, elements: [el], cueTime }]);
     setActiveLayerId(newLayer.id);
   }, [layers]);
+
+  const setCueTime = useCallback((layerId: string, time: number | undefined) => {
+    setLayers(prev => prev.map(l => l.id === layerId ? { ...l, cueTime: time } : l));
+  }, []);
 
   /** Crée un calque nommé vide ; retourne l'id du calque. */
   const addNamedLayer = useCallback((name: string): string => {
@@ -163,7 +167,7 @@ export function useLayers(initialName = 'Calque 1') {
     layers, activeLayerId, setActiveLayerId,
     history, future,
     addElement, addElementOnNewLayer, addNamedLayer, eraseAt, updateElement, deleteElement, beginDrag,
-    undo, redo, clearActiveLayer, importLayers, rescaleElements,
+    undo, redo, clearActiveLayer, importLayers, rescaleElements, setCueTime,
     layerActions,
   };
 }

@@ -12,13 +12,21 @@ function fmtDuration(secs: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+interface CuePoint {
+  time: number;
+  color: string;
+  label: string;
+}
+
 interface SeekbarProps {
   time: number;
   duration: number;
   onSeek: (t: number) => void;
+  cuePoints?: CuePoint[];
+  onSeekToCue?: (t: number) => void;
 }
 
-function Seekbar({ time, duration, onSeek }: SeekbarProps) {
+function Seekbar({ time, duration, onSeek, cuePoints, onSeekToCue }: SeekbarProps) {
   const barRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const durationRef = useRef(duration);
@@ -61,6 +69,30 @@ function Seekbar({ time, duration, onSeek }: SeekbarProps) {
         className="absolute top-1/2 w-2.5 h-2.5 bg-white rounded-full shadow pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ left: `${displayPct}%`, transform: 'translate(-50%, -50%)' }}
       />
+      {duration > 0 && cuePoints?.map((cp, i) => {
+        const pct = Math.min(100, (cp.time / duration) * 100);
+        return (
+          <div
+            key={i}
+            title={`${cp.label} — ${fmtTime(cp.time)}`}
+            onClick={e => { e.stopPropagation(); onSeekToCue?.(cp.time); }}
+            style={{
+              position: 'absolute',
+              left: `${pct}%`,
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 6,
+              height: 10,
+              background: cp.color,
+              borderRadius: 2,
+              cursor: 'pointer',
+              pointerEvents: 'auto',
+              zIndex: 10,
+              boxShadow: '0 0 0 1px rgba(0,0,0,0.5)',
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -75,14 +107,16 @@ interface Props {
   onSeek: (t: number) => void;
   onFramePrev: () => void;
   onFrameNext: () => void;
+  cuePoints?: CuePoint[];
+  onSeekToCue?: (t: number) => void;
 }
 
-export function PanePlayer({ label, isLiveMode, isPaused, time, duration, onPlayPause, onSeek, onFramePrev, onFrameNext }: Props) {
+export function PanePlayer({ label, isLiveMode, isPaused, time, duration, onPlayPause, onSeek, onFramePrev, onFrameNext, cuePoints, onSeekToCue }: Props) {
   if (isLiveMode) return null;
 
   return (
     <div className="shrink-0 flex flex-col gap-1 px-3 py-1.5 bg-[#13131f] border-t border-[#22223b]">
-      <Seekbar time={time} duration={duration} onSeek={onSeek} />
+      <Seekbar time={time} duration={duration} onSeek={onSeek} cuePoints={cuePoints} onSeekToCue={onSeekToCue} />
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] font-semibold text-slate-500 w-4 shrink-0">{label}</span>
         <button

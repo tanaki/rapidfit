@@ -57,7 +57,10 @@
     "opacity": "Opacity",
     "default": "Layer {{n}}",
     "initialA": "Layer 1",
-    "initialB": "Layer B-1"
+    "initialB": "Layer B-1",
+    "setCue": "Pin current timecode",
+    "removeCue": "Remove cue point",
+    "seekToCue": "Jump to this timecode"
   },
   "video": {
     "noSource": "No source",

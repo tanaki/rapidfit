@@ -57,7 +57,10 @@
     "opacity": "Opacité",
     "default": "Calque {{n}}",
     "initialA": "Calque 1",
-    "initialB": "Calque B-1"
+    "initialB": "Calque B-1",
+    "setCue": "Épingler le timecode actuel",
+    "removeCue": "Supprimer le cue point",
+    "seekToCue": "Aller à ce timecode"
   },
   "video": {
     "noSource": "Aucune source",

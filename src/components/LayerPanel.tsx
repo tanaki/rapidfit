@@ -31,6 +31,9 @@ interface Props {
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
   cotesProps?: CotesProps;
+  currentTime?: number;
+  onSetCueTime?: (id: string, time: number | undefined) => void;
+  onSeekToCue?: (t: number) => void;
 }
 
 const STATUS_BG: Record<AngleStatus, string> = {
@@ -148,11 +151,17 @@ function CotesSection({ discipline, layers, activeLayerId, onSelectCote }: Cotes
   );
 }
 
+function fmtCue(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${String(m).padStart(2, '0')}:${s.toFixed(1).padStart(4, '0')}`;
+}
+
 export function LayerPanel({
   layers, activeLayerId,
   onSelect, onAdd, onDelete, onToggleVisible, onToggleLock,
   onRename, onOpacity, onMoveUp, onMoveDown,
-  cotesProps,
+  cotesProps, currentTime, onSetCueTime, onSeekToCue,
 }: Props) {
   const { t } = useTranslation();
   const renameRef = useRef<string | null>(null);
@@ -238,6 +247,33 @@ export function LayerPanel({
                   <span className="text-[9px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded px-1.5 py-px truncate max-w-[120px]">
                     {t(`guide.${layer.coteKey}`)}
                   </span>
+                </div>
+              )}
+
+              {/* Cue point */}
+              {(layer.cueTime !== undefined || onSetCueTime) && (
+                <div className="mt-0.5 ml-10 flex items-center gap-1">
+                  {layer.cueTime !== undefined && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onSeekToCue?.(layer.cueTime!); }}
+                      title={t('layers.seekToCue')}
+                      className="text-[9px] font-mono bg-amber-500/15 text-amber-300 border border-amber-500/30 rounded px-1.5 py-px hover:bg-amber-500/30 transition-colors"
+                    >
+                      ◆ {fmtCue(layer.cueTime)}
+                    </button>
+                  )}
+                  {onSetCueTime && currentTime !== undefined && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        onSetCueTime(layer.id, layer.cueTime !== undefined ? undefined : currentTime);
+                      }}
+                      title={layer.cueTime !== undefined ? t('layers.removeCue') : t('layers.setCue')}
+                      className="text-[9px] w-5 h-5 flex items-center justify-center rounded hover:bg-[#3d3d5c] text-slate-500 hover:text-amber-300 transition-colors"
+                    >
+                      {layer.cueTime !== undefined ? '✕' : '📍'}
+                    </button>
+                  )}
                 </div>
               )}
 

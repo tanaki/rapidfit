@@ -53,6 +53,7 @@ interface PaneColumnProps {
   showGuide: boolean;
   showGrid: boolean;
   gridSize: number;
+  onSeekToCue?: (t: number) => void;
 }
 
 function PaneColumn({
@@ -60,8 +61,16 @@ function PaneColumn({
   annotationProps, onStreamChange, onCameraError,
   onTimeUpdate, onDurationChange, onPlayStateChange, onCapture,
   playerLabel, playerIsLive, playerIsPaused, playerTime, playerDuration, frameRate,
-  devices, recordings, showGuide, showGrid, gridSize,
+  devices, recordings, showGuide, showGrid, gridSize, onSeekToCue,
 }: PaneColumnProps) {
+  const cuePoints = annotationProps.layers
+    .filter(l => l.cueTime !== undefined)
+    .map(l => ({
+      time:  l.cueTime!,
+      color: l.elements[0]?.color ?? '#6366f1',
+      label: l.name,
+    }));
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <VideoPane
@@ -87,6 +96,8 @@ function PaneColumn({
         onSeek={t => { paneRef.current?.seekTo(t); onTimeUpdate(t); }}
         onFramePrev={() => paneRef.current?.stepFrame(-1, frameRate)}
         onFrameNext={() => paneRef.current?.stepFrame(1, frameRate)}
+        cuePoints={cuePoints}
+        onSeekToCue={onSeekToCue}
       />
     </div>
   );
@@ -278,13 +289,14 @@ export default function App() {
   }, [isLiveMode, media.activeRecording, media.activeImage, config.deviceId, devices]);
 
   // ── Shared annotation props factory ───────────────────────────────────────
-  function makeAnnotationProps(ls: LayersState) {
+  function makeAnnotationProps(ls: LayersState, currentTime: number) {
     return {
       layers: ls.layers,
       activeLayerId: ls.activeLayerId,
       tool, color, strokeWidth: 2, filled: false,
       onAddElement: (_: string, el: AnnotationElement) => {
-        ls.addElementOnNewLayer(el);
+        const cue = isLiveMode ? undefined : currentTime;
+        ls.addElementOnNewLayer(el, cue);
         if (el.type === 'line' || el.type === 'arrow' || el.type === 'angle' || el.type === 'hv-angle' || el.type === 'skeleton' || el.type === 'path') {
           advanceColor();
         }
@@ -437,7 +449,7 @@ export default function App() {
               active={splitMode && activePaneIndex === 0}
               label={splitMode ? 'A' : undefined}
               onFocus={splitMode ? () => setActivePaneIndex(0) : undefined}
-              annotationProps={makeAnnotationProps(singleLayers)}
+              annotationProps={makeAnnotationProps(singleLayers, playbackTime)}
               onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
               onCameraError={setCameraError}
               onTimeUpdate={setPlaybackTime}
@@ -458,6 +470,7 @@ export default function App() {
               frameRate={config.frameRate || 30}
               devices={devices} recordings={media.recordings}
               showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
+              onSeekToCue={t => { paneRef0.current?.seekTo(t); setPlaybackTime(t); }}
             />
 
             {splitMode && (
@@ -469,7 +482,7 @@ export default function App() {
                   active={activePaneIndex === 1}
                   label="B"
                   onFocus={() => setActivePaneIndex(1)}
-                  annotationProps={makeAnnotationProps(paneLayers1)}
+                  annotationProps={makeAnnotationProps(paneLayers1, playbackTimeB)}
                   onTimeUpdate={setPlaybackTimeB}
                   onDurationChange={d => {
                     setPlaybackDurationB(d);
@@ -490,6 +503,7 @@ export default function App() {
                   frameRate={config.frameRate || 30}
                   devices={devices} recordings={media.recordings}
                   showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
+                  onSeekToCue={t => { paneRef1.current?.seekTo(t); setPlaybackTimeB(t); }}
                 />
               </>
             )}
@@ -508,6 +522,12 @@ export default function App() {
           activeLayerId={activeLayers.activeLayerId}
           onSelect={activeLayers.setActiveLayerId}
           {...activeLayers.layerActions}
+          currentTime={activePaneIsB ? playbackTimeB : playbackTime}
+          onSetCueTime={(id, time) => activeLayers.setCueTime(id, time)}
+          onSeekToCue={t => {
+            if (activePaneIsB) { paneRef1.current?.seekTo(t); setPlaybackTimeB(t); }
+            else               { paneRef0.current?.seekTo(t); setPlaybackTime(t);  }
+          }}
           cotesProps={sessions.activeSession ? {
             discipline: sessions.activeSession.discipline,
             layers: activeLayers.layers,
