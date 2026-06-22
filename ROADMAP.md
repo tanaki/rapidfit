@@ -435,6 +435,23 @@ Exporter une vidéo MP4 avec les annotations incrustées (calques dessinés fram
 
 ---
 
+## ⏳ Phase 10 — Sauvegarde cloud (Google Drive) — BACKLOG
+
+### Objectif
+Synchroniser les sessions (vidéos, captures, calques, rapports PDF) avec Google Drive pour permettre l'accès multi-appareil et la sauvegarde hors-site.
+
+### Approche envisagée
+- Optionnel dans les Paramètres (onglet dédié "Cloud")
+- Auth OAuth2 Google via Electron (flux PKCE dans le browser système)
+- Dossier racine Drive configurable par l'utilisateur (`RapidFit/` par défaut)
+- Sync bidirectionnel à l'ouverture de session + bouton "Synchroniser" manuel
+- Structure de fichiers identique au dossier local — compatible sans migration
+
+### Complexité
+Élevée — OAuth, gestion des tokens (refresh), résolution de conflits, gestion offline, quota Drive. À aborder après stabilisation des phases 8 et 9.
+
+---
+
 ## Dépendances entre phases
 ```
 Phase 1 (Electron)
@@ -442,10 +459,11 @@ Phase 1 (Electron)
         └── Phase 3 (Clients/Sessions)
               ├── Phase 4 (Cotes)
               └── Phase 5 (PDF)
-                    └── Phase 6 (Double caméra sync)   ← PROCHAINE
+                    └── Phase 6 (Double caméra sync)
                           └── Phase 7 (Tracking points)
                                 └── Phase 8 (Comparaison avant/après)
                                       └── Phase 9 (Export vidéo annotée)
+                                            └── Phase 10 (Sauvegarde cloud Drive)
 ```
 
 ---

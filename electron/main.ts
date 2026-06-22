@@ -201,6 +201,24 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// ── Save-before-quit ──────────────────────────────────────────────────────────
+// Notifie le renderer pour qu'il flush la sauvegarde, puis quitte.
+let quitting = false;
+app.on('before-quit', e => {
+  if (quitting) return;
+  e.preventDefault();
+  const w = BrowserWindow.getAllWindows()[0];
+  if (!w) { quitting = true; app.quit(); return; }
+  // Timeout de sécurité : quitte après 3s même si le renderer ne répond pas
+  const fallback = setTimeout(() => { quitting = true; app.quit(); }, 3000);
+  ipcMain.once('app:ready-to-quit', () => {
+    clearTimeout(fallback);
+    quitting = true;
+    app.quit();
+  });
+  w.webContents.send('app:before-quit');
+});
+
 // ── Auto-updater Windows (electron-updater) ───────────────────────────────────
 
 autoUpdater.logger = log;

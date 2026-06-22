@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Capture, Recording, PaneSource, Client, Session, Discipline, PersistedSessionState, Layer } from '../types';
 import type { ReportData } from '../types';
@@ -55,6 +55,22 @@ export function useAppSession({
     setRecordingLabels({});
   }, [sessions.activeSession?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Save on quit ─────────────────────────────────────────────────────────
+  const saveCurrentStateRef = useRef<() => Promise<void>>(async () => {});
+
+  useEffect(() => {
+    const api = (window as unknown as { electronAPI?: {
+      onBeforeQuit?: (cb: () => void) => () => void;
+      confirmReadyToQuit?: () => void;
+    }}).electronAPI;
+    if (!api?.onBeforeQuit) return;
+    const unsub = api.onBeforeQuit(async () => {
+      await saveCurrentStateRef.current();
+      api.confirmReadyToQuit?.();
+    });
+    return unsub;
+  }, []);
+
   // Init / restore on first load
   useEffect(() => {
     if (sessions.isLoading) return;
@@ -71,6 +87,30 @@ export function useAppSession({
       await restoreState(sess, loadedRecs);
     });
   }, [sessions.isLoading, sessions.activeSession]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Auto-save debouncée ───────────────────────────────────────────────────
+  // Sauvegarde le state 1.5s après le dernier changement de layers/source.
+  // Le ref "mounted" évite de sauvegarder au premier rendu (restore en cours).
+  const autoSaveMountedRef = useRef(false);
+  const autoSaveTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const autoSaveDeps = useMemo(() => ({
+    layersA:  singleLayers.layers,
+    activeA:  singleLayers.activeLayerId,
+    layersB:  paneLayers1.layers,
+    activeB:  paneLayers1.activeLayerId,
+    isLiveMode, activeRecording, activeImage, paneBSource,
+  }), [singleLayers.layers, singleLayers.activeLayerId,
+       paneLayers1.layers, paneLayers1.activeLayerId,
+       isLiveMode, activeRecording, activeImage, paneBSource]);
+
+  useEffect(() => {
+    if (!autoSaveMountedRef.current) { autoSaveMountedRef.current = true; return; }
+    if (!sessions.activeSession) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(() => { saveCurrentState(); }, 1500);
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [autoSaveDeps]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveCurrentState = useCallback(async () => {
     if (!sessions.activeSession?.folderPath) return;
@@ -108,6 +148,9 @@ export function useAppSession({
     await sessions.saveSessionState(sessions.activeSession.folderPath, state);
   }, [sessions, isLiveMode, deviceId, activeRecording, activeImage, paneBSource,
       singleLayers, paneLayers1, captureLabels, recordingLabels]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Garder la ref à jour pour le handler before-quit (évite les closures périmées)
+  useEffect(() => { saveCurrentStateRef.current = saveCurrentState; }, [saveCurrentState]);
 
   const restoreState = useCallback(async (session: Session, recs: Recording[]) => {
     const state = await sessions.loadSessionState(session.folderPath);

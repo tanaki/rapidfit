@@ -83,4 +83,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // ── App assets ───────────────────────────────────────────────────────────────
   appGetAssetPath: (name: string) => ipcRenderer.invoke('app:get-asset-path', name),
+
+  // ── Quit lifecycle ───────────────────────────────────────────────────────────
+  onBeforeQuit: (cb: () => void) => {
+    const handler = () => cb();
+    ipcRenderer.on('app:before-quit', handler);
+    return () => ipcRenderer.removeListener('app:before-quit', handler);
+  },
+  confirmReadyToQuit: () => ipcRenderer.send('app:ready-to-quit'),
 });
