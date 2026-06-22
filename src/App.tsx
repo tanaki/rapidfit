@@ -577,7 +577,14 @@ export default function App() {
         onPauseRecording={recorder.isPaused ? recorder.resume : recorder.pause}
         onStopRecording={handleStopRecording}
         onImportVideo={() => importInputRef.current?.click()}
-        onLiveMode={() => { setIsLiveMode(true); media.setActiveRecording(null); media.setActiveImage(null); }}
+        onLiveMode={() => {
+          const deviceId = config.deviceId || devices[0]?.deviceId || '';
+          if (splitMode && activePaneIsB) {
+            setPaneBSource({ type: 'camera', deviceId });
+          } else {
+            setIsLiveMode(true); media.setActiveRecording(null); media.setActiveImage(null);
+          }
+        }}
         captureCount={media.captures.length}
         recordingCount={media.recordings.length}
         showMedia={media.showMediaPanel}
