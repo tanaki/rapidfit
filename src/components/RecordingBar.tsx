@@ -22,7 +22,7 @@ interface Props {
 
 export function RecordingBar({
   isRecording, isPaused, elapsed,
-  isLiveMode, canRecord,
+  isLiveMode: _isLiveMode, canRecord,
   onStartRecording, onPauseRecording, onStopRecording,
   onImportVideo, onLiveMode,
   captureCount, recordingCount, showMedia, onToggleMedia,

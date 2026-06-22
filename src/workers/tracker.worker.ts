@@ -41,7 +41,7 @@ self.onmessage = (e: MessageEvent<InMsg>) => {
 
       if (prevGray !== null && pts.length > 0) {
         pts = trackPoints(prevGray, next, imgW, imgH, pts);
-        (self as unknown as DedicatedWorkerGlobalScope).postMessage({ type: 'tracked', points: pts });
+        (self as unknown as { postMessage(data: unknown): void }).postMessage({ type: 'tracked', points: pts });
       }
 
       prevGray = next;

@@ -202,7 +202,6 @@ export function drawSkeleton(ctx: CanvasRenderingContext2D, el: SkeletonElement,
   // ── Pre-compute arc bisector direction for every angle joint ──
   // The degree label sits along this direction (interior of angle).
   // The joint name label will be placed in the OPPOSITE direction to avoid overlap.
-  const arcRadius   = 26 / zoom;
   const arcBisector = new Map<SkeletonKey, number>(); // radians
   for (const [vertex, a, b] of SKELETON_ANGLES) {
     const pv = points[vertex];
