@@ -11,7 +11,6 @@ export {
   SKELETON_SEGMENTS,
   SKELETON_HEAD_SEGMENT,
   SKELETON_ANGLES,
-  SKELETON_LABELS,
   defaultSkeletonPoints,
 } from './skeleton';
 

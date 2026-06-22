@@ -217,36 +217,8 @@ export function drawSkeleton(ctx: CanvasRenderingContext2D, el: SkeletonElement,
     drawSkeletonAngle(ctx, points[vertex], points[a], points[b], zoom, color, strokeWidth);
   }
 
-  // ── Build adjacency list (for joints without an arc) ──
-  const allSegs: [SkeletonKey, SkeletonKey][] = [...SKELETON_SEGMENTS, SKELETON_HEAD_SEGMENT];
-  const neighbors = new Map<SkeletonKey, SkeletonKey[]>();
-  for (const key of SKELETON_KEYS) neighbors.set(key, []);
-  for (const [a, b] of allSegs) {
-    neighbors.get(a)!.push(b);
-    neighbors.get(b)!.push(a);
-  }
-
-  /** Direction angle (radians) at which to place the joint name label. */
-  function labelDir(key: SkeletonKey): number {
-    if (arcBisector.has(key)) {
-      // Opposite to the degree label (interior arc) → exterior direction
-      return arcBisector.get(key)! + Math.PI;
-    }
-    // No arc: go away from the average position of neighbors
-    const ns = neighbors.get(key)!;
-    if (ns.length === 0) return -Math.PI / 2;
-    const p    = points[key];
-    const avgDx = ns.reduce((s, n) => s + (points[n].x - p.x), 0) / ns.length;
-    const avgDy = ns.reduce((s, n) => s + (points[n].y - p.y), 0) / ns.length;
-    return Math.atan2(-avgDy, -avgDx); // opposite direction
-  }
-
-  // ── Joint dots + name labels ──
-  const dotR     = (3 + strokeWidth) / zoom;
-  const fontSize = (10 + strokeWidth) / zoom;
-  ctx.font         = `${fontSize}px system-ui`;
-  ctx.textBaseline = 'middle';
-  ctx.textAlign    = 'center';
+  // ── Joint dots ──
+  const dotR = (3 + strokeWidth) / zoom;
 
   for (const key of SKELETON_KEYS) {
     const p = points[key];
@@ -257,21 +229,5 @@ export function drawSkeleton(ctx: CanvasRenderingContext2D, el: SkeletonElement,
     ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
     ctx.fill();
 
-    // Name label: push far enough to clear the arc (if any)
-    const hasArc = arcBisector.has(key);
-    const dist   = hasArc ? arcRadius + 15 / zoom : dotR + 10 / zoom;
-    const dir    = labelDir(key);
-    const lx = p.x + Math.cos(dir) * dist;
-    const ly = p.y + Math.sin(dir) * dist;
-
-    const txt = SKELETON_LABELS[key];
-    const tw  = ctx.measureText(txt).width;
-    const bh  = fontSize * 1.3;
-    ctx.fillStyle = 'rgba(0,0,0,0.60)';
-    ctx.beginPath();
-    ctx.roundRect(lx - tw / 2 - 3 / zoom, ly - bh / 2, tw + 6 / zoom, bh, 2 / zoom);
-    ctx.fill();
-    ctx.fillStyle = color;
-    ctx.fillText(txt, lx, ly);
   }
 }
