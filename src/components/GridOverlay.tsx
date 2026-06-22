@@ -204,6 +204,7 @@ export function GridOverlay({ visible, gridSize, zoom, pan }: Props) {
           pointerEvents: 'auto',
           zIndex: 141,
         }}
+        data-no-pan
         onMouseDown={handleDragX}
         title="Déplacer la ligne verticale"
       />
@@ -221,6 +222,7 @@ export function GridOverlay({ visible, gridSize, zoom, pan }: Props) {
           pointerEvents: 'auto',
           zIndex: 141,
         }}
+        data-no-pan
         onMouseDown={handleDragY}
         title="Déplacer la ligne horizontale"
       />

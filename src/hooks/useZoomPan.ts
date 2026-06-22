@@ -72,6 +72,7 @@ export function useZoomPan(panMode = false, onWheelScroll?: (deltaY: number) => 
     if (!panMode) { el.style.cursor = ''; return; }
     const onDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
+      if ((e.target as HTMLElement).closest('[data-no-pan]')) return;
       e.preventDefault();
       isPanningRef.current = true;
       panStartRef.current  = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
