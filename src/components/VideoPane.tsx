@@ -250,19 +250,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           },
           audio: false,
         })
-        .then(async stream => {
+        .then(stream => {
           if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
-
-          // Push framerate to camera max without touching resolution
-          // (setting width+height maxima independently can produce invalid
-          // aspect ratios — square, cropped — on some cameras)
-          const track = stream.getVideoTracks()[0];
-          if (track) {
-            const caps = track.getCapabilities?.();
-            if (caps?.frameRate?.max) {
-              await track.applyConstraints({ frameRate: { ideal: caps.frameRate.max } }).catch(() => {});
-            }
-          }
 
           streamRef.current = stream;
           video.srcObject = stream;
