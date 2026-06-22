@@ -103,9 +103,23 @@ const DEFAULT_CONFIG: VideoConfig = {
   audioEnabled: false,
 };
 
+const CONFIG_KEY = 'rapidfit:config';
+
+function loadConfig(): VideoConfig {
+  try {
+    const raw = localStorage.getItem(CONFIG_KEY);
+    if (raw) return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+  } catch { /* ignore */ }
+  return DEFAULT_CONFIG;
+}
+
 export default function App() {
   const { t } = useTranslation();
-  const [config, setConfig] = useState<VideoConfig>(DEFAULT_CONFIG);
+  const [config, setConfig] = useState<VideoConfig>(loadConfig);
+
+  useEffect(() => {
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+  }, [config]);
 
   const sessions = useSessions();
   const { company, save: saveCompany } = useCompany();

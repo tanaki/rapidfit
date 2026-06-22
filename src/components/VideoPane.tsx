@@ -250,8 +250,22 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           },
           audio: false,
         })
-        .then(stream => {
+        .then(async stream => {
           if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+
+          // Push camera to its native max quality
+          const track = stream.getVideoTracks()[0];
+          if (track) {
+            const caps = track.getCapabilities?.();
+            if (caps) {
+              const best: MediaTrackConstraints = {};
+              if (caps.width?.max)     best.width     = { ideal: caps.width.max };
+              if (caps.height?.max)    best.height    = { ideal: caps.height.max };
+              if (caps.frameRate?.max) best.frameRate = { ideal: caps.frameRate.max };
+              await track.applyConstraints(best).catch(() => {});
+            }
+          }
+
           streamRef.current = stream;
           video.srcObject = stream;
           video.play();
