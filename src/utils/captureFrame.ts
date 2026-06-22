@@ -57,20 +57,21 @@ export async function capturePane(
     ctx.drawImage(imgEl, 0, 0, outW, outH);
   }
 
-  // Annotations — always at zoom=1, scaled from videoRect CSS space to native
+  // Annotations — rendu direct à la résolution native pour éviter l'upscaling pixelisé.
+  // Les coordonnées des éléments sont en "content space" (CSS px, videoRect).
+  // On applique scale(sx, sy) pour mapper vers la résolution native avant de rendre.
   if (layers && layers.length > 0 && videoRect && videoRect.w > 0 && videoRect.h > 0) {
-    // Intermediate canvas at video-rect CSS-pixel dimensions.
-    // Annotation coordinates are stored in this space (content space, origin at
-    // top-left of the video rect). renderLayersWithDraft at zoom=1 / pan=(0,0)
-    // draws them at their stored coordinates without any additional offset.
-    const annotTmp = document.createElement('canvas');
-    annotTmp.width  = Math.round(videoRect.w);
-    annotTmp.height = Math.round(videoRect.h);
-    const annotCtx = annotTmp.getContext('2d')!;
-    renderLayersWithDraft(annotCtx, layers, null, undefined, undefined, 1, { x: 0, y: 0 }, outW, outH);
+    const sx = outW / videoRect.w;
+    const sy = outH / videoRect.h;
 
-    // Scale the annotated rect onto the full native output
-    ctx.drawImage(annotTmp, 0, 0, outW, outH);
+    const annotTmp = document.createElement('canvas');
+    annotTmp.width  = outW;
+    annotTmp.height = outH;
+    const annotCtx = annotTmp.getContext('2d')!;
+    annotCtx.scale(sx, sy);
+    renderLayersWithDraft(annotCtx, layers, null, undefined, undefined, 1, { x: 0, y: 0 }, videoRect.w, videoRect.h);
+
+    ctx.drawImage(annotTmp, 0, 0);
   }
 
   // ── Output ────────────────────────────────────────────────────────────────
