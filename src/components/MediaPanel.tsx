@@ -309,13 +309,23 @@ export function MediaPanel({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Strip the ISO timestamp suffix from auto-generated filenames for display.
- *  "Recording_2024-01-05T12-30-00-000Z.webm" → "Recording_2024-01-05" */
+/** Formate les noms auto-générés pour l'affichage avec date + heure.
+ *  "Vidéo_2024-01-05_14h30m00.webm"     → "Vidéo · 05/01/2024 14:30"
+ *  "Capture_A_2024-01-05_14h30m00.png"  → "Capture A · 05/01/2024 14:30"
+ *  Anciens noms ISO toujours supportés. */
 function stripTimestamp(name: string): string {
-  // Remove extension
   const base = name.replace(/\.[^.]+$/, '');
-  // Shorten Recording_YYYY-MM-DDTHH-MM-SS-mmmZ → Recording · YYYY-MM-DD
-  const m = base.match(/^(Recording|Capture)_(\d{4}-\d{2}-\d{2})/);
-  if (m) return `${m[1]} · ${m[2]}`;
+  // Nouveau format : Préfixe_YYYY-MM-DD_HHhMMmSS
+  const m = base.match(/^(.+?)_(\d{4})-(\d{2})-(\d{2})_(\d{2})h(\d{2})m\d{2}$/);
+  if (m) {
+    const [, prefix, yyyy, mm, dd, hh, min] = m;
+    return `${prefix} · ${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  }
+  // Ancien format ISO : Recording_YYYY-MM-DDTHH-MM-…
+  const old = base.match(/^(Recording|Capture[^_]*)_(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})/);
+  if (old) {
+    const [, prefix, yyyy, mm, dd, hh, min] = old;
+    return `${prefix} · ${dd}/${mm}/${yyyy} ${hh}:${min}`;
+  }
   return base;
 }

@@ -75,8 +75,11 @@ export async function capturePane(
   }
 
   // ── Output ────────────────────────────────────────────────────────────────
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}h${pad(now.getMinutes())}m${pad(now.getSeconds())}`;
   const suffix = paneLabel ? `_${paneLabel}` : '';
-  const name   = `Capture${suffix}_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+  const name   = `Capture${suffix}_${stamp}.png`;
 
   const blob = await new Promise<Blob>((res, rej) =>
     out.toBlob(b => (b ? res(b) : rej(new Error('toBlob failed'))), 'image/png'),

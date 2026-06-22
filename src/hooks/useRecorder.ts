@@ -70,7 +70,10 @@ export function useRecorder() {
         const url = URL.createObjectURL(blob);
         const duration = elapsed;
         const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-        const name = `Recording_${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`;
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}h${pad(now.getMinutes())}m${pad(now.getSeconds())}`;
+        const name = `Vidéo_${stamp}.${ext}`;
         resolve({ id: uid(), name, blob, url, createdAt: new Date(), duration });
       };
 
