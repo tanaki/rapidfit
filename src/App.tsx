@@ -573,6 +573,7 @@ export default function App() {
         isPaused={recorder.isPaused}
         elapsed={recorder.elapsed}
         isLiveMode={isLiveMode}
+        canRecord={isLiveMode || (splitMode && activePaneIsB && paneBSource.type === 'camera')}
         onStartRecording={handleStartRecording}
         onPauseRecording={recorder.isPaused ? recorder.resume : recorder.pause}
         onStopRecording={handleStopRecording}

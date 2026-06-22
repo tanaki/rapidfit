@@ -8,6 +8,7 @@ interface Props {
   isPaused: boolean;
   elapsed: number;
   isLiveMode: boolean;
+  canRecord: boolean; // pane actif en caméra (A ou B)
   onStartRecording: () => void;
   onPauseRecording: () => void;
   onStopRecording: () => void;
@@ -21,7 +22,7 @@ interface Props {
 
 export function RecordingBar({
   isRecording, isPaused, elapsed,
-  isLiveMode,
+  isLiveMode, canRecord,
   onStartRecording, onPauseRecording, onStopRecording,
   onImportVideo, onLiveMode,
   captureCount, recordingCount, showMedia, onToggleMedia,
@@ -36,7 +37,7 @@ export function RecordingBar({
           <button
             onClick={onLiveMode}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-              isLiveMode ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
+              canRecord ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             {t('recording.live')}
@@ -44,14 +45,14 @@ export function RecordingBar({
           <button
             onClick={onImportVideo}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-              !isLiveMode ? 'bg-[#22223b] text-slate-200' : 'text-slate-400 hover:text-slate-200'
+              !canRecord ? 'bg-[#22223b] text-slate-200' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             {t('recording.import')}
           </button>
         </div>
 
-        {isLiveMode && (
+        {canRecord && (
           <div className="flex items-center gap-2">
             {!isRecording ? (
               <button
