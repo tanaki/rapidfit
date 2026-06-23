@@ -121,7 +121,7 @@ describe('useTracking', () => {
       useTracking({ videoRef: makeVideoRef(), onUpdateSkeleton: vi.fn() }),
     );
     act(() => { result.current.startTracking([]); });
-    act(() => { result.current.addFreePoint(100, 200, 'layer-abc', FREE_COLORS[0]); });
+    act(() => { result.current.addFreePoint(100, 200, 'layer-abc', FREE_COLORS[0], 'el-abc'); });
 
     const entry = result.current.trajectoryHistoryRef.current.get('layer-abc');
     expect(entry).toBeDefined();
@@ -137,7 +137,7 @@ describe('useTracking', () => {
       useTracking({ videoRef: makeVideoRef(), onUpdateSkeleton: vi.fn() }),
     );
     act(() => { result.current.startTracking([]); });
-    act(() => { result.current.addFreePoint(50, 75, 'layer-xyz', FREE_COLORS[1]); });
+    act(() => { result.current.addFreePoint(50, 75, 'layer-xyz', FREE_COLORS[1], 'el-xyz'); });
 
     expect(mockWorker.messages).toContainEqual({
       type: 'add-point',
@@ -150,7 +150,7 @@ describe('useTracking', () => {
       useTracking({ videoRef: makeVideoRef(), onUpdateSkeleton: vi.fn() }),
     );
     act(() => { result.current.startTracking([]); });
-    act(() => { result.current.addFreePoint(10, 20, 'layer-1', FREE_COLORS[0]); });
+    act(() => { result.current.addFreePoint(10, 20, 'layer-1', FREE_COLORS[0], 'el-1'); });
     expect(result.current.trajectoryHistoryRef.current.size).toBe(1);
 
     act(() => { result.current.startTracking([]); });
@@ -162,7 +162,7 @@ describe('useTracking', () => {
       useTracking({ videoRef: makeVideoRef(), onUpdateSkeleton: vi.fn() }),
     );
     act(() => { result.current.startTracking([]); });
-    act(() => { result.current.addFreePoint(100, 100, 'layer-t', FREE_COLORS[0]); });
+    act(() => { result.current.addFreePoint(100, 100, 'layer-t', FREE_COLORS[0], 'el-t'); });
 
     act(() => {
       mockWorker.onmessage?.({
@@ -206,7 +206,7 @@ describe('useTracking', () => {
       useTracking({ videoRef: makeVideoRef(), onUpdateSkeleton: vi.fn() }),
     );
     act(() => { result.current.startTracking([]); });
-    act(() => { result.current.addFreePoint(100, 100, 'layer-lost', FREE_COLORS[0]); });
+    act(() => { result.current.addFreePoint(100, 100, 'layer-lost', FREE_COLORS[0], 'el-lost'); });
 
     act(() => {
       mockWorker.onmessage?.({

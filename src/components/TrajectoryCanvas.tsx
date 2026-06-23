@@ -37,22 +37,23 @@ export function segmentColor(baseColor: string, globalIdx: number): string {
 }
 
 // ── Dessin incrémental sur canvas vidéo-coords ────────────────────────────────
+// On ne dessine que les points pas encore tracés (à partir de `drawnCount`).
+// Au restore (drawnCount=0), tout le chemin est redessiné d'un coup.
 
 function appendSegments(
-  ctx:       CanvasRenderingContext2D,
-  entry:     TrajectoryEntry,
-  lineW:     number,
-  fromPtIdx: number,
+  ctx:        CanvasRenderingContext2D,
+  entry:      TrajectoryEntry,
+  lineW:      number,
+  drawnCount: number,
 ) {
-  const { color, totalAdded, points } = entry;
-  const baseIdx = totalAdded - points.length;
+  const { color, points } = entry;
 
   ctx.lineCap  = 'round';
   ctx.lineJoin = 'round';
   ctx.lineWidth = lineW;
 
-  for (let i = Math.max(fromPtIdx + 1, 1); i < points.length; i++) {
-    ctx.strokeStyle = segmentColor(color, baseIdx + i);
+  for (let i = Math.max(drawnCount, 1); i < points.length; i++) {
+    ctx.strokeStyle = segmentColor(color, i);
     ctx.beginPath();
     ctx.moveTo(points[i - 1].x, points[i - 1].y);
     ctx.lineTo(points[i].x,     points[i].y);
@@ -140,18 +141,14 @@ export function TrajectoryCanvas({
           perKeyRef.current.set(key, oc);
         }
 
-        const lastDrawn = drawnUpToRef.current.get(key) ?? 0;
-        const newCount  = entry.totalAdded - lastDrawn;
+        const drawnCount = drawnUpToRef.current.get(key) ?? 0;
 
-        if (newCount > 0 && entry.points.length >= 2) {
-          const fromPtIdx = entry.points.length - newCount - 1;
-          if (fromPtIdx >= 0) {
-            const oct = oc.getContext('2d')!;
-            appendSegments(oct, entry, lineW, fromPtIdx);
-          }
+        if (entry.points.length > drawnCount && entry.points.length >= 2) {
+          const oct = oc.getContext('2d')!;
+          appendSegments(oct, entry, lineW, drawnCount);
         }
 
-        drawnUpToRef.current.set(key, entry.totalAdded);
+        drawnUpToRef.current.set(key, entry.points.length);
       }
 
       // ── Composite ────────────────────────────────────────────────────────
@@ -171,14 +168,14 @@ export function TrajectoryCanvas({
 
         for (const [key, entry] of history) {
           if (!isVisible(key)) continue;
-          const { color, totalAdded, points, initialX, initialY } = entry;
+          const { color, points, initialX, initialY } = entry;
 
           const px = points.length > 0 ? points[points.length - 1].x : initialX;
           const py = points.length > 0 ? points[points.length - 1].y : initialY;
           const cx = (px / iW) * vr.w;
           const cy = (py / iH) * vr.h;
 
-          const curColor = segmentColor(color, totalAdded);
+          const curColor = segmentColor(color, points.length);
           ctx.strokeStyle = curColor;
           ctx.fillStyle   = curColor;
           ctx.lineWidth   = 1.5 / z;

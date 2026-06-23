@@ -8,6 +8,7 @@ import { GuideOverlay } from './GuideOverlay';
 import { GridOverlay } from './GridOverlay';
 import { capturePane } from '../utils/captureFrame';
 import { computeVideoRect, type VideoRect } from '../hooks/useVideoRect';
+import { uid } from '../utils/uid';
 import { useTracking, applyTrackingToSkeleton, TRACKING_JOINTS, FREE_COLORS } from '../hooks/useTracking';
 import { TrackingOverlay } from './TrackingOverlay';
 import { TrajectoryCanvas } from './TrajectoryCanvas';
@@ -165,8 +166,9 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     const cy   = e.clientY - rect.top;
 
     const { zoom, pan } = zoomState;
-    const tx   = zoom * (pan.x + vr.x) + container.clientWidth  / 2 * (1 - zoom);
-    const ty   = zoom * (pan.y + vr.y) + container.clientHeight / 2 * (1 - zoom);
+    // Utiliser rect.width/height (sous-pixel) plutôt que clientWidth (entier)
+    const tx   = zoom * (pan.x + vr.x) + rect.width  / 2 * (1 - zoom);
+    const ty   = zoom * (pan.y + vr.y) + rect.height / 2 * (1 - zoom);
     const wx   = (cx - tx) / zoom;
     const wy   = (cy - ty) / zoom;
     const natX = (wx / vr.w) * dim.w;
@@ -184,8 +186,26 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     const layerName = `Trajectoire ${++trajCounterRef.current}`;
     const layerId   = ap.onAddNamedLayer(layerName);
 
-    addFreePoint(natX, natY, layerId, color);
+    // Crée tout de suite un élément trajectory vide dans le calque : il sera
+    // rempli (figé) à chaque pause vidéo via bakeTrajectories(). Persistance
+    // et rescale gérés comme n'importe quel élément.
+    const elementId = uid();
+    ap.onAddElement(layerId, { type: 'trajectory', id: elementId, points: [], color });
+
+    addFreePoint(natX, natY, layerId, color, elementId);
   }, [zoomState, tracking.mode, startTracking, addFreePoint]);
+
+  // Fige les trajectoires en cours dans leurs calques (coords content), pour
+  // qu'elles soient persistées/rescalées comme des dessins. Appelé sur pause/fin.
+  const bakeTrajectories = useCallback(() => {
+    const ap = annotationPropsRef.current;
+    if (!ap) return;
+    for (const [layerId, entry] of trajectoryHistoryRef.current) {
+      if (entry.points.length < 2) continue;
+      const points = entry.points.map(p => naturalToWorld(p.x, p.y));
+      ap.onUpdateElement(layerId, { type: 'trajectory', id: entry.elementId, points, color: entry.color });
+    }
+  }, [naturalToWorld, trajectoryHistoryRef]);
 
 
   const isVideoSource = source.type === 'camera' || source.type === 'recording';
@@ -283,8 +303,9 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       video.load();
 
       const onTime  = () => onTimeUpdate?.(video.currentTime);
-      const onPause = () => onPlayStateChange?.(true);
+      const onPause = () => { onPlayStateChange?.(true); bakeTrajectories(); };
       const onPlay  = () => onPlayStateChange?.(false);
+      const onEnded = () => bakeTrajectories();
 
       // WebM files recorded by MediaRecorder do not embed a duration in the
       // header — video.duration is Infinity. The standard fix is to seek to a
@@ -333,6 +354,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       video.addEventListener('loadedmetadata', onLoaded);
       video.addEventListener('pause',          onPause);
       video.addEventListener('play',           onPlay);
+      video.addEventListener('ended',          onEnded);
 
       return () => {
         video.removeEventListener('timeupdate',     onTime);
@@ -342,6 +364,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
         video.removeEventListener('loadedmetadata', onLoaded);
         video.removeEventListener('pause',          onPause);
         video.removeEventListener('play',           onPlay);
+        video.removeEventListener('ended',          onEnded);
       };
     }
 

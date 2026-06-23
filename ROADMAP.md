@@ -412,6 +412,25 @@ Suivre le déplacement d'un point anatomique frame par frame sur une vidéo pour
 
 ---
 
+## ⏳ Phase 3-bis — Gestion clients améliorée
+
+### Objectif
+Quand la base clients grossit, le dropdown actuel (tous les clients + toutes leurs sessions) devient illisible. Il faut recentrer l'UI sur le client actif et offrir une recherche par nom pour naviguer vers un autre client.
+
+### Plan d'action
+1. **Client actif** : le dropdown ne liste que les sessions du client courant — plus besoin de tout afficher
+2. **Recherche à la demande** : clic sur le nom du client dans le header → le nom se transforme en champ de texte (inline, même emplacement), focus automatique, filtre la liste de clients en temps réel
+3. **Résultat de recherche** : sélectionner un client ferme la recherche, affiche ses sessions, charge la plus récente
+4. **Fermeture** : Escape ou clic extérieur annule la recherche et restaure le nom affiché
+
+### Fichiers à modifier
+```
+src/components/SessionSelector.tsx   refonte dropdown (client actif + recherche)
+src/hooks/useSessions.ts             accès à la liste complète des clients pour la recherche
+```
+
+---
+
 ## ⏳ Phase 8 — Comparaison avant/après
 
 ### Objectif

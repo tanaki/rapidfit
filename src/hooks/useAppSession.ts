@@ -18,6 +18,8 @@ interface Params {
   activeRecording: Recording | null;
   activeImage: Capture | null;
   paneBSource: PaneSource;
+  splitMode: boolean;
+  setSplitMode: (v: boolean) => void;
   captureLabels: Record<string, string>;
   recordingLabels: Record<string, string>;
   setCaptures: (v: Capture[]) => void;
@@ -35,6 +37,7 @@ interface Params {
 export function useAppSession({
   sessions, singleLayers, paneLayers1, paneRef0, paneRef1,
   isLiveMode, deviceId, activeRecording, activeImage, paneBSource,
+  splitMode, setSplitMode,
   captureLabels, recordingLabels,
   setCaptures, setRecordings, setActiveRecording, setActiveImage,
   setIsLiveMode, setPaneBSource, setCaptureLabels, setRecordingLabels,
@@ -102,10 +105,10 @@ export function useAppSession({
     activeA:  singleLayers.activeLayerId,
     layersB:  paneLayers1.layers,
     activeB:  paneLayers1.activeLayerId,
-    isLiveMode, activeRecording, activeImage, paneBSource,
+    isLiveMode, activeRecording, activeImage, paneBSource, splitMode,
   }), [singleLayers.layers, singleLayers.activeLayerId,
        paneLayers1.layers, paneLayers1.activeLayerId,
-       isLiveMode, activeRecording, activeImage, paneBSource]);
+       isLiveMode, activeRecording, activeImage, paneBSource, splitMode]);
 
   useEffect(() => {
     if (!autoSaveMountedRef.current) { autoSaveMountedRef.current = true; return; }
@@ -147,11 +150,12 @@ export function useAppSession({
         activeLayerId: paneLayers1.activeLayerId,
         videoRect:     paneRef1.current?.getVideoRect() ?? undefined,
       },
+      splitMode,
       mediaLabels: { captures: captureLabels, recordings: recordingLabels },
     };
 
     await sessions.saveSessionState(sessions.activeSession.folderPath, state);
-  }, [sessions, isLiveMode, deviceId, activeRecording, activeImage, paneBSource,
+  }, [sessions, isLiveMode, deviceId, activeRecording, activeImage, paneBSource, splitMode,
       singleLayers, paneLayers1, captureLabels, recordingLabels]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Garder la ref à jour pour le handler before-quit (évite les closures périmées)
@@ -159,6 +163,10 @@ export function useAppSession({
 
   const restoreState = useCallback(async (session: Session, recs: Recording[]) => {
     const state = await sessions.loadSessionState(session.folderPath);
+
+    // Restaurer le mode split en premier pour que la pane B soit montée
+    // avant qu'on tente d'y restaurer source / trajectoires.
+    setSplitMode(state?.splitMode ?? false);
 
     if (state?.paneA.layers.length) {
       singleLayers.importLayers(state.paneA.layers, state.paneA.activeLayerId);
@@ -209,8 +217,10 @@ export function useAppSession({
 
     setCaptureLabels(state?.mediaLabels?.captures ?? {});
     setRecordingLabels(state?.mediaLabels?.recordings ?? {});
+    // Les trajectoires sont désormais des éléments de calque (type 'trajectory'),
+    // restaurés avec les calques ci-dessus — rien de spécial à faire ici.
   }, [sessions, singleLayers, paneLayers1, makeDefaultLayer, t, // eslint-disable-line react-hooks/exhaustive-deps
-      setIsLiveMode, setActiveRecording, setActiveImage, setPaneBSource,
+      setIsLiveMode, setActiveRecording, setActiveImage, setPaneBSource, setSplitMode,
       setCaptureLabels, setRecordingLabels]);
 
   const applySession = useCallback(async (client: Client, session: Session) => {

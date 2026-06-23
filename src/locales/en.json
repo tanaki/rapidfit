@@ -256,6 +256,7 @@
     "check": "Check for updates",
     "checking": "Checking…",
     "upToDate": "✓ up to date",
+    "latestOk": "Latest version OK",
     "downloadingShort": "⬇ v{{version}}…",
     "readyShort": "✓ v{{version}} ready — Install",
     "errorShort": "⚠ Error",

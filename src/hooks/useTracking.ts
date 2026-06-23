@@ -15,15 +15,15 @@ export interface TrackingState {
   error:  string | null;
 }
 
-const MAX_HISTORY          = 64; // suffisant pour le dessin incrémental
 const DEFINITIVE_LOST_FRAMES = 30; // frames consécutives avant de marquer "perdu définitivement"
 
 export interface TrajectoryEntry {
+  elementId:  string;   // id de l'élément TrajectoryElement dans le calque (pour le bake)
   color:      string;
   initialX:   number;   // position initiale en coords naturelles (permanente)
   initialY:   number;
-  totalAdded: number;   // total de points jamais ajoutés (index absolu pour la couleur)
-  points:     { x: number; y: number }[];  // buffer tournant MAX_HISTORY — pour le dessin incrémental
+  totalAdded: number;   // total de points jamais ajoutés (== points.length, conservé pour compat)
+  points:     { x: number; y: number }[];  // chemin complet (coords naturelles vidéo)
 }
 
 export type TrajectoryHistory = Map<string, TrajectoryEntry>;
@@ -147,7 +147,6 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
             if (entry) {
               entry.points.push({ x: pt.x, y: pt.y });
               entry.totalAdded++;
-              if (entry.points.length > MAX_HISTORY) entry.points.shift();
             }
           }
         }
@@ -194,11 +193,11 @@ export function useTracking({ videoRef, onUpdateSkeleton }: UseTrackingOptions) 
   }, [destroyWorker, videoRef]);
 
   /** Ajoute un point libre au tracking. La clé = ID du calque associé. */
-  const addFreePoint = useCallback((natX: number, natY: number, key: string, color: string) => {
+  const addFreePoint = useCallback((natX: number, natY: number, key: string, color: string, elementId: string) => {
     const worker = workerRef.current;
     if (!worker) return;
     trajectoryHistoryRef.current.set(key, {
-      color, initialX: natX, initialY: natY, totalAdded: 0, points: [],
+      elementId, color, initialX: natX, initialY: natY, totalAdded: 0, points: [],
     });
     worker.postMessage({ type: 'add-point', point: { key, x: natX, y: natY, lost: false, err: 1 } });
   }, []);

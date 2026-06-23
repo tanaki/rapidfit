@@ -103,6 +103,16 @@ export interface SkeletonElement {
   points: Record<SkeletonKey, Point>;
 }
 
+/** Trajectoire de suivi figée — dessin non modifiable. Points en espace content
+ *  (relatif au coin haut-gauche de la vidéo), comme les autres éléments → rescalé
+ *  automatiquement par rescaleElement quand le videoRect change. */
+export interface TrajectoryElement {
+  type: 'trajectory';
+  id: string;
+  points: Point[];
+  color: string;
+}
+
 export type AnnotationElement =
   | PathElement
   | LineElement
@@ -112,7 +122,8 @@ export type AnnotationElement =
   | TextElement
   | AngleElement
   | HVAngleElement
-  | SkeletonElement;
+  | SkeletonElement
+  | TrajectoryElement;
 
 export interface Layer {
   id: string;
@@ -208,6 +219,8 @@ export interface SavedPaneState {
 export interface PersistedSessionState {
   paneA: SavedPaneState;
   paneB: SavedPaneState;
+  /** Mode split (deux panes côte à côte). */
+  splitMode?: boolean;
   /** Display-name overrides for captures and recordings (keyed by id). */
   mediaLabels?: {
     captures:   Record<string, string>;

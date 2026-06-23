@@ -256,6 +256,7 @@
     "check": "Vérifier les mises à jour",
     "checking": "Vérification…",
     "upToDate": "✓ à jour",
+    "latestOk": "Dernière version OK",
     "downloadingShort": "⬇ v{{version}}…",
     "readyShort": "✓ v{{version}} prête — Installer",
     "errorShort": "⚠ Erreur",

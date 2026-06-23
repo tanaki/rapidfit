@@ -96,6 +96,8 @@ export function hitTestElement(el: AnnotationElement, p: Point, tol = 8): boolea
       const segs: [SkeletonKey, SkeletonKey][] = [...SKELETON_SEGMENTS, SKELETON_HEAD_SEGMENT];
       return segs.some(([a, b]) => distToSegment(p, el.points[a], el.points[b]) < tol);
     }
+    case 'trajectory':
+      return false; // dessin non sélectionnable (suppression via le calque)
   }
 }
 
@@ -145,6 +147,8 @@ export function getHandles(el: AnnotationElement): Handle[] {
     }
     case 'skeleton':
       return SKELETON_KEYS.map((key, i) => ({ ...el.points[key], index: i, cursor: 'grab' }));
+    case 'trajectory':
+      return [];
   }
 }
 
@@ -196,6 +200,8 @@ export function applyHandleDrag(el: AnnotationElement, handleIndex: number, newP
       if (!key) return el;
       return { ...el, points: { ...el.points, [key]: newPt } };
     }
+    case 'trajectory':
+      return el; // non modifiable
   }
 }
 
@@ -215,6 +221,8 @@ export function moveElement(el: AnnotationElement, dx: number, dy: number): Anno
       for (const key of SKELETON_KEYS) moved[key] = m(el.points[key]);
       return { ...el, points: moved };
     }
+    case 'trajectory':
+      return el; // non déplaçable
   }
 }
 
@@ -395,8 +403,32 @@ function drawElement(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom 
     case 'skeleton':
       drawSkeleton(ctx, el, zoom);
       break;
+    case 'trajectory': {
+      if (el.points.length < 2) break;
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      ctx.lineWidth = 1.5 / zoom;
+      for (let i = 1; i < el.points.length; i++) {
+        ctx.strokeStyle = trajectoryDriftColor(el.color, i);
+        ctx.beginPath();
+        ctx.moveTo(el.points[i - 1].x, el.points[i - 1].y);
+        ctx.lineTo(el.points[i].x,     el.points[i].y);
+        ctx.stroke();
+      }
+      break;
+    }
   }
   ctx.restore();
+}
+
+// Dérive de couleur de la trajectoire — s'éclaircit le long du tracé.
+// Doit rester cohérent avec segmentColor() de TrajectoryCanvas (rendu live).
+function trajectoryDriftColor(hex: string, idx: number): string {
+  const COLOR_DRIFT_FRAMES = 1800;
+  const COLOR_DRIFT_MAX    = 0.55;
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 0xff, g = (n >> 8) & 0xff, b = n & 0xff;
+  const f = Math.min(idx / COLOR_DRIFT_FRAMES, 1) * COLOR_DRIFT_MAX;
+  return `rgb(${Math.round(r + (255 - r) * f)},${Math.round(g + (255 - g) * f)},${Math.round(b + (255 - b) * f)})`;
 }
 
 export function drawSelectionHandles(ctx: CanvasRenderingContext2D, el: AnnotationElement, zoom = 1) {
@@ -541,7 +573,8 @@ export function rescaleElement(el: AnnotationElement, sx: number, sy: number): A
     case 'arrow':     return { ...el, p1: sp(el.p1), p2: sp(el.p2) };
     case 'rect':      return { ...el, x: el.x * sx, y: el.y * sy, w: el.w * sx, h: el.h * sy };
     case 'ellipse':   return { ...el, cx: el.cx * sx, cy: el.cy * sy, rx: el.rx * sx, ry: el.ry * sy };
-    case 'path':      return { ...el, points: el.points.map(sp) };
+    case 'path':       return { ...el, points: el.points.map(sp) };
+    case 'trajectory': return { ...el, points: el.points.map(sp) };
     case 'angle':     return { ...el, p0: sp(el.p0), p1: sp(el.p1), p2: sp(el.p2) };
     case 'text':      return { ...el, x: el.x * sx, y: el.y * sy };
     case 'skeleton': {

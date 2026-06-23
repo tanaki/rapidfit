@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-type UpdateState = 'idle' | 'downloading' | 'ready' | 'error';
+type UpdateState = 'idle' | 'uptodate' | 'downloading' | 'ready' | 'error';
 
 interface ElectronAPI {
-  onUpdateAvailable:  (cb: (info: { version: string }) => void) => void;
-  onUpdateDownloaded: (cb: (info: { version: string }) => void) => void;
-  onUpdateError:      (cb: (message: string) => void) => void;
-  installUpdate:      () => void;
+  onUpdateAvailable:    (cb: (info: { version: string }) => void) => (() => void) | void;
+  onUpdateDownloaded:   (cb: (info: { version: string }) => void) => (() => void) | void;
+  onUpdateNotAvailable: (cb: (info: { version: string }) => void) => (() => void) | void;
+  onUpdateError:        (cb: (message: string) => void) => (() => void) | void;
+  installUpdate:        () => void;
+  checkForUpdates:      () => void;
 }
+
+// Délai avant la vérification automatique au démarrage (laisse l'app se stabiliser).
+const AUTO_CHECK_DELAY_MS = 10_000;
+// Durée d'affichage du toast « à jour » avant disparition automatique.
+const UPTODATE_TOAST_MS   = 5_000;
 
 export function UpdateBanner() {
   const { t } = useTranslation();
@@ -19,9 +26,26 @@ export function UpdateBanner() {
   useEffect(() => {
     const api = (window as unknown as { electronAPI?: ElectronAPI }).electronAPI;
     if (!api) return;
-    api.onUpdateAvailable((info)  => { setVersion(info.version); setState('downloading'); });
-    api.onUpdateDownloaded((info) => { setVersion(info.version); setState('ready'); });
-    api.onUpdateError((msg)       => { setErrorMsg(msg); setState('error'); });
+
+    let dismissTimer: ReturnType<typeof setTimeout> | undefined;
+
+    const offAvailable    = api.onUpdateAvailable((info)  => { setVersion(info.version); setState('downloading'); });
+    const offDownloaded   = api.onUpdateDownloaded((info) => { setVersion(info.version); setState('ready'); });
+    const offNotAvailable = api.onUpdateNotAvailable((info) => {
+      setVersion(info.version);
+      setState('uptodate');
+      dismissTimer = setTimeout(() => setState(s => (s === 'uptodate' ? 'idle' : s)), UPTODATE_TOAST_MS);
+    });
+    const offError        = api.onUpdateError((msg) => { setErrorMsg(msg); setState('error'); });
+
+    // Vérification automatique ~18 s après le démarrage.
+    const checkTimer = setTimeout(() => api.checkForUpdates(), AUTO_CHECK_DELAY_MS);
+
+    return () => {
+      offAvailable?.(); offDownloaded?.(); offNotAvailable?.(); offError?.();
+      clearTimeout(checkTimer);
+      if (dismissTimer) clearTimeout(dismissTimer);
+    };
   }, []);
 
   const install = () =>
@@ -39,6 +63,16 @@ export function UpdateBanner() {
           <p className="text-red-300 break-words">{errorMsg}</p>
         </div>
         <button onClick={() => setState('idle')} className="text-red-400 hover:text-white shrink-0 text-base leading-none">✕</button>
+      </div>
+    );
+  }
+
+  // ── À jour (toast transitoire) ────────────────────────────────────────────
+  if (state === 'uptodate') {
+    return (
+      <div className="fixed bottom-6 right-6 z-[2000] flex items-center gap-2.5 bg-[#1a1a2e]/95 border border-emerald-600/40 text-slate-200 text-xs rounded-xl px-4 py-3 shadow-2xl backdrop-blur-sm">
+        <span className="text-emerald-400 text-sm leading-none">✓</span>
+        <span>{t('update.latestOk')}</span>
       </div>
     );
   }

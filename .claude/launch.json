@@ -10,9 +10,8 @@
     },
     {
       "name": "rapidfit-dev",
-      "cwd": "/Users/nico/Work/Freelance/rapidfit/rapidfit",
       "runtimeExecutable": "/bin/bash",
-      "runtimeArgs": ["-c", "source ~/.nvm/nvm.sh && nvm use 23 && npm run dev -- --port 5173"],
+      "runtimeArgs": ["-c", "cd /Users/nico/Work/Freelance/rapidfit/rapidfit && source ~/.nvm/nvm.sh && nvm use 23 && npm run dev -- --port 5173"],
       "port": 5173,
       "autoPort": false
     }
