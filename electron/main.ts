@@ -380,24 +380,29 @@ async function checkForUpdatesMac(token: string) {
 
 function installWithScript(zipPath: string) {
   const appBundle = path.resolve(process.execPath, '..', '..', '..');
-  const appParent = path.dirname(appBundle);
   const appName   = path.basename(appBundle);
   const tmpScript = path.join(app.getPath('temp'), 'rapidfit-update.sh');
 
+  // IMPORTANT : on utilise `ditto` (et non unzip/cp) car c'est le seul outil macOS
+  // qui préserve correctement les liens symboliques des frameworks à l'intérieur
+  // du bundle .app. unzip + cp -r les cassent → app corrompue → MAJ qui tourne en
+  // rond. On valide aussi l'extraction AVANT de supprimer le bundle existant.
   const script = [
     '#!/bin/bash',
     'sleep 2',
     `ZIP="${zipPath}"`,
     `APP_PATH="${appBundle}"`,
-    `PARENT="${appParent}"`,
     `APP_NAME="${appName}"`,
     'TMP=$(mktemp -d)',
-    'unzip -o "$ZIP" -d "$TMP"',
+    // Extraction préservant les symlinks ; on abandonne sans rien casser si elle échoue.
+    'if ! ditto -x -k "$ZIP" "$TMP"; then rm -rf "$TMP"; open "$APP_PATH"; exit 1; fi',
+    'if [ ! -d "$TMP/$APP_NAME" ]; then rm -rf "$TMP"; open "$APP_PATH"; exit 1; fi',
+    // Remplacement du bundle seulement après extraction validée.
     'rm -rf "$APP_PATH"',
-    'cp -r "$TMP/$APP_NAME" "$PARENT/"',
-    'xattr -rd com.apple.quarantine "$PARENT/$APP_NAME" 2>/dev/null || true',
-    'open "$PARENT/$APP_NAME"',
+    'ditto "$TMP/$APP_NAME" "$APP_PATH"',
+    'xattr -rd com.apple.quarantine "$APP_PATH" 2>/dev/null || true',
     'rm -rf "$TMP"',
+    'open "$APP_PATH"',
   ].join('\n');
 
   fsSync.writeFileSync(tmpScript, script, { mode: 0o755 });
