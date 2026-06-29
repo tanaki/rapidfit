@@ -2,18 +2,10 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync } from 'fs';
 
 const isElectron = process.env.ELECTRON === 'true';
 const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'));
-
-// Charge .env.local pour les builds locaux (le CI injecte via secrets)
-if (existsSync('.env.local')) {
-  for (const line of readFileSync('.env.local', 'utf-8').split('\n')) {
-    const m = line.match(/^\s*([A-Z_][A-Z0-9_]*)=(.*)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim();
-  }
-}
 
 export default defineConfig({
   plugins: [
@@ -27,12 +19,6 @@ export default defineConfig({
                 build: {
                   outDir: 'dist-electron',
                   sourcemap: false,
-                },
-                define: {
-                  // Injected at build time by CI (GH_UPDATE_TOKEN secret).
-                  // Read-only fine-grained PAT so the packaged app can fetch
-                  // latest-mac.yml and update assets from the private repo.
-                  __GH_UPDATE_TOKEN__: JSON.stringify(process.env.GH_UPDATE_TOKEN ?? ''),
                 },
               },
             },

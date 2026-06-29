@@ -2,7 +2,6 @@ import { app, BrowserWindow, ipcMain, shell, nativeImage, session, systemPrefere
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 
-declare const __GH_UPDATE_TOKEN__: string;
 import path from 'path';
 import fs from 'fs/promises';
 import fsSync from 'fs';
@@ -180,19 +179,14 @@ app.whenReady().then(async () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
   if (!isDev) {
-    if (__GH_UPDATE_TOKEN__) {
-      log.info(`[updater] token présent (${__GH_UPDATE_TOKEN__.slice(0, 6)}…)`);
-      log.info(`[updater] version courante : ${app.getVersion()}`);
-      if (process.platform === 'darwin') {
-        // Sur Mac, electron-updater utilise MacUpdater/ShipIt qui exige une
-        // signature Apple. On bypasse complètement avec un updater custom.
-        checkForUpdatesMac(__GH_UPDATE_TOKEN__);
-      } else {
-        process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
-        autoUpdater.checkForUpdates();
-      }
+    log.info(`[updater] version courante : ${app.getVersion()}`);
+    // Repo public → aucune authentification nécessaire.
+    if (process.platform === 'darwin') {
+      // Sur Mac, electron-updater utilise MacUpdater/ShipIt qui exige une
+      // signature Apple. On bypasse complètement avec un updater custom.
+      checkForUpdatesMac();
     } else {
-      log.warn('[updater] GH_UPDATE_TOKEN absent — auto-update désactivé');
+      autoUpdater.checkForUpdates();
     }
   }
 });
@@ -253,13 +247,12 @@ autoUpdater.on('error', (err) => {
 
 let macDownloadedZip: string | null = null;
 
-function githubApiGet(apiPath: string, token: string): Promise<unknown> {
+function githubApiGet(apiPath: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const req = https.request({
       hostname: 'api.github.com',
       path: apiPath,
       headers: {
-        Authorization: `token ${token}`,
         'User-Agent': 'RapidFit-Updater',
         Accept: 'application/vnd.github.v3+json',
       },
@@ -278,21 +271,20 @@ function githubApiGet(apiPath: string, token: string): Promise<unknown> {
 
 function downloadFile(
   url: string,
-  token: string,
   dest: string,
   onProgress?: (percent: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    function follow(u: string, withAuth: boolean) {
+    function follow(u: string) {
       const parsed = new URL(u);
-      const headers: Record<string, string> = { 'User-Agent': 'RapidFit-Updater' };
-      if (withAuth) {
-        headers.Authorization = `token ${token}`;
-        headers.Accept = 'application/octet-stream';
-      }
+      // Repo public : pas d'auth. Accept octet-stream déclenche la redirection CDN.
+      const headers: Record<string, string> = {
+        'User-Agent': 'RapidFit-Updater',
+        Accept: 'application/octet-stream',
+      };
       https.request({ hostname: parsed.hostname, path: parsed.pathname + parsed.search, headers }, res => {
         if (res.statusCode === 301 || res.statusCode === 302) {
-          follow(res.headers.location!, false); // CDN redirect, pas d'auth
+          follow(res.headers.location!); // redirection CDN
           return;
         }
         if (res.statusCode !== 200) { reject(new Error(`Download ${res.statusCode}`)); return; }
@@ -318,7 +310,7 @@ function downloadFile(
         file.on('error', reject);
       }).on('error', reject).end();
     }
-    follow(url, true);
+    follow(url);
   });
 }
 
@@ -330,11 +322,11 @@ function isNewer(latest: string, current: string): boolean {
   return lPat > cPat;
 }
 
-async function checkForUpdatesMac(token: string) {
+async function checkForUpdatesMac() {
   const win = () => BrowserWindow.getAllWindows()[0];
   try {
     log.info('[updater-mac] vérification…');
-    const release = await githubApiGet('/repos/tanaki/rapidfit/releases/latest', token) as {
+    const release = await githubApiGet('/repos/tanaki/rapidfit/releases/latest') as {
       tag_name: string;
       assets: { id: number; name: string }[];
     };
@@ -362,7 +354,7 @@ async function checkForUpdatesMac(token: string) {
     const zipPath = path.join(app.getPath('temp'), assetName);
     await downloadFile(
       `https://api.github.com/repos/tanaki/rapidfit/releases/assets/${asset.id}`,
-      token, zipPath,
+      zipPath,
       (percent) => {
         win()?.webContents.send('update-download-progress', { percent });
       },
@@ -413,14 +405,10 @@ function installWithScript(zipPath: string) {
 }
 
 ipcMain.handle('updater:check-now', () => {
-  if (!__GH_UPDATE_TOKEN__) {
-    BrowserWindow.getAllWindows()[0]?.webContents.send('update-error', 'Token GitHub absent — mise à jour désactivée');
-    return;
-  }
+  // Repo public → aucune authentification nécessaire.
   if (process.platform === 'darwin') {
-    checkForUpdatesMac(__GH_UPDATE_TOKEN__);
+    checkForUpdatesMac();
   } else {
-    process.env.GH_TOKEN = __GH_UPDATE_TOKEN__;
     autoUpdater.checkForUpdates();
   }
 });

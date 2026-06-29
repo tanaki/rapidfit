@@ -23,7 +23,6 @@ jobs:
       - name: Build renderer + main process
         env:
           ELECTRON: 'true'
-          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
         run: |
           npx tsc -b
           npx vite build
@@ -31,7 +30,6 @@ jobs:
       - name: Package & publish Mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
           ELECTRON: 'true'
         run: npx electron-builder --mac --publish always
 
@@ -52,7 +50,6 @@ jobs:
       - name: Build renderer + main process
         env:
           ELECTRON: 'true'
-          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
         run: |
           npx tsc -b
           npx vite build
@@ -60,6 +57,5 @@ jobs:
       - name: Package & publish Windows
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_UPDATE_TOKEN: ${{ secrets.GH_UPDATE_TOKEN }}
           ELECTRON: 'true'
         run: npx electron-builder --win --publish always
