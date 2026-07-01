@@ -45,6 +45,9 @@ export function useAppSession({
 }: Params) {
   const { t } = useTranslation();
   const [reportData, setReportData] = useState<ReportData | null>(null);
+  // Miroir synchrone du compte rendu, lisible par saveCurrentState (before-quit)
+  // sans attendre le re-render de l'état React.
+  const reportDataRef = useRef<ReportData | null>(null);
   const [reportLoaded, setReportLoaded] = useState(false);
   const [showNewSession, setShowNewSession] = useState(false);
   const sessionLoadedRef = useRef(false);
@@ -56,6 +59,7 @@ export function useAppSession({
   // Reset on session change
   useEffect(() => {
     setReportData(null);
+    reportDataRef.current = null; // évite de réécrire l'ancien rapport dans la nouvelle session
     setReportLoaded(false);
     setCaptureLabels({});
     setRecordingLabels({});
@@ -155,6 +159,12 @@ export function useAppSession({
     };
 
     await sessions.saveSessionState(sessions.activeSession.folderPath, state);
+
+    // Filet anti-perte : le compte rendu est écrit dans le même flush attendu
+    // par le before-quit, donc garanti persisté à la fermeture de l'app.
+    if (reportDataRef.current) {
+      await sessions.saveReport(sessions.activeSession.folderPath, reportDataRef.current);
+    }
   }, [sessions, isLiveMode, deviceId, activeRecording, activeImage, paneBSource, splitMode,
       singleLayers, paneLayers1, captureLabels, recordingLabels]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -273,6 +283,7 @@ export function useAppSession({
   }, [sessions, setCaptures, setRecordings, setActiveRecording, setIsLiveMode, setPaneBSource]);
 
   const handleReportSave = useCallback(async (data: ReportData) => {
+    reportDataRef.current = data;
     setReportData(data);
     if (sessions.activeSession?.folderPath) {
       await sessions.saveReport(sessions.activeSession.folderPath, data);

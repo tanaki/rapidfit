@@ -46,12 +46,41 @@ export function ReportModal({ captures, client, session, company, initialData, o
   const onSaveRef = useRef(onSave);
   useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
 
+  // Toujours la dernière version des données (pour les flushs hors-render : quit, unmount…)
+  const dataRef = useRef(data);
+  dataRef.current = data;
+
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => onSaveRef.current(data), 800);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [data]);
+
+  // Sauvegarde immédiate des dernières saisies. Stable (lit dataRef) pour pouvoir
+  // être branchée sur des événements globaux sans se recréer.
+  const flushSave = useCallback(() => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    onSaveRef.current(dataRef.current);
+  }, []);
+
+  // Filet de sécurité anti-perte : flush sur fermeture de fenêtre, mise en
+  // arrière-plan / quit de l'app, et sur démontage du composant (quelle qu'en
+  // soit la cause — le débounce en attente serait sinon annulé sans sauver).
+  useEffect(() => {
+    const onBeforeUnload = () => flushSave();
+    const onVisibility   = () => { if (document.visibilityState === 'hidden') flushSave(); };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('visibilitychange', onVisibility);
+    const api = (window as unknown as { electronAPI?: { onBeforeQuit?: (cb: () => void) => (() => void) | void } }).electronAPI;
+    const offQuit = api?.onBeforeQuit?.(() => flushSave());
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('visibilitychange', onVisibility);
+      offQuit?.();
+      flushSave(); // démontage → on persiste la dernière version
+    };
+  }, [flushSave]);
 
   const handleCapture = useCallback((id: string, slot: 'before' | 'after') => {
     setData(d => {
@@ -81,11 +110,6 @@ export function ReportModal({ captures, client, session, company, initialData, o
     const h = parseFloat(localHeight);
     await onUpdateClient({ weight: isNaN(w) ? undefined : w, height: isNaN(h) ? undefined : h });
   }, [onUpdateClient, localWeight, localHeight]);
-
-  const flushSave = useCallback(() => {
-    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-    onSaveRef.current(data);
-  }, [data]);
 
   const handleClose = useCallback(() => { flushSave(); onClose(); }, [flushSave, onClose]);
   useEscapeKey(handleClose);

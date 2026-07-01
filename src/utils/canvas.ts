@@ -576,6 +576,10 @@ export function rescaleElement(el: AnnotationElement, sx: number, sy: number): A
     case 'path':       return { ...el, points: el.points.map(sp) };
     case 'trajectory': return { ...el, points: el.points.map(sp) };
     case 'angle':     return { ...el, p0: sp(el.p0), p1: sp(el.p1), p2: sp(el.p2) };
+    case 'hv-angle': {
+      const p1 = sp(el.p1), p2 = sp(el.p2);
+      return { ...el, p1, p2, angle: computeHVAngle(p1, p2, el.mode) };
+    }
     case 'text':      return { ...el, x: el.x * sx, y: el.y * sy };
     case 'skeleton': {
       const scaled = { ...el.points } as Record<SkeletonKey, Point>;
