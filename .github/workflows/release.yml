@@ -34,6 +34,10 @@ jobs:
         run: npx electron-builder --mac --publish always
 
   build-win:
+    # Attend build-mac pour éviter la race à la création de la release (les deux
+    # jobs faisaient `electron-builder --publish always` en parallèle → le 2e
+    # échouait en 422 "already_exists"). Ici Mac crée la release, Windows la réutilise.
+    needs: build-mac
     runs-on: windows-2022  # pin to stable version (windows-latest → windows-2025 from June 2026)
     permissions:
       contents: write
