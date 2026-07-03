@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { Layer } from '../types';
 import type { Discipline } from '../types';
@@ -10,6 +11,7 @@ import {
   type ReferenceRange,
   type AngleStatus,
 } from '../data/referenceAngles';
+import { COTE_ILLUSTRATIONS } from '../data/coteIllustrations';
 
 interface CotesProps {
   discipline: Discipline;
@@ -72,6 +74,17 @@ function CotesSection({ discipline, layers, activeLayerId, onSelectCote }: Cotes
   const activeLayer = layers.find(l => l.id === activeLayerId);
   const activeCoteKey = activeLayer?.coteKey ?? null;
 
+  // Aperçu agrandi de l'illustration au survol — rendu en portal (document.body)
+  // pour ne pas être coupé par le conteneur scrollable du guide.
+  const [preview, setPreview] = useState<{ src: string; x: number; y: number } | null>(null);
+  const showPreview = (src: string, el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    const W = 200;
+    // À gauche de la ligne par défaut ; bascule à droite si ça sort de l'écran.
+    const x = r.left - W - 10 >= 0 ? r.left - W - 10 : r.right + 10;
+    setPreview({ src, x, y: Math.min(r.top, window.innerHeight - W - 10) });
+  };
+
   return (
     <div className="border-b border-[#22223b] overflow-y-auto" style={{ maxHeight: '55%' }}>
       <div className="px-3 py-2 border-b border-[#22223b] shrink-0">
@@ -92,6 +105,8 @@ function CotesSection({ discipline, layers, activeLayerId, onSelectCote }: Cotes
           // Mise en surbrillance : le calque actif est lié à cette cote
           const isActive = activeCoteKey === row.key;
 
+          const illustration = COTE_ILLUSTRATIONS[row.key];
+
           return (
             <button
               key={row.key}
@@ -100,8 +115,17 @@ function CotesSection({ discipline, layers, activeLayerId, onSelectCote }: Cotes
                 ${isActive ? 'bg-yellow-500/10' : 'hover:bg-[#22223b]'}`}
             >
               <div className="flex items-center justify-between gap-1 min-w-0">
-                {/* Indicateur + label */}
+                {/* Illustration + indicateur + label */}
                 <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  {illustration && (
+                    <img
+                      src={illustration}
+                      alt=""
+                      onMouseEnter={e => showPreview(illustration, e.currentTarget)}
+                      onMouseLeave={() => setPreview(null)}
+                      className="w-5 h-5 rounded bg-white object-contain p-0.5 shrink-0 border border-[#22223b]"
+                    />
+                  )}
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors
                     ${isActive ? 'bg-yellow-400' : linkedLayer ? 'bg-indigo-400' : 'bg-[#3d3d5c]'}`}
                   />
@@ -147,6 +171,17 @@ function CotesSection({ discipline, layers, activeLayerId, onSelectCote }: Cotes
           );
         })}
       </div>
+
+      {/* Aperçu agrandi (portal, hors du conteneur scrollable) */}
+      {preview && createPortal(
+        <img
+          src={preview.src}
+          alt=""
+          className="fixed z-[2000] w-[220px] rounded-lg bg-white object-contain p-2 shadow-2xl border border-[#3d3d5c] pointer-events-none"
+          style={{ left: preview.x, top: preview.y }}
+        />,
+        document.body,
+      )}
     </div>
   );
 }
