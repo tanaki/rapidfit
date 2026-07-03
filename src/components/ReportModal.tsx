@@ -14,7 +14,7 @@ interface Props {
   company: CompanySettings;
   initialData: ReportData | null;
   onClose: () => void;
-  onSave: (data: ReportData) => void;
+  onSave: (data: ReportData) => void | Promise<void>;
   onUpdateClient?: (updates: Partial<Pick<Client, 'weight' | 'height'>>) => Promise<void>;
 }
 
@@ -42,45 +42,63 @@ export function ReportModal({ captures, client, session, company, initialData, o
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       set(key, e.target.value as ReportData[typeof key]), [set]);
 
-  // Stable ref so the debounce effect doesn't depend on onSave identity
+  // ── Sauvegarde : statut visible + garde anti-écrasement ─────────────────────
+  // saveState : 'saved' (à jour) · 'dirty' (modifié, pas encore écrit) · 'saving'.
+  const [saveState, setSaveState] = useState<'saved' | 'dirty' | 'saving'>('saved');
+
   const onSaveRef = useRef(onSave);
   useEffect(() => { onSaveRef.current = onSave; }, [onSave]);
 
-  // Toujours la dernière version des données (pour les flushs hors-render : quit, unmount…)
+  // Toujours la dernière version des données (pour les flushs hors-render).
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  // Signature de la dernière version RÉELLEMENT persistée. Initialisée sur les
+  // données chargées → tant que rien ne change, on ne sauvegarde PAS (empêche
+  // d'écraser un rapport existant par des valeurs par défaut au montage).
+  const lastSavedRef = useRef<string>(JSON.stringify(data));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => onSaveRef.current(data), 800);
-    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [data]);
 
-  // Sauvegarde immédiate des dernières saisies. Stable (lit dataRef) pour pouvoir
-  // être branchée sur des événements globaux sans se recréer.
-  const flushSave = useCallback(() => {
+  const doSave = useCallback(async () => {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-    onSaveRef.current(dataRef.current);
+    const snapshot = JSON.stringify(dataRef.current);
+    if (snapshot === lastSavedRef.current) { setSaveState('saved'); return; } // rien de neuf
+    setSaveState('saving');
+    try {
+      await onSaveRef.current(dataRef.current);
+      lastSavedRef.current = snapshot;
+      setSaveState('saved');
+    } catch {
+      setSaveState('dirty'); // échec → on garde "modifié"
+    }
   }, []);
 
-  // Filet de sécurité anti-perte : flush sur fermeture de fenêtre, mise en
-  // arrière-plan / quit de l'app, et sur démontage du composant (quelle qu'en
-  // soit la cause — le débounce en attente serait sinon annulé sans sauver).
+  // Débounce : marque "modifié" puis planifie l'écriture, uniquement si les
+  // données diffèrent réellement du dernier enregistrement.
   useEffect(() => {
-    const onBeforeUnload = () => flushSave();
-    const onVisibility   = () => { if (document.visibilityState === 'hidden') flushSave(); };
+    if (JSON.stringify(data) === lastSavedRef.current) return;
+    setSaveState('dirty');
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { void doSave(); }, 800);
+    return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
+  }, [data, doSave]);
+
+  // Filet anti-perte : flush sur fermeture de fenêtre / arrière-plan / quit /
+  // démontage. doSave ne fait rien si rien n'a changé → jamais d'écrasement.
+  useEffect(() => {
+    const onBeforeUnload = () => { void doSave(); };
+    const onVisibility   = () => { if (document.visibilityState === 'hidden') void doSave(); };
     window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('visibilitychange', onVisibility);
     const api = (window as unknown as { electronAPI?: { onBeforeQuit?: (cb: () => void) => (() => void) | void } }).electronAPI;
-    const offQuit = api?.onBeforeQuit?.(() => flushSave());
+    const offQuit = api?.onBeforeQuit?.(() => { void doSave(); });
     return () => {
       window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('visibilitychange', onVisibility);
       offQuit?.();
-      flushSave(); // démontage → on persiste la dernière version
+      void doSave();
     };
-  }, [flushSave]);
+  }, [doSave]);
 
   const handleCapture = useCallback((id: string, slot: 'before' | 'after') => {
     setData(d => {
@@ -111,12 +129,12 @@ export function ReportModal({ captures, client, session, company, initialData, o
     await onUpdateClient({ weight: isNaN(w) ? undefined : w, height: isNaN(h) ? undefined : h });
   }, [onUpdateClient, localWeight, localHeight]);
 
-  const handleClose = useCallback(() => { flushSave(); onClose(); }, [flushSave, onClose]);
+  const handleClose = useCallback(() => { void doSave(); onClose(); }, [doSave, onClose]);
   useEscapeKey(handleClose);
 
   const handleExport = async () => {
     setExporting(true);
-    flushSave();
+    void doSave();
     try { await generatePDF(data, captures, client, session, company); }
     finally { setExporting(false); }
   };
@@ -144,7 +162,36 @@ export function ReportModal({ captures, client, session, company, initialData, o
               </p>
             )}
           </div>
-          <button onClick={handleClose} className="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+          <div className="flex items-center gap-3">
+            {/* Indicateur de sauvegarde — style Drive */}
+            <span
+              className={`flex items-center gap-1.5 text-xs font-medium select-none ${
+                saveState === 'saved' ? 'text-emerald-400'
+                : saveState === 'saving' ? 'text-slate-400'
+                : 'text-amber-400'
+              }`}
+              title={
+                saveState === 'saved' ? t('report.saved', 'Enregistré')
+                : saveState === 'saving' ? t('report.saving', 'Enregistrement…')
+                : t('report.dirty', 'Modifications non enregistrées')
+              }
+            >
+              {saveState === 'saved' && <>✓ {t('report.saved', 'Enregistré')}</>}
+              {saveState === 'saving' && <><span className="w-3 h-3 rounded-full border-2 border-slate-500 border-t-slate-300 animate-spin" /> {t('report.saving', 'Enregistrement…')}</>}
+              {saveState === 'dirty' && <>● {t('report.dirty', 'Modifié')}</>}
+            </span>
+
+            {/* Bouton Enregistrer explicite (secours) */}
+            <button
+              onClick={() => void doSave()}
+              disabled={saveState !== 'dirty'}
+              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors bg-indigo-600 hover:bg-indigo-500 text-white disabled:bg-[#22223b] disabled:text-slate-500 disabled:cursor-default"
+            >
+              {t('report.save', 'Enregistrer')}
+            </button>
+
+            <button onClick={handleClose} className="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+          </div>
         </div>
 
         {/* Body */}

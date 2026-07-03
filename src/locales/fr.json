@@ -103,6 +103,10 @@
   "report": {
     "title": "📋 Compte rendu",
     "subtitle": "Remplis le formulaire puis exporte en PDF",
+    "save": "Enregistrer",
+    "saved": "Enregistré",
+    "saving": "Enregistrement…",
+    "dirty": "Modifié",
     "clientInfo": "Informations client",
     "lastName": "Nom",
     "firstName": "Prénom",

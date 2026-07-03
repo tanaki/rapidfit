@@ -103,6 +103,10 @@
   "report": {
     "title": "📋 Report",
     "subtitle": "Fill in the form then export to PDF",
+    "save": "Save",
+    "saved": "Saved",
+    "saving": "Saving…",
+    "dirty": "Unsaved changes",
     "clientInfo": "Client information",
     "lastName": "Last name",
     "firstName": "First name",
