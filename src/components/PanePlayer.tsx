@@ -109,10 +109,28 @@ interface Props {
   onFrameNext: () => void;
   cuePoints?: CuePoint[];
   onSeekToCue?: (t: number) => void;
+  /** En split, réserve un bandeau de même hauteur pour une pane live (alignement). */
+  reserveWhenLive?: boolean;
 }
 
-export function PanePlayer({ label, isLiveMode, isPaused, time, duration, onPlayPause, onSeek, onFramePrev, onFrameNext, cuePoints, onSeekToCue }: Props) {
-  if (isLiveMode) return null;
+export function PanePlayer({ label, isLiveMode, isPaused, time, duration, onPlayPause, onSeek, onFramePrev, onFrameNext, cuePoints, onSeekToCue, reserveWhenLive }: Props) {
+  if (isLiveMode) {
+    // Hors split : pas de bandeau. En split : on réserve un bandeau de MÊME
+    // hauteur (même structure : rangée seekbar + rangée contrôles) pour que les
+    // deux vidéos restent alignées, avec un indicateur LIVE à la place.
+    if (!reserveWhenLive) return null;
+    return (
+      <div className="shrink-0 flex flex-col gap-1 px-3 py-1.5 bg-[#13131f] border-t border-[#22223b]">
+        <div className="h-1.5" />
+        <div className="flex items-center gap-1.5 h-6">
+          <span className="text-[10px] font-semibold text-slate-500 w-4 shrink-0">{label}</span>
+          <span className="flex items-center gap-1 text-[10px] font-mono text-red-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> LIVE
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="shrink-0 flex flex-col gap-1 px-3 py-1.5 bg-[#13131f] border-t border-[#22223b]">

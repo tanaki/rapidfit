@@ -51,6 +51,7 @@ interface PaneColumnProps {
   frameRate: number;
   videoConstraints: { width: number; height: number; frameRate: number };
   initialTime?: number;
+  reserveWhenLive: boolean;
   devices: MediaDeviceInfo[];
   recordings: Recording[];
   showGuide: boolean;
@@ -64,7 +65,7 @@ function PaneColumn({
   annotationProps, onStreamChange, onCameraError,
   onTimeUpdate, onDurationChange, onPlayStateChange, onCapture,
   playerLabel, playerIsLive, playerIsPaused, playerTime, playerDuration, frameRate,
-  videoConstraints, initialTime, devices, recordings, showGuide, showGrid, gridSize, onSeekToCue,
+  videoConstraints, initialTime, reserveWhenLive, devices, recordings, showGuide, showGrid, gridSize, onSeekToCue,
 }: PaneColumnProps) {
   const cuePoints = annotationProps.layers
     .filter(l => l.cueTime !== undefined && l.visible !== false)
@@ -103,6 +104,7 @@ function PaneColumn({
         onFrameNext={() => paneRef.current?.stepFrame(1, frameRate)}
         cuePoints={cuePoints}
         onSeekToCue={onSeekToCue}
+        reserveWhenLive={reserveWhenLive}
       />
     </div>
   );
@@ -484,6 +486,7 @@ export default function App() {
               onFocus={splitMode ? () => setActivePaneIndex(0) : undefined}
               annotationProps={makeAnnotationProps(singleLayers, playbackTime, savedVideoRectA, srcKeyA)}
               initialTime={restoreSeekA}
+              reserveWhenLive={splitMode}
               onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
               onCameraError={setCameraError}
               onTimeUpdate={setPlaybackTime}
@@ -519,6 +522,7 @@ export default function App() {
                   onFocus={() => setActivePaneIndex(1)}
                   annotationProps={makeAnnotationProps(paneLayers1, playbackTimeB, savedVideoRectB, srcKeyB)}
                   initialTime={restoreSeekB}
+                  reserveWhenLive={splitMode}
                   onTimeUpdate={setPlaybackTimeB}
                   onDurationChange={d => {
                     setPlaybackDurationB(d);
