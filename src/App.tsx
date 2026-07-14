@@ -49,6 +49,7 @@ interface PaneColumnProps {
   playerDuration: number;
   frameRate: number;
   videoConstraints: { width: number; height: number; frameRate: number };
+  initialTime?: number;
   devices: MediaDeviceInfo[];
   recordings: Recording[];
   showGuide: boolean;
@@ -62,7 +63,7 @@ function PaneColumn({
   annotationProps, onStreamChange, onCameraError,
   onTimeUpdate, onDurationChange, onPlayStateChange, onCapture,
   playerLabel, playerIsLive, playerIsPaused, playerTime, playerDuration, frameRate,
-  videoConstraints, devices, recordings, showGuide, showGrid, gridSize, onSeekToCue,
+  videoConstraints, initialTime, devices, recordings, showGuide, showGrid, gridSize, onSeekToCue,
 }: PaneColumnProps) {
   const cuePoints = annotationProps.layers
     .filter(l => l.cueTime !== undefined)
@@ -81,6 +82,7 @@ function PaneColumn({
         showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
         annotationProps={annotationProps}
         videoConstraints={videoConstraints}
+        initialTime={initialTime}
         onStreamChange={onStreamChange}
         onCameraError={onCameraError}
         onTimeUpdate={onTimeUpdate}
@@ -210,6 +212,10 @@ export default function App() {
 
   const [savedVideoRectA, setSavedVideoRectA] = useState<{ w: number; h: number } | null>(null);
   const [savedVideoRectB, setSavedVideoRectB] = useState<{ w: number; h: number } | null>(null);
+  // Position de lecture à restaurer par pane (transitoire : consommée au chargement
+  // de la source, puis remise à undefined pour ne pas affecter une sélection manuelle).
+  const [restoreSeekA, setRestoreSeekA] = useState<number | undefined>(undefined);
+  const [restoreSeekB, setRestoreSeekB] = useState<number | undefined>(undefined);
 
   const appSession = useAppSession({
     sessions, singleLayers, paneLayers1, paneRef0, paneRef1,
@@ -223,6 +229,7 @@ export default function App() {
     setIsLiveMode, setPaneBSource,
     setCaptureLabels: media.setCaptureLabels, setRecordingLabels: media.setRecordingLabels,
     setSavedVideoRectA, setSavedVideoRectB,
+    setRestoreSeekA, setRestoreSeekB,
   });
 
   // Playback state — pane A
@@ -467,6 +474,7 @@ export default function App() {
               label={splitMode ? 'A' : undefined}
               onFocus={splitMode ? () => setActivePaneIndex(0) : undefined}
               annotationProps={makeAnnotationProps(singleLayers, playbackTime, savedVideoRectA)}
+              initialTime={restoreSeekA}
               onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
               onCameraError={setCameraError}
               onTimeUpdate={setPlaybackTime}
@@ -501,6 +509,7 @@ export default function App() {
                   label="B"
                   onFocus={() => setActivePaneIndex(1)}
                   annotationProps={makeAnnotationProps(paneLayers1, playbackTimeB, savedVideoRectB)}
+                  initialTime={restoreSeekB}
                   onTimeUpdate={setPlaybackTimeB}
                   onDurationChange={d => {
                     setPlaybackDurationB(d);

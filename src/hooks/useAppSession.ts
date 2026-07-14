@@ -32,6 +32,8 @@ interface Params {
   setRecordingLabels: (v: Record<string, string>) => void;
   setSavedVideoRectA: (v: { w: number; h: number } | null) => void;
   setSavedVideoRectB: (v: { w: number; h: number } | null) => void;
+  setRestoreSeekA: (v: number | undefined) => void;
+  setRestoreSeekB: (v: number | undefined) => void;
 }
 
 export function useAppSession({
@@ -42,6 +44,7 @@ export function useAppSession({
   setCaptures, setRecordings, setActiveRecording, setActiveImage,
   setIsLiveMode, setPaneBSource, setCaptureLabels, setRecordingLabels,
   setSavedVideoRectA, setSavedVideoRectB,
+  setRestoreSeekA, setRestoreSeekB,
 }: Params) {
   const { t } = useTranslation();
   const [reportData, setReportData] = useState<ReportData | null>(null);
@@ -203,7 +206,11 @@ export function useAppSession({
       if (rec) {
         const activeLayerCue = state?.paneA.layers.find(l => l.id === state?.paneA.activeLayerId)?.cueTime;
         const seekTarget = activeLayerCue ?? (state?.paneA.playbackTime ?? 0);
-        if (seekTarget > 0) setTimeout(() => paneRef0.current?.seekTo(seekTarget), 400);
+        // Le seek est lié au chargement de la source via la prop initialTime (VideoPane),
+        // pas à un délai. On remet à undefined ensuite pour ne pas piéger une sélection
+        // manuelle ultérieure (le seek en vol est déjà mémorisé dans pendingSeekRef).
+        setRestoreSeekA(seekTarget > 0 ? seekTarget : undefined);
+        setTimeout(() => setRestoreSeekA(undefined), 3000);
       }
     } else {
       setIsLiveMode(false); setActiveRecording(null); setActiveImage(null);
@@ -216,8 +223,10 @@ export function useAppSession({
       const rec = recs.find(r => r.name === srcB.filename) ?? null;
       if (rec) {
         setPaneBSource({ type: 'recording', recording: rec });
-        const t1 = state?.paneB.playbackTime ?? 0;
-        if (t1 > 0) setTimeout(() => paneRef1.current?.seekTo(t1), 400);
+        const cueB = state?.paneB.layers.find(l => l.id === state?.paneB.activeLayerId)?.cueTime;
+        const t1 = cueB ?? (state?.paneB.playbackTime ?? 0);
+        setRestoreSeekB(t1 > 0 ? t1 : undefined);
+        setTimeout(() => setRestoreSeekB(undefined), 3000);
       } else {
         setPaneBSource({ type: 'none' });
       }
@@ -231,7 +240,7 @@ export function useAppSession({
     // restaurés avec les calques ci-dessus — rien de spécial à faire ici.
   }, [sessions, singleLayers, paneLayers1, makeDefaultLayer, t, // eslint-disable-line react-hooks/exhaustive-deps
       setIsLiveMode, setActiveRecording, setActiveImage, setPaneBSource, setSplitMode,
-      setCaptureLabels, setRecordingLabels]);
+      setCaptureLabels, setRecordingLabels, setRestoreSeekA, setRestoreSeekB]);
 
   const applySession = useCallback(async (client: Client, session: Session) => {
     await saveCurrentState();

@@ -33,6 +33,9 @@ interface Props {
   /** Contraintes caméra (résolution/fps souhaités) — appliquées en `ideal`,
    *  l'aspect natif est préservé par object-contain + updateVideoRect. */
   videoConstraints?: { width: number; height: number; frameRate: number };
+  /** Position (s) à laquelle se caler dès que la source (recording) est chargée.
+   *  Lié au chargement de la source → pas de course de timing au restore. */
+  initialTime?: number;
   annotationProps?: AnnotationProps;
 }
 
@@ -70,7 +73,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     showGuide = false, showGrid = false, gridSize = 50,
     onCapture,
     onStreamChange, onCameraError, onTimeUpdate, onDurationChange, onPlayStateChange,
-    videoConstraints,
+    videoConstraints, initialTime,
     annotationProps,
   },
   ref,
@@ -101,6 +104,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   useEffect(() => { annotationPropsRef.current = annotationProps; }, [annotationProps]);
   const videoConstraintsRef = useRef(videoConstraints);
   videoConstraintsRef.current = videoConstraints;
+  const initialTimeRef = useRef(initialTime);
+  initialTimeRef.current = initialTime;
   const videoRectRef2 = useRef<VideoRect | null>(null);
   const imgDimsRef    = useRef({ w: 0, h: 0 });
 
@@ -322,6 +327,11 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
       video.srcObject = null;
       video.src = source.recording.url;
       video.load();
+
+      // Seek initial lié à CE chargement : appliqué par onCanPlay / la correction
+      // de durée WebM (onDur). Déterministe, sans setTimeout.
+      pendingSeekRef.current =
+        (initialTimeRef.current && initialTimeRef.current > 0) ? initialTimeRef.current : null;
 
       const onTime  = () => onTimeUpdate?.(video.currentTime);
       const onPause = () => { onPlayStateChange?.(true); bakeTrajectories(); };
