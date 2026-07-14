@@ -37,4 +37,20 @@ describe('ReportModal — sauvegarde', () => {
     const saved = onSave.mock.calls.at(-1)![0] as ReportData;
     expect(Object.values(saved).some(v => typeof v === 'string' && v.includes('abc123'))).toBe(true);
   });
+
+  it('sauvegarde au démontage même si le débounce n\'a pas eu le temps (fermeture rapide)', async () => {
+    const user = userEvent.setup();
+    const onSave = vi.fn();
+    const { unmount } = render(
+      <ReportModal captures={[]} client={client} session={session} company={company}
+        initialData={DEFAULT_REPORT} onClose={() => {}} onSave={onSave} />,
+    );
+    const textarea = screen.getAllByRole('textbox').find(b => b.tagName === 'TEXTAREA')!;
+    await user.type(textarea, 'urgent');
+    // Ferme AVANT les 800 ms du débounce : le flush au démontage doit persister.
+    unmount();
+    expect(onSave).toHaveBeenCalled();
+    const saved = onSave.mock.calls.at(-1)![0] as ReportData;
+    expect(Object.values(saved).some(v => typeof v === 'string' && v.includes('urgent'))).toBe(true);
+  });
 });

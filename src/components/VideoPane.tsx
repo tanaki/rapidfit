@@ -30,6 +30,9 @@ interface Props {
   onTimeUpdate?: (t: number) => void;
   onDurationChange?: (d: number) => void;
   onPlayStateChange?: (paused: boolean) => void;
+  /** Contraintes caméra (résolution/fps souhaités) — appliquées en `ideal`,
+   *  l'aspect natif est préservé par object-contain + updateVideoRect. */
+  videoConstraints?: { width: number; height: number; frameRate: number };
   annotationProps?: AnnotationProps;
 }
 
@@ -67,6 +70,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     showGuide = false, showGrid = false, gridSize = 50,
     onCapture,
     onStreamChange, onCameraError, onTimeUpdate, onDurationChange, onPlayStateChange,
+    videoConstraints,
     annotationProps,
   },
   ref,
@@ -95,6 +99,8 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   // ── Refs stale-closure-safe pour les callbacks tracking ───────────────────
   const annotationPropsRef = useRef(annotationProps);
   useEffect(() => { annotationPropsRef.current = annotationProps; }, [annotationProps]);
+  const videoConstraintsRef = useRef(videoConstraints);
+  videoConstraintsRef.current = videoConstraints;
   const videoRectRef2 = useRef<VideoRect | null>(null);
   const imgDimsRef    = useRef({ w: 0, h: 0 });
 
@@ -256,6 +262,17 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source.type, updateVideoRect, updateImageRect, zoomState.containerRef]);
 
+  // L'événement `resize` du <video> se déclenche à CHAQUE changement des
+  // dimensions intrinsèques (nouvelle caméra, nouvel enregistrement, ratio
+  // différent) → recalcule le letterbox pour que l'affichage colle à la source.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const onResize = () => updateVideoRect();
+    video.addEventListener('resize', onResize);
+    return () => video.removeEventListener('resize', onResize);
+  }, [updateVideoRect]);
+
   // ── Source management ───────────────────────────────────────────────────────
   useEffect(() => {
     const video = videoRef.current;
@@ -270,7 +287,11 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
         .getUserMedia({
           video: {
             deviceId: source.deviceId ? { exact: source.deviceId } : undefined,
-            frameRate: { ideal: 60 },
+            // Résolution/fps souhaités (ideal) — getUserMedia renvoie un mode réel
+            // du capteur, jamais une image étirée ; l'aspect est géré à l'affichage.
+            width:     videoConstraintsRef.current ? { ideal: videoConstraintsRef.current.width } : undefined,
+            height:    videoConstraintsRef.current ? { ideal: videoConstraintsRef.current.height } : undefined,
+            frameRate: { ideal: videoConstraintsRef.current?.frameRate ?? 60 },
           },
           audio: false,
         })

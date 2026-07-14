@@ -48,6 +48,7 @@ interface PaneColumnProps {
   playerTime: number;
   playerDuration: number;
   frameRate: number;
+  videoConstraints: { width: number; height: number; frameRate: number };
   devices: MediaDeviceInfo[];
   recordings: Recording[];
   showGuide: boolean;
@@ -61,7 +62,7 @@ function PaneColumn({
   annotationProps, onStreamChange, onCameraError,
   onTimeUpdate, onDurationChange, onPlayStateChange, onCapture,
   playerLabel, playerIsLive, playerIsPaused, playerTime, playerDuration, frameRate,
-  devices, recordings, showGuide, showGrid, gridSize, onSeekToCue,
+  videoConstraints, devices, recordings, showGuide, showGrid, gridSize, onSeekToCue,
 }: PaneColumnProps) {
   const cuePoints = annotationProps.layers
     .filter(l => l.cueTime !== undefined)
@@ -79,6 +80,7 @@ function PaneColumn({
         active={active} label={label} onFocus={onFocus}
         showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
         annotationProps={annotationProps}
+        videoConstraints={videoConstraints}
         onStreamChange={onStreamChange}
         onCameraError={onCameraError}
         onTimeUpdate={onTimeUpdate}
@@ -282,6 +284,11 @@ export default function App() {
   }, [config.deviceId, media]);
 
   // ── Source pane A ─────────────────────────────────────────────────────────
+  const videoConstraints = useMemo(
+    () => ({ width: config.width, height: config.height, frameRate: config.frameRate }),
+    [config.width, config.height, config.frameRate],
+  );
+
   const singleSource: PaneSource = useMemo(() => {
     if (isLiveMode) {
       // Si aucun device configuré, on prend le premier disponible pour que
@@ -478,6 +485,7 @@ export default function App() {
               playerTime={playbackTime}
               playerDuration={playbackDuration}
               frameRate={config.frameRate || 30}
+              videoConstraints={videoConstraints}
               devices={devices} recordings={media.recordings}
               showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
               onSeekToCue={t => { paneRef0.current?.seekTo(t); setPlaybackTime(t); }}
@@ -511,6 +519,7 @@ export default function App() {
                   playerTime={playbackTimeB}
                   playerDuration={playbackDurationB}
                   frameRate={config.frameRate || 30}
+                  videoConstraints={videoConstraints}
                   devices={devices} recordings={media.recordings}
                   showGuide={showGuide} showGrid={showGrid} gridSize={gridSize}
                   onSeekToCue={t => { paneRef1.current?.seekTo(t); setPlaybackTimeB(t); }}
