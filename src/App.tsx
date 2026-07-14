@@ -25,6 +25,7 @@ import type { Recording } from './types';
 import { useStorage } from './hooks/useStorage';
 import { UpdateBanner } from './components/UpdateBanner';
 import { useCompany } from './hooks/useCompany';
+import { sourceKeyOf, layersForCanvas, layersForPanel } from './utils/sourceScope';
 
 // ── PaneColumn ───────────────────────────────────────────────────────────────
 // Wraps VideoPane + PanePlayer into a single column — defined at module level
@@ -66,7 +67,7 @@ function PaneColumn({
   videoConstraints, initialTime, devices, recordings, showGuide, showGrid, gridSize, onSeekToCue,
 }: PaneColumnProps) {
   const cuePoints = annotationProps.layers
-    .filter(l => l.cueTime !== undefined)
+    .filter(l => l.cueTime !== undefined && l.visible !== false)
     .map(l => ({
       time:  l.cueTime!,
       color: l.elements[0]?.color ?? '#6366f1',
@@ -308,15 +309,22 @@ export default function App() {
     return { type: 'none' };
   }, [isLiveMode, media.activeRecording, media.activeImage, config.deviceId, devices]);
 
+  // Clé de source par pane — rattachement des annotations à leur source (Cas B).
+  const srcKeyA = useMemo(() => sourceKeyOf(singleSource), [singleSource]);
+  const srcKeyB = useMemo(() => sourceKeyOf(paneBSource), [paneBSource]);
+  const activeSrcKey = activePaneIsB ? srcKeyB : srcKeyA;
+
   // ── Shared annotation props factory ───────────────────────────────────────
-  function makeAnnotationProps(ls: LayersState, currentTime: number, seedVR?: { w: number; h: number } | null) {
+  // `srcKey` : source active de la pane. Les annotations sont rattachées à leur
+  // source (Cas B) → seules celles de la source active sont affichées/rescalées.
+  function makeAnnotationProps(ls: LayersState, currentTime: number, seedVR: { w: number; h: number } | null | undefined, srcKey: string | null) {
     return {
-      layers: ls.layers,
+      layers: layersForCanvas(ls.layers, srcKey),
       activeLayerId: ls.activeLayerId,
       tool, color, strokeWidth: 2, filled: false,
       onAddElement: (_: string, el: AnnotationElement) => {
         const cue = isLiveMode ? undefined : currentTime;
-        ls.addElementOnNewLayer(el, cue);
+        ls.addElementOnNewLayer(el, cue, srcKey ?? undefined);
         if (el.type === 'line' || el.type === 'arrow' || el.type === 'angle' || el.type === 'hv-angle' || el.type === 'skeleton' || el.type === 'path') {
           advanceColor();
         }
@@ -325,11 +333,12 @@ export default function App() {
       onUpdateElement: ls.updateElement,
       onDeleteElement: ls.deleteElement,
       onBeginDrag: ls.beginDrag,
-      onRescaleElements: ls.rescaleElements,
-      onAddNamedLayer: ls.addNamedLayer,
+      onRescaleElements: (sx: number, sy: number) => ls.rescaleElements(sx, sy, srcKey),
+      onAddNamedLayer: (name: string) => ls.addNamedLayer(name, srcKey ?? undefined),
       discipline: sessions.activeSession?.discipline ?? 'route',
       skeletonFacing,
       seedPrevVideoRect: seedVR ?? null,
+      sourceKey: srcKey,
     };
   }
 
@@ -473,7 +482,7 @@ export default function App() {
               active={splitMode && activePaneIndex === 0}
               label={splitMode ? 'A' : undefined}
               onFocus={splitMode ? () => setActivePaneIndex(0) : undefined}
-              annotationProps={makeAnnotationProps(singleLayers, playbackTime, savedVideoRectA)}
+              annotationProps={makeAnnotationProps(singleLayers, playbackTime, savedVideoRectA, srcKeyA)}
               initialTime={restoreSeekA}
               onStreamChange={s => { cameraStreamRef.current = s; setCameraIsActive(!!s); }}
               onCameraError={setCameraError}
@@ -508,7 +517,7 @@ export default function App() {
                   active={activePaneIndex === 1}
                   label="B"
                   onFocus={() => setActivePaneIndex(1)}
-                  annotationProps={makeAnnotationProps(paneLayers1, playbackTimeB, savedVideoRectB)}
+                  annotationProps={makeAnnotationProps(paneLayers1, playbackTimeB, savedVideoRectB, srcKeyB)}
                   initialTime={restoreSeekB}
                   onTimeUpdate={setPlaybackTimeB}
                   onDurationChange={d => {
@@ -546,7 +555,7 @@ export default function App() {
         </div>
 
         <LayerPanel
-          layers={activeLayers.layers}
+          layers={layersForPanel(activeLayers.layers, activeSrcKey)}
           activeLayerId={activeLayers.activeLayerId}
           onSelect={activeLayers.setActiveLayerId}
           {...activeLayers.layerActions}

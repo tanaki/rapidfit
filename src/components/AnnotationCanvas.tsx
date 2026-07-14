@@ -37,6 +37,7 @@ interface Props {
   discipline?: Discipline;
   skeletonFacing?: 'left' | 'right';
   seedPrevVideoRect?: { w: number; h: number } | null;
+  sourceKey?: string | null;
   style?: React.CSSProperties;
 }
 
@@ -44,7 +45,7 @@ export function AnnotationCanvas({
   layers, activeLayerId, tool, color, strokeWidth, filled,
   zoom = 1,
   pan = { x: 0, y: 0 },
-  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, imgW = 0, imgH = 0, discipline = 'route', skeletonFacing = 'right', seedPrevVideoRect, style,
+  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, imgW = 0, imgH = 0, discipline = 'route', skeletonFacing = 'right', seedPrevVideoRect, sourceKey = null, style,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -110,18 +111,29 @@ export function AnnotationCanvas({
 
   const prevVideoRectRef = useRef<VideoRect | null>(null);
   const videoRectRef = useRef(videoRect ?? null);
+  const sourceKeyRef = useRef(sourceKey);
   const onRescaleRef = useRef(onRescaleElements);
   useEffect(() => { onRescaleRef.current = onRescaleElements; }, [onRescaleElements]);
   useEffect(() => {
-    const prev = prevVideoRectRef.current;
     const next = videoRect ?? null;
-    // Rescale when the video display area changes (letterbox shift)
+    // Changement de SOURCE : nouveau référentiel (aspect/coords propres à la source).
+    // On rebase sans rescaler — le videoRect de la nouvelle source deviendra la
+    // nouvelle baseline (les redimensionnements ultérieurs de CETTE source, eux,
+    // rescaleront normalement).
+    if (sourceKeyRef.current !== sourceKey) {
+      sourceKeyRef.current = sourceKey;
+      prevVideoRectRef.current = null;
+      videoRectRef.current = next;
+      return;
+    }
+    const prev = prevVideoRectRef.current;
+    // Rescale when the video display area changes (letterbox shift) — même source.
     if (prev && next && (prev.w !== next.w || prev.h !== next.h) && prev.w > 0 && prev.h > 0) {
       onRescaleRef.current?.(next.w / prev.w, next.h / prev.h);
     }
     prevVideoRectRef.current = next;
     videoRectRef.current = next;
-  }, [videoRect]);
+  }, [videoRect, sourceKey]);
 
   // Seed prevVideoRectRef with the saved videoRect from the previous session so
   // the first real videoRect change triggers a corrective rescale if the layout differs.

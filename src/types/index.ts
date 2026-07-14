@@ -134,6 +134,10 @@ export interface Layer {
   elements: AnnotationElement[];
   coteKey?: string; // lien persistant vers une cote du guide (clé i18n guide.<key>)
   cueTime?: number; // timestamp (s) dans la vidéo source
+  /** Source sur laquelle le calque a été tracé (rec:<nom> | img:<id> | cam).
+   *  Le calque n'est affiché/rescalé que quand cette source est la source active
+   *  de la pane. `undefined` = calque hérité (toujours visible, rétrocompat). */
+  sourceKey?: string;
 }
 
 export interface Recording {

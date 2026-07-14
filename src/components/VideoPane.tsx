@@ -56,6 +56,8 @@ export interface AnnotationProps {
   discipline?: Discipline;
   skeletonFacing?: 'left' | 'right';
   seedPrevVideoRect?: { w: number; h: number } | null;
+  /** Source active de la pane — sert à ne pas rescaler au changement de source. */
+  sourceKey?: string | null;
 }
 
 export interface VideoPaneHandle {
@@ -502,6 +504,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           discipline={annotationProps.discipline}
           skeletonFacing={annotationProps.skeletonFacing}
           seedPrevVideoRect={annotationProps.seedPrevVideoRect}
+          sourceKey={annotationProps.sourceKey}
           style={annotationProps.tool === 'pan' || annotationProps.tool === 'trajectory' ? { pointerEvents: 'none' } : undefined}
         />
       )}

@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import type { Layer, AnnotationElement } from '../types';
 import { uid } from '../utils/uid';
 import { rescaleElement } from '../utils/canvas';
+import { layerMatchesSource } from '../utils/sourceScope';
 import i18n from '../i18n';
 
 function makeLayer(name: string): Layer {
@@ -34,11 +35,11 @@ export function useLayers(initialName = 'Calque 1') {
   }, [updateLayers]);
 
   // Crée automatiquement un nouveau calque pour chaque annotation
-  const addElementOnNewLayer = useCallback((el: AnnotationElement, cueTime?: number) => {
+  const addElementOnNewLayer = useCallback((el: AnnotationElement, cueTime?: number, sourceKey?: string) => {
     const newLayer = makeLayer(i18n.t('layers.default', { n: layers.length + 1 }));
     setHistory(h => [...h.slice(-49), layers]);
     setFuture([]);
-    setLayers(prev => [...prev, { ...newLayer, elements: [el], cueTime }]);
+    setLayers(prev => [...prev, { ...newLayer, elements: [el], cueTime, sourceKey }]);
     setActiveLayerId(newLayer.id);
   }, [layers]);
 
@@ -47,11 +48,11 @@ export function useLayers(initialName = 'Calque 1') {
   }, []);
 
   /** Crée un calque nommé vide ; retourne l'id du calque. */
-  const addNamedLayer = useCallback((name: string): string => {
+  const addNamedLayer = useCallback((name: string, sourceKey?: string): string => {
     const newLayer = makeLayer(name);
     setHistory(h => [...h.slice(-49), layers]);
     setFuture([]);
-    setLayers(prev => [...prev, { ...newLayer }]);
+    setLayers(prev => [...prev, { ...newLayer, sourceKey }]);
     setActiveLayerId(newLayer.id);
     return newLayer.id;
   }, [layers]);
@@ -147,13 +148,15 @@ export function useLayers(initialName = 'Calque 1') {
     },
   };
 
-  // Rescale all element coordinates — called when the canvas changes size
-  const rescaleElements = useCallback((sx: number, sy: number) => {
+  // Rescale element coordinates — appelé quand le videoRect change de taille.
+  // `sourceKey` : ne rescale que les calques de la source active (les calques
+  // d'une autre source ont un aspect différent et ne doivent pas être touchés).
+  const rescaleElements = useCallback((sx: number, sy: number, sourceKey?: string | null) => {
     if (sx === 1 && sy === 1) return;
-    setLayers(prev => prev.map(l => ({
-      ...l,
-      elements: l.elements.map(el => rescaleElement(el, sx, sy)),
-    })));
+    setLayers(prev => prev.map(l => {
+      if (sourceKey !== undefined && !layerMatchesSource(l, sourceKey)) return l;
+      return { ...l, elements: l.elements.map(el => rescaleElement(el, sx, sy)) };
+    }));
   }, []);
 
   const importLayers = useCallback((srcLayers: Layer[], srcActiveId: string) => {
