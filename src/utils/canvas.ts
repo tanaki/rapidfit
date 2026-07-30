@@ -1,8 +1,6 @@
 import type { Point, AnnotationElement, AngleElement, HVAngleElement, SkeletonKey, Layer } from '../types';
 import { SKELETON_KEYS } from '../types';
 import {
-  SKELETON_SEGMENTS,
-  SKELETON_HEAD_SEGMENT,
   drawSkeleton,
 } from './skeleton';
 
@@ -94,8 +92,8 @@ export function hitTestElement(el: AnnotationElement, p: Point, tol = 8): boolea
     case 'angle':
       return distToSegment(p, el.p0, el.p1) < tol || distToSegment(p, el.p1, el.p2) < tol;
     case 'skeleton': {
-      const segs: [SkeletonKey, SkeletonKey][] = [...SKELETON_SEGMENTS, SKELETON_HEAD_SEGMENT];
-      return segs.some(([a, b]) => distToSegment(p, el.points[a], el.points[b]) < tol);
+      // Only hit-test on joint dots, not bone segments
+      return SKELETON_KEYS.some(key => Math.hypot(el.points[key].x - p.x, el.points[key].y - p.y) < tol);
     }
   }
 }
