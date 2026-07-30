@@ -31,6 +31,8 @@ interface Props {
   onDeleteElement: (layerId: string, elementId: string) => void;
   onBeginDrag: () => void;
   onRescaleElements?: (sx: number, sy: number) => void;
+  /** When provided, the skeleton tool auto-detects pose instead of placing a template. */
+  onDetectPose?: () => Promise<Record<string, Point> | null>;
   videoRect?: VideoRect | null;
   imgW?: number;
   imgH?: number;
@@ -42,7 +44,7 @@ export function AnnotationCanvas({
   layers, activeLayerId, tool, color, strokeWidth, filled,
   zoom = 1,
   pan = { x: 0, y: 0 },
-  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, imgW = 0, imgH = 0, discipline = 'route', style,
+  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, onDetectPose, videoRect, imgW = 0, imgH = 0, discipline = 'route', style,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -347,8 +349,19 @@ export function AnnotationCanvas({
       return;
     }
     if (tool === 'skeleton') {
-      const scale = imgH > 0 ? imgH / 4 : 160;
-      onAddElement(activeLayerId, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale, discipline) });
+      if (onDetectPose) {
+        onDetectPose().then(points => {
+          if (points) {
+            onAddElement(activeLayerId, {
+              type: 'skeleton', id: uid(), color, strokeWidth,
+              points: points as Record<import('../types').SkeletonKey, Point>,
+            });
+          }
+        });
+      } else {
+        const scale = imgH > 0 ? imgH / 4 : 160;
+        onAddElement(activeLayerId, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale, discipline) });
+      }
     }
     else if (tool === 'h-angle' || tool === 'v-angle') {
       const mode = tool === 'h-angle' ? 'h' : 'v';
