@@ -22,7 +22,7 @@ interface Props {
   showGuide?: boolean;
   showGrid?: boolean;
   gridSize?: number;
-  onCapture?: (blob: Blob, name: string) => void;
+  onCapture?: (blob: Blob, name: string, sourceInfo?: { recordingId?: string; frameTime: number }) => void;
   // Media callbacks — used by pane A to sync state to App
   onStreamChange?: (stream: MediaStream | null) => void;
   onCameraError?: (err: string | null) => void;
@@ -521,7 +521,10 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
                 annotationProps?.layers,
                 videoRect,
               );
-              onCapture(blob, name);
+              const sourceInfo = source.type === 'recording'
+                ? { recordingId: source.recording.id, frameTime: videoRef.current?.currentTime ?? 0 }
+                : undefined;
+              onCapture(blob, name, sourceInfo);
             }}
             title={t('video.captureTitle')}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 border border-white/20 text-white text-xs font-medium backdrop-blur-sm transition-colors"

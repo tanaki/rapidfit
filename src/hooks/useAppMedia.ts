@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import type { Capture, Recording, PaneSource } from '../types';
 import { uid } from '../utils/uid';
 import { saveRecordingToFile } from '../utils/saveFile';
+import { processImportedVideo } from '../utils/importVideo';
 import type { useSessions } from './useSessions';
 
 interface Params {
@@ -11,10 +12,11 @@ interface Params {
   sessions: ReturnType<typeof useSessions>;
   persistRecording: (r: Recording) => void;
   removeRecording: (id: string) => void;
+  onNavigateToSource?: (recordingId: string, time: number) => void;
 }
 
 export function useAppMedia({
-  splitMode, activePaneIndex, setPaneBSource, sessions, persistRecording, removeRecording,
+  splitMode, activePaneIndex, setPaneBSource, sessions, persistRecording, removeRecording, onNavigateToSource,
 }: Params) {
   const [captures, setCaptures] = useState<Capture[]>([]);
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -22,7 +24,7 @@ export function useAppMedia({
   const [activeImage, setActiveImage] = useState<Capture | null>(null);
   const [captureLabels, setCaptureLabels] = useState<Record<string, string>>({});
   const [recordingLabels, setRecordingLabels] = useState<Record<string, string>>({});
-  const [showMediaPanel, setShowMediaPanel] = useState(false);
+  const [showMediaPanel, setShowMediaPanel] = useState(true);
 
   // Keep a stable ref to avoid stale closures in handleImportFile
   const splitModeRef = useRef(splitMode);
@@ -30,13 +32,23 @@ export function useAppMedia({
   splitModeRef.current = splitMode;
   activePaneRef.current = activePaneIndex;
 
-  const handleCapture = useCallback((blob: Blob, name: string, paneLabel?: string) => {
+  const handleCapture = useCallback((
+    blob: Blob, name: string, paneLabel?: string,
+    sourceInfo?: { recordingId?: string; frameTime: number },
+  ) => {
     const url = URL.createObjectURL(blob);
-    const cap: Capture = { id: uid(), name, blob, url, createdAt: new Date(), paneLabel };
+    const cap: Capture = {
+      id: uid(), name, blob, url, createdAt: new Date(), paneLabel,
+      sourceRecording: sourceInfo?.recordingId,
+      sourceTime: sourceInfo?.frameTime,
+    };
     setCaptures(prev => [cap, ...prev]);
     setShowMediaPanel(true);
     if (sessions.activeSession) {
-      sessions.saveCapture(sessions.activeSession, blob, name);
+      sessions.saveCapture(sessions.activeSession, blob, name, {
+        sourceRecording: sourceInfo?.recordingId,
+        sourceTime: sourceInfo?.frameTime,
+      });
     }
   }, [sessions]);
 
@@ -66,7 +78,11 @@ export function useAppMedia({
       setActiveImage(cap);
       setActiveRecording(null);
     }
-  }, [setPaneBSource]);
+    // Navigate video to source frame if capture has source info
+    if (cap.sourceRecording && cap.sourceTime != null) {
+      onNavigateToSource?.(cap.sourceRecording, cap.sourceTime);
+    }
+  }, [setPaneBSource, onNavigateToSource]);
 
   const handleSelectRecording = useCallback((rec: Recording) => {
     if (splitModeRef.current && activePaneRef.current === 1) {
@@ -110,8 +126,17 @@ export function useAppMedia({
     } else {
       const rec: Recording = { id: uid(), name: file.name, blob: file, url, createdAt: new Date(), duration: 0 };
       setRecordings(prev => [rec, ...prev]);
-      persistRecording(rec);
       handleSelectRecording(rec);
+
+      // Background: probe metadata then persist
+      processImportedVideo(file).then(({ duration }) => {
+        setRecordings(prev => prev.map(r => r.id === rec.id ? { ...r, duration } : r));
+        if (sessions.activeSession) {
+          sessions.saveRecording(sessions.activeSession, file, file.name, duration);
+        } else {
+          persistRecording({ ...rec, duration });
+        }
+      });
     }
     e.target.value = '';
   }, [sessions, persistRecording, handleSelectCapture, handleSelectRecording]);

@@ -142,6 +142,8 @@ export interface Capture {
   createdAt: Date;
   paneLabel?: string;
   filePath?: string;  // absolute path on disk (disk-backed only)
+  sourceRecording?: string;  // recording id the capture was taken from
+  sourceTime?: number;       // video currentTime (seconds) at capture moment
 }
 
 export type AppMode = 'capture' | 'playback';

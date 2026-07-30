@@ -3,13 +3,7 @@ import { useRef, useEffect, useState } from 'react';
 function fmtTime(secs: number): string {
   const m = Math.floor(secs / 60);
   const s = secs % 60;
-  return `${String(m).padStart(2, '0')}:${s.toFixed(1).padStart(4, '0')}`;
-}
-
-function fmtDuration(secs: number): string {
-  const m = Math.floor(secs / 60);
-  const s = Math.floor(secs % 60);
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${String(m).padStart(2, '0')}:${s.toFixed(2).padStart(5, '0')}`;
 }
 
 interface SeekbarProps {
@@ -71,13 +65,14 @@ interface Props {
   isPaused: boolean;
   time: number;
   duration: number;
+  fps?: number;
   onPlayPause: () => void;
   onSeek: (t: number) => void;
   onFramePrev: () => void;
   onFrameNext: () => void;
 }
 
-export function PanePlayer({ label, isLiveMode, isPaused, time, duration, onPlayPause, onSeek, onFramePrev, onFrameNext }: Props) {
+export function PanePlayer({ label, isLiveMode, isPaused, time, duration, fps, onPlayPause, onSeek, onFramePrev, onFrameNext }: Props) {
   if (isLiveMode) return null;
 
   return (
@@ -99,9 +94,15 @@ export function PanePlayer({ label, isLiveMode, isPaused, time, duration, onPlay
           disabled={!isPaused}
           className="w-6 h-6 flex items-center justify-center bg-[#22223b] hover:bg-[#2d2d48] text-slate-200 rounded text-xs transition-colors disabled:opacity-30"
         >⏭</button>
-        <div className="flex items-baseline gap-1 font-mono tabular-nums ml-1">
-          <span className="text-[10px] text-slate-300">{fmtTime(time)}</span>
-          <span className="text-[9px] text-slate-500">/ {isFinite(duration) && duration > 0 ? fmtDuration(duration) : '—'}</span>
+        <div className="flex-1 flex items-baseline font-mono tabular-nums ml-1">
+          <span className="flex-1 text-center text-[10px] text-slate-300">
+            {fmtTime(time)}/{isFinite(duration) && duration > 0 ? fmtTime(duration) : '—'}
+          </span>
+          {fps && fps > 0 && (
+            <span className="text-[10px] text-slate-300">
+              {Math.round(time * fps)}/{isFinite(duration) && duration > 0 ? Math.round(duration * fps) : '—'}
+            </span>
+          )}
         </div>
       </div>
     </div>
