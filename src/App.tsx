@@ -624,13 +624,29 @@ export default function App() {
             <MediaPanel
               captures={media.captures}
               recordings={media.recordings}
-              activeRecordingId={media.activeRecording?.id ?? null}
+              activeRecordingId={splitMode && activePaneIndex === 1
+                ? (paneBSource.type === 'recording' ? paneBSource.recording.id : null)
+                : (media.activeRecording?.id ?? null)}
+              activeCaptureId={splitMode && activePaneIndex === 1
+                ? (paneBSource.type === 'image' ? paneBSource.capture.id : null)
+                : (media.activeImage?.id ?? null)}
+              inactiveCaptureId={splitMode
+                ? (activePaneIndex === 1
+                  ? (media.activeImage?.id ?? null)
+                  : (paneBSource.type === 'image' ? paneBSource.capture.id : null))
+                : null}
+              highlightedRecordingId={highlightedRecordingId}
               captureLabels={media.captureLabels}
               recordingLabels={media.recordingLabels}
-              onSelectCapture={media.handleSelectCapture}
+              onSelectCapture={cap => {
+                // Clear highlight unless onNavigateToSource will set it (capture with source info)
+                if (!cap.sourceRecording) setHighlightedRecordingId(null);
+                media.handleSelectCapture(cap);
+              }}
               onSelectRecording={rec => {
                 if (!splitMode || activePaneIndex === 0) setIsLiveMode(false);
                 media.handleSelectRecording(rec);
+                setHighlightedRecordingId(null);
               }}
               onDownloadCapture={media.handleDownloadCapture}
               onDeleteCapture={media.handleDeleteCapture}
@@ -642,44 +658,6 @@ export default function App() {
           </div>
         )}
       </div>
-
-      {/* ── Media panel ── */}
-      {media.showMediaPanel && (
-        <MediaPanel
-          captures={media.captures}
-          recordings={media.recordings}
-          activeRecordingId={splitMode && activePaneIndex === 1
-            ? (paneBSource.type === 'recording' ? paneBSource.recording.id : null)
-            : (media.activeRecording?.id ?? null)}
-          activeCaptureId={splitMode && activePaneIndex === 1
-            ? (paneBSource.type === 'image' ? paneBSource.capture.id : null)
-            : (media.activeImage?.id ?? null)}
-          inactiveCaptureId={splitMode
-            ? (activePaneIndex === 1
-              ? (media.activeImage?.id ?? null)
-              : (paneBSource.type === 'image' ? paneBSource.capture.id : null))
-            : null}
-          highlightedRecordingId={highlightedRecordingId}
-          captureLabels={media.captureLabels}
-          recordingLabels={media.recordingLabels}
-          onSelectCapture={cap => {
-            // Clear highlight unless onNavigateToSource will set it (capture with source info)
-            if (!cap.sourceRecording) setHighlightedRecordingId(null);
-            media.handleSelectCapture(cap);
-          }}
-          onSelectRecording={rec => {
-            if (!splitMode || activePaneIndex === 0) setIsLiveMode(false);
-            media.handleSelectRecording(rec);
-            setHighlightedRecordingId(null);
-          }}
-          onDownloadCapture={media.handleDownloadCapture}
-          onDeleteCapture={media.handleDeleteCapture}
-          onDownloadRecording={media.handleDownloadRecording}
-          onDeleteRecording={media.handleDeleteRecording}
-          onRenameCapture={media.handleRenameCapture}
-          onRenameRecording={media.handleRenameRecording}
-        />
-      )}
 
       {/* ── Bottom bar ── */}
       <RecordingBar
