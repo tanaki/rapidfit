@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import type { Layer, Tool, Point, AnnotationElement, AngleElement, Discipline } from '../types';
+import type { Layer, Tool, Point, AnnotationElement, AngleElement, Discipline, SkeletonKey } from '../types';
 import {
   renderLayersWithDraft,
   computeAngle,
@@ -31,6 +31,8 @@ interface Props {
   onDeleteElement: (layerId: string, elementId: string) => void;
   onBeginDrag: () => void;
   onRescaleElements?: (sx: number, sy: number) => void;
+  /** When provided, the skeleton tool auto-detects pose instead of placing a template. */
+  onDetectPose?: () => Promise<Record<string, Point> | null>;
   videoRect?: VideoRect | null;
   imgW?: number;
   imgH?: number;
@@ -45,7 +47,7 @@ export function AnnotationCanvas({
   layers, activeLayerId, tool, color, strokeWidth, filled,
   zoom = 1,
   pan = { x: 0, y: 0 },
-  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, videoRect, imgW = 0, imgH = 0, discipline = 'route', skeletonFacing = 'right', seedPrevVideoRect, sourceKey = null, style,
+  onAddElement, onEraseAt, onUpdateElement, onDeleteElement, onBeginDrag, onRescaleElements, onDetectPose, videoRect, imgW = 0, imgH = 0, discipline = 'route', skeletonFacing = 'right', seedPrevVideoRect, sourceKey = null, style,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -386,9 +388,24 @@ export function AnnotationCanvas({
       return;
     }
     if (tool === 'skeleton') {
-      const h = imgHRef.current;
-      const scale = h > 0 ? h / 4 : 160;
-      onAddElementRef.current(activeLayerIdRef.current, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale, disciplineRef.current, skeletonFacingRef.current) });
+      if (onDetectPose) {
+        // Détection auto de pose (fonctionnalité media-navigation) : place le
+        // squelette sur les points détectés.
+        onDetectPose().then(points => {
+          if (points) {
+            onAddElementRef.current(activeLayerIdRef.current, {
+              type: 'skeleton', id: uid(), color, strokeWidth,
+              points: points as Record<SkeletonKey, Point>,
+            });
+          }
+        });
+      } else {
+        // Squelette par défaut — via refs pour discipline/skeletonFacing courants
+        // (absents des deps du handler).
+        const h = imgHRef.current;
+        const scale = h > 0 ? h / 4 : 160;
+        onAddElementRef.current(activeLayerIdRef.current, { type: 'skeleton', id: uid(), color, strokeWidth, points: defaultSkeletonPoints(start, scale, disciplineRef.current, skeletonFacingRef.current) });
+      }
     }
     else if (tool === 'h-angle' || tool === 'v-angle') {
       const mode = tool === 'h-angle' ? 'h' : 'v';
@@ -398,7 +415,7 @@ export function AnnotationCanvas({
     else if (tool === 'arrow')   onAddElement(activeLayerId, { type: 'arrow',   id: uid(), p1: start, p2: p, color, strokeWidth });
     else if (tool === 'rect')    onAddElement(activeLayerId, { type: 'rect',    id: uid(), x: Math.min(start.x, p.x), y: Math.min(start.y, p.y), w: Math.abs(p.x - start.x), h: Math.abs(p.y - start.y), color, strokeWidth, filled });
     else if (tool === 'ellipse') onAddElement(activeLayerId, { type: 'ellipse', id: uid(), cx: (start.x + p.x) / 2, cy: (start.y + p.y) / 2, rx: Math.abs(p.x - start.x) / 2, ry: Math.abs(p.y - start.y) / 2, color, strokeWidth, filled });
-  }, [tool, color, strokeWidth, filled, onAddElement, getCursor, pt]);
+  }, [tool, color, strokeWidth, filled, onAddElement, onDetectPose, getCursor, pt]);
 
   const onLeave = useCallback(() => {
     if (tool === 'select') { isDownRef.current = false; dragHandleRef.current = null; isDraggingBodyRef.current = false; }

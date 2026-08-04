@@ -12,6 +12,7 @@ import { uid } from '../utils/uid';
 import { useTracking, applyTrackingToSkeleton, TRACKING_JOINTS, FREE_COLORS } from '../hooks/useTracking';
 import { TrackingOverlay } from './TrackingOverlay';
 import { TrajectoryCanvas } from './TrajectoryCanvas';
+import { detectPose } from '../utils/detectPose';
 
 interface Props {
   source: PaneSource;
@@ -23,7 +24,7 @@ interface Props {
   showGuide?: boolean;
   showGrid?: boolean;
   gridSize?: number;
-  onCapture?: (blob: Blob, name: string) => void;
+  onCapture?: (blob: Blob, name: string, sourceInfo?: { recordingId?: string; frameTime: number }) => void;
   // Media callbacks — used by pane A to sync state to App
   onStreamChange?: (stream: MediaStream | null) => void;
   onCameraError?: (err: string | null) => void;
@@ -146,6 +147,20 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     tracking, startTracking, stopTracking, addFreePoint,
     trajectoryHistoryRef, lostJointsRef, jointConfidenceRef, definitiveLostRef,
   } = useTracking({ videoRef, onUpdateSkeleton });
+
+  // ── Single-shot pose detection (skeleton tool) ────────────────────────
+  const handleDetectPose = useCallback(async (): Promise<Record<string, Point> | null> => {
+    const video = videoRef.current;
+    if (!video) return null;
+    if (!video.paused) video.pause();
+    const result = await detectPose(video);
+    if (!result) return null;
+    const worldPoints: Record<string, Point> = {};
+    for (const [k, pt] of Object.entries(result.points) as [SkeletonKey, Point][]) {
+      worldPoints[k] = naturalToWorld(pt.x, pt.y);
+    }
+    return worldPoints;
+  }, [naturalToWorld]);
 
   // Démarre le tracking en extrayant les positions du squelette actif
   const handleStartTracking = useCallback(() => {
@@ -498,6 +513,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           onDeleteElement={annotationProps.onDeleteElement}
           onBeginDrag={annotationProps.onBeginDrag}
           onRescaleElements={annotationProps.onRescaleElements}
+          onDetectPose={isVideoSource ? handleDetectPose : undefined}
           videoRect={videoRect}
           imgW={imgDims.w}
           imgH={imgDims.h}
@@ -586,7 +602,10 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
                 annotationProps?.layers,
                 videoRect,
               );
-              onCapture(blob, name);
+              const sourceInfo = source.type === 'recording'
+                ? { recordingId: source.recording.id, frameTime: videoRef.current?.currentTime ?? 0 }
+                : undefined;
+              onCapture(blob, name, sourceInfo);
             }}
             title={t('video.captureTitle')}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-black/80 border border-white/20 text-white text-xs font-medium backdrop-blur-sm transition-colors"

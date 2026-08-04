@@ -505,10 +505,13 @@ ipcMain.handle('sessions:create-session', async (_e, session: Session) => {
 });
 
 ipcMain.handle('sessions:save-capture', async (_e, {
-  sessionFolderPath, filename, buffer,
-}: { sessionFolderPath: string; filename: string; buffer: Uint8Array }) => {
+  sessionFolderPath, filename, buffer, sourceRecording, sourceTime,
+}: { sessionFolderPath: string; filename: string; buffer: Uint8Array; sourceRecording?: string; sourceTime?: number }) => {
   const dest = path.join(sessionFolderPath, 'captures', filename);
   await fs.writeFile(dest, Buffer.from(buffer));
+  if (sourceRecording != null || sourceTime != null) {
+    await fs.writeFile(`${dest}.info.json`, JSON.stringify({ sourceRecording, sourceTime }));
+  }
   return dest;
 });
 
@@ -525,11 +528,11 @@ ipcMain.handle('sessions:save-recording', async (_e, {
 });
 
 ipcMain.handle('sessions:delete-capture', async (_e, { filePath }: { filePath: string }) => {
-  await fs.unlink(filePath);
+  try { await fs.unlink(filePath); } catch { /* file may not exist on disk */ }
 });
 
 ipcMain.handle('sessions:delete-recording', async (_e, { filePath }: { filePath: string }) => {
-  await fs.unlink(filePath);
+  try { await fs.unlink(filePath); } catch { /* file may not exist on disk */ }
   try { await fs.unlink(`${filePath}.info.json`); } catch { /* sidecar may not exist */ }
 });
 
@@ -580,7 +583,8 @@ ipcMain.handle('sessions:list-captures', async (_e, sessionFolderPath: string) =
         .map(async f => {
           const filePath = path.join(dir, f);
           const stat = await fs.stat(filePath);
-          return { name: f, path: filePath, createdAt: stat.birthtime.toISOString(), duration: 0 };
+          const info = await readJson<{ sourceRecording?: string; sourceTime?: number }>(`${filePath}.info.json`, {});
+          return { name: f, path: filePath, createdAt: stat.birthtime.toISOString(), duration: 0, ...info };
         }),
     );
     return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { VideoConfig, PaneSource, AnnotationElement } from './types';
+import type { VideoConfig, PaneSource, AnnotationElement, Recording } from './types';
 import { useLayers } from './hooks/useLayers';
 import type { LayersState } from './hooks/useLayers';
 import { useDevices } from './hooks/useCamera';
@@ -21,7 +21,6 @@ import { NewSessionModal } from './components/NewSessionModal';
 import { VideoPane, SourceSelector, type VideoPaneHandle, type AnnotationProps } from './components/VideoPane';
 import { PanePlayer } from './components/PanePlayer';
 import { AppHeader } from './components/AppHeader';
-import type { Recording } from './types';
 import { useStorage } from './hooks/useStorage';
 import { UpdateBanner } from './components/UpdateBanner';
 import { useCompany } from './hooks/useCompany';
@@ -42,7 +41,7 @@ interface PaneColumnProps {
   onTimeUpdate: (t: number) => void;
   onDurationChange: (d: number) => void;
   onPlayStateChange: (p: boolean) => void;
-  onCapture: (blob: Blob, name: string) => void;
+  onCapture: (blob: Blob, name: string, sourceInfo?: { recordingId?: string; frameTime: number }) => void;
   playerLabel: string;
   playerIsLive: boolean;
   playerIsPaused: boolean;
@@ -92,20 +91,28 @@ function PaneColumn({
         onPlayStateChange={onPlayStateChange}
         onCapture={onCapture}
       />
-      <PanePlayer
-        label={playerLabel}
-        isLiveMode={playerIsLive}
-        isPaused={playerIsPaused}
-        time={playerTime}
-        duration={playerDuration}
-        onPlayPause={() => paneRef.current?.togglePlay()}
-        onSeek={t => { paneRef.current?.seekTo(t); onTimeUpdate(t); }}
-        onFramePrev={() => paneRef.current?.stepFrame(-1, frameRate)}
-        onFrameNext={() => paneRef.current?.stepFrame(1, frameRate)}
-        cuePoints={cuePoints}
-        onSeekToCue={onSeekToCue}
-        reserveWhenLive={reserveWhenLive}
-      />
+      {source.type === 'image' || source.type === 'none' ? (
+        <div className="shrink-0 px-3 py-1.5 bg-[#13131f] border-t border-[#22223b]">
+          <div className="h-1.5" />
+          <div className="h-6" />
+        </div>
+      ) : (
+        <PanePlayer
+          label={playerLabel}
+          isLiveMode={playerIsLive}
+          isPaused={playerIsPaused}
+          time={playerTime}
+          duration={playerDuration}
+          fps={frameRate}
+          onPlayPause={() => paneRef.current?.togglePlay()}
+          onSeek={t => { paneRef.current?.seekTo(t); onTimeUpdate(t); }}
+          onFramePrev={() => paneRef.current?.stepFrame(-1, frameRate)}
+          onFrameNext={() => paneRef.current?.stepFrame(1, frameRate)}
+          cuePoints={cuePoints}
+          onSeekToCue={onSeekToCue}
+          reserveWhenLive={reserveWhenLive}
+        />
+      )}
     </div>
   );
 }
@@ -209,8 +216,29 @@ export default function App() {
     onLoad: isElectron ? () => {} : recs => media.setRecordings(recs),
   });
 
+  // Refs for pane sources used inside onNavigateToSource (avoids circular dep)
+  const singleSourceRef = useRef<PaneSource>({ type: 'none' });
+  const activePaneIndexRef = useRef<0 | 1>(0);
+  const [highlightedRecordingId, setHighlightedRecordingId] = useState<string | null>(null);
+
+  const onNavigateToSource = useCallback((recordingId: string, time: number) => {
+    const paneAHasIt = singleSourceRef.current.type === 'recording' && singleSourceRef.current.recording.id === recordingId;
+    const paneBHasIt = paneBSourceRef.current.type === 'recording' && paneBSourceRef.current.recording.id === recordingId;
+
+    if (paneAHasIt && paneBHasIt) {
+      const pane = activePaneIndexRef.current === 1 ? paneRef1 : paneRef0;
+      setTimeout(() => pane.current?.seekTo(time), 100);
+    } else if (paneAHasIt) {
+      setTimeout(() => paneRef0.current?.seekTo(time), 100);
+    } else if (paneBHasIt) {
+      setTimeout(() => paneRef1.current?.seekTo(time), 100);
+    }
+    // Highlight the source recording in the media panel
+    setHighlightedRecordingId(recordingId);
+  }, []);
+
   const media = useAppMedia({
-    splitMode, activePaneIndex, setPaneBSource, sessions, persistRecording, removeRecording,
+    splitMode, activePaneIndex, setPaneBSource, sessions, persistRecording, removeRecording, onNavigateToSource,
   });
 
   const [savedVideoRectA, setSavedVideoRectA] = useState<{ w: number; h: number } | null>(null);
@@ -219,6 +247,8 @@ export default function App() {
   // de la source, puis remise à undefined pour ne pas affecter une sélection manuelle).
   const [restoreSeekA, setRestoreSeekA] = useState<number | undefined>(undefined);
   const [restoreSeekB, setRestoreSeekB] = useState<number | undefined>(undefined);
+  // Keep refs in sync for onNavigateToSource
+  activePaneIndexRef.current = activePaneIndex;
 
   const appSession = useAppSession({
     sessions, singleLayers, paneLayers1, paneRef0, paneRef1,
@@ -279,6 +309,7 @@ export default function App() {
   }, [recorder, persistRecording, sessions, media]);
 
   const handleSingleSourceChange = useCallback((s: PaneSource) => {
+    setHighlightedRecordingId(null);
     if (s.type === 'camera') {
       if (s.deviceId !== config.deviceId) setConfig(c => ({ ...c, deviceId: s.deviceId }));
       setIsLiveMode(true); media.setActiveRecording(null); media.setActiveImage(null);
@@ -315,6 +346,8 @@ export default function App() {
   const srcKeyA = useMemo(() => sourceKeyOf(singleSource), [singleSource]);
   const srcKeyB = useMemo(() => sourceKeyOf(paneBSource), [paneBSource]);
   const activeSrcKey = activePaneIsB ? srcKeyB : srcKeyA;
+  // Keep source refs in sync for onNavigateToSource
+  singleSourceRef.current = singleSource;
 
   // ── Shared annotation props factory ───────────────────────────────────────
   // `srcKey` : source active de la pane. Les annotations sont rattachées à leur
@@ -498,7 +531,7 @@ export default function App() {
                   ));
               }}
               onPlayStateChange={setPlaybackPaused}
-              onCapture={(blob, name) => media.handleCapture(blob, name, splitMode ? 'A' : undefined)}
+              onCapture={(blob, name, sourceInfo) => media.handleCapture(blob, name, splitMode ? 'A' : undefined, sourceInfo)}
               playerLabel={splitMode ? 'A' : ''}
               playerIsLive={isLiveMode}
               playerIsPaused={playbackPaused}
@@ -534,7 +567,7 @@ export default function App() {
                   }}
                   onStreamChange={s => { cameraStreamBRef.current = s; }}
                   onPlayStateChange={setPlaybackPausedB}
-                  onCapture={(blob, name) => media.handleCapture(blob, name, 'B')}
+                  onCapture={(blob, name, sourceInfo) => media.handleCapture(blob, name, 'B', sourceInfo)}
                   playerLabel="B"
                   playerIsLive={paneBSource.type === 'camera'}
                   playerIsPaused={playbackPausedB}
@@ -610,6 +643,43 @@ export default function App() {
         )}
       </div>
 
+      {/* ── Media panel ── */}
+      {media.showMediaPanel && (
+        <MediaPanel
+          captures={media.captures}
+          recordings={media.recordings}
+          activeRecordingId={splitMode && activePaneIndex === 1
+            ? (paneBSource.type === 'recording' ? paneBSource.recording.id : null)
+            : (media.activeRecording?.id ?? null)}
+          activeCaptureId={splitMode && activePaneIndex === 1
+            ? (paneBSource.type === 'image' ? paneBSource.capture.id : null)
+            : (media.activeImage?.id ?? null)}
+          inactiveCaptureId={splitMode
+            ? (activePaneIndex === 1
+              ? (media.activeImage?.id ?? null)
+              : (paneBSource.type === 'image' ? paneBSource.capture.id : null))
+            : null}
+          highlightedRecordingId={highlightedRecordingId}
+          captureLabels={media.captureLabels}
+          recordingLabels={media.recordingLabels}
+          onSelectCapture={cap => {
+            // Clear highlight unless onNavigateToSource will set it (capture with source info)
+            if (!cap.sourceRecording) setHighlightedRecordingId(null);
+            media.handleSelectCapture(cap);
+          }}
+          onSelectRecording={rec => {
+            if (!splitMode || activePaneIndex === 0) setIsLiveMode(false);
+            media.handleSelectRecording(rec);
+            setHighlightedRecordingId(null);
+          }}
+          onDownloadCapture={media.handleDownloadCapture}
+          onDeleteCapture={media.handleDeleteCapture}
+          onDownloadRecording={media.handleDownloadRecording}
+          onDeleteRecording={media.handleDeleteRecording}
+          onRenameCapture={media.handleRenameCapture}
+          onRenameRecording={media.handleRenameRecording}
+        />
+      )}
 
       {/* ── Bottom bar ── */}
       <RecordingBar
@@ -623,6 +693,7 @@ export default function App() {
         onStopRecording={handleStopRecording}
         onImportVideo={() => importInputRef.current?.click()}
         onLiveMode={() => {
+          setHighlightedRecordingId(null);
           const deviceId = config.deviceId || devices[0]?.deviceId || '';
           if (splitMode && activePaneIsB) {
             setPaneBSource({ type: 'camera', deviceId });

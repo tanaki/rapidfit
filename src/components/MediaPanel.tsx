@@ -2,6 +2,8 @@ import { useState, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Capture, Recording } from '../types';
 import { formatDuration } from '../hooks/useRecorder';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCamera } from '@fortawesome/free-solid-svg-icons';
 
 // ── Inline rename input ───────────────────────────────────────────────────────
 
@@ -37,12 +39,14 @@ function RenameInput({
 // ── Capture card ──────────────────────────────────────────────────────────────
 
 function CaptureCard({
-  cap, label, isActive,
+  cap, label, isActive, isInactive, isHovered,
   onSelect, onDownload, onDelete, onRename,
 }: {
   cap: Capture;
   label: string;
   isActive: boolean;
+  isInactive?: boolean;
+  isHovered?: boolean;
   onSelect: () => void;
   onDownload: () => void;
   onDelete: () => void;
@@ -55,7 +59,7 @@ function CaptureCard({
   return (
     <div
       className={`group flex flex-col shrink-0 w-28 cursor-pointer rounded-lg overflow-hidden border transition-colors
-        ${isActive ? 'border-indigo-500' : 'border-[#2d2d48] hover:border-[#4d4d6c]'}`}
+        ${isActive ? 'border-indigo-500' : isInactive ? 'border-[#2d2d48]' : isHovered ? 'border-indigo-400 ring-1 ring-indigo-400/50' : 'border-transparent hover:border-[#4d4d6c]'}`}
       onClick={onSelect}
     >
       {/* Thumbnail */}
@@ -100,7 +104,7 @@ function CaptureCard({
 
       {/* Name — double-click to rename */}
       <div
-        className="px-1.5 py-1 bg-[#13131f]"
+        className={`px-1.5 py-1 ${isActive ? 'bg-indigo-900/40' : isInactive ? 'bg-[#1a1a2e]' : 'bg-[#13131f]'}`}
         onDoubleClick={e => { e.stopPropagation(); setEditing(true); }}
         title={t('media.doubleClickRename', 'Double-clic pour renommer')}
       >
@@ -123,12 +127,17 @@ function CaptureCard({
 // ── Recording row ─────────────────────────────────────────────────────────────
 
 function RecordingRow({
-  rec, label, isActive,
+  rec, label, isActive, isHighlighted, captures, activeCaptureId, onSelectCapture, onHoverCapture,
   onSelect, onDownload, onDelete, onRename,
 }: {
   rec: Recording;
   label: string;
   isActive: boolean;
+  isHighlighted?: boolean;
+  captures?: Capture[];
+  activeCaptureId?: string | null;
+  onSelectCapture?: (c: Capture) => void;
+  onHoverCapture?: (id: string | null) => void;
   onSelect: () => void;
   onDownload: () => void;
   onDelete: () => void;
@@ -140,60 +149,93 @@ function RecordingRow({
 
   return (
     <div
-      className={`group flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors border
+      className={`group flex flex-col rounded-lg cursor-pointer transition-colors border
         ${isActive
           ? 'bg-indigo-900/40 border-indigo-600/60'
-          : 'bg-[#0d0d14] border-transparent hover:bg-[#1a1a2e] hover:border-[#2d2d48]'}`}
+          : isHighlighted
+            ? 'bg-[#1a1a2e] border-[#2d2d48]'
+            : 'bg-[#0d0d14] border-transparent hover:bg-[#1a1a2e] hover:border-[#2d2d48]'}`}
       onClick={onSelect}
     >
-      {/* Play icon */}
-      <span className={`text-sm shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-600'}`}>
-        {isActive ? '▶' : '🎬'}
-      </span>
+      <div className="flex items-center gap-2 px-3 py-2">
+        {/* Play icon */}
+        <span className={`text-sm shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-600'}`}>
+          {isActive ? '▶' : '🎬'}
+        </span>
 
-      {/* Name + duration */}
-      <div className="flex-1 min-w-0" onDoubleClick={e => { e.stopPropagation(); setEditing(true); }}>
-        {editing ? (
-          <RenameInput
-            value={label}
-            onCommit={v => { onRename(v); setEditing(false); }}
-            onCancel={() => setEditing(false)}
-          />
-        ) : (
-          <>
-            <p className="text-xs text-slate-200 truncate leading-tight" title={label}>{label}</p>
-            <p className="text-[10px] text-slate-500 tabular-nums">
-              {rec.duration > 0 ? formatDuration(rec.duration) : '—'}
-            </p>
-          </>
-        )}
+        {/* Name + duration */}
+        <div className="flex-1 min-w-0" onDoubleClick={e => { e.stopPropagation(); setEditing(true); }}>
+          {editing ? (
+            <RenameInput
+              value={label}
+              onCommit={v => { onRename(v); setEditing(false); }}
+              onCancel={() => setEditing(false)}
+            />
+          ) : (
+            <>
+              <p className="text-xs text-slate-200 truncate leading-tight" title={label}>{label}</p>
+              <p className="text-[10px] text-slate-500 tabular-nums">
+                {rec.duration > 0 ? formatDuration(rec.duration) : '—'}
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Actions — always visible on active, hover otherwise */}
+        <div className={`flex items-center gap-1 shrink-0 ${isActive ? 'flex' : 'hidden group-hover:flex'}`} onClick={e => e.stopPropagation()}>
+          {confirming ? (
+            <>
+              <span className="text-[10px] text-slate-300 mr-0.5">Supprimer ?</span>
+              <button onClick={() => onDelete()}
+                className="px-1.5 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[10px] font-medium">Oui</button>
+              <button onClick={() => setConfirming(false)}
+                className="px-1.5 py-0.5 bg-[#22223b] hover:bg-[#2d2d48] text-slate-300 rounded text-[10px]">Non</button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={e => { e.stopPropagation(); onDownload(); }}
+                title={t('recording.download')}
+                className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-white/10 text-xs transition-colors"
+              >⬇</button>
+              <button
+                onClick={e => { e.stopPropagation(); setConfirming(true); }}
+                title={t('recording.delete')}
+                className="w-6 h-6 flex items-center justify-center rounded text-red-500/60 hover:text-red-400 hover:bg-red-500/10 text-xs transition-colors"
+              >✕</button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Actions — always visible on active, hover otherwise */}
-      <div className={`flex items-center gap-1 shrink-0 ${isActive ? 'flex' : 'hidden group-hover:flex'}`} onClick={e => e.stopPropagation()}>
-        {confirming ? (
-          <>
-            <span className="text-[10px] text-slate-300 mr-0.5">Supprimer ?</span>
-            <button onClick={() => onDelete()}
-              className="px-1.5 py-0.5 bg-red-600 hover:bg-red-500 text-white rounded text-[10px] font-medium">Oui</button>
-            <button onClick={() => setConfirming(false)}
-              className="px-1.5 py-0.5 bg-[#22223b] hover:bg-[#2d2d48] text-slate-300 rounded text-[10px]">Non</button>
-          </>
-        ) : (
-          <>
-            <button
-              onClick={e => { e.stopPropagation(); onDownload(); }}
-              title={t('recording.download')}
-              className="w-6 h-6 flex items-center justify-center rounded text-slate-400 hover:text-white hover:bg-white/10 text-xs transition-colors"
-            >⬇</button>
-            <button
-              onClick={e => { e.stopPropagation(); setConfirming(true); }}
-              title={t('recording.delete')}
-              className="w-6 h-6 flex items-center justify-center rounded text-red-500/60 hover:text-red-400 hover:bg-red-500/10 text-xs transition-colors"
-            >✕</button>
-          </>
-        )}
-      </div>
+      {/* Capture timeline — shown on active or highlighted recording with known duration */}
+      {(isActive || isHighlighted) && rec.duration > 0 && captures && captures.length > 0 && (
+        <div className="relative h-4 mx-3 mb-2 ml-10 bg-[#1a1a2e] rounded-full overflow-visible">
+          {/* Track line */}
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full h-px bg-slate-700" />
+          </div>
+          {/* Capture markers */}
+          {captures.map(cap => {
+            const pct = Math.min(100, Math.max(0, (cap.sourceTime! / rec.duration) * 100));
+            const isActiveCap = cap.id === activeCaptureId;
+            return (
+              <button
+                key={cap.id}
+                className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 text-[16px] cursor-pointer transition-colors
+                  ${isActiveCap ? 'text-indigo-400' : 'text-slate-500 hover:text-indigo-400'}`}
+                style={{ left: `${pct}%` }}
+                onClick={e => { e.stopPropagation(); onSelectCapture?.(cap); }}
+                onMouseEnter={() => onHoverCapture?.(cap.id)}
+                onMouseLeave={() => onHoverCapture?.(null)}
+                title={cap.name}
+              >
+                <FontAwesomeIcon icon={faCamera} />
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -204,6 +246,9 @@ interface Props {
   captures:        Capture[];
   recordings:      Recording[];
   activeRecordingId: string | null;
+  activeCaptureId?: string | null;
+  inactiveCaptureId?: string | null;
+  highlightedRecordingId?: string | null;
   captureLabels:   Record<string, string>;
   recordingLabels: Record<string, string>;
   onSelectCapture:    (c: Capture)   => void;
@@ -217,7 +262,7 @@ interface Props {
 }
 
 export function MediaPanel({
-  captures, recordings, activeRecordingId,
+  captures, recordings, activeRecordingId, activeCaptureId, inactiveCaptureId, highlightedRecordingId,
   captureLabels, recordingLabels,
   onSelectCapture, onSelectRecording,
   onDownloadCapture, onDeleteCapture,
@@ -225,6 +270,7 @@ export function MediaPanel({
   onRenameCapture, onRenameRecording,
 }: Props) {
   const { t } = useTranslation();
+  const [hoveredCaptureId, setHoveredCaptureId] = useState<string | null>(null);
 
   const capLabel  = useCallback((c: Capture)   => captureLabels[c.id]    ?? stripTimestamp(c.name),   [captureLabels]);
   const recLabel  = useCallback((r: Recording) => recordingLabels[r.id]  ?? stripTimestamp(r.name),   [recordingLabels]);
@@ -258,7 +304,9 @@ export function MediaPanel({
                   key={cap.id}
                   cap={cap}
                   label={capLabel(cap)}
-                  isActive={false}
+                  isActive={cap.id === activeCaptureId}
+                  isInactive={cap.id === inactiveCaptureId}
+                  isHovered={cap.id === hoveredCaptureId}
                   onSelect={() => onSelectCapture(cap)}
                   onDownload={() => onDownloadCapture(cap)}
                   onDelete={() => onDeleteCapture(cap.id)}
@@ -293,6 +341,11 @@ export function MediaPanel({
                 rec={rec}
                 label={recLabel(rec)}
                 isActive={rec.id === activeRecordingId}
+                isHighlighted={rec.id === highlightedRecordingId}
+                captures={captures.filter(c => (c.sourceRecording === rec.id || c.sourceRecording === rec.name) && c.sourceTime != null)}
+                activeCaptureId={activeCaptureId}
+                onSelectCapture={onSelectCapture}
+                onHoverCapture={setHoveredCaptureId}
                 onSelect={() => onSelectRecording(rec)}
                 onDownload={() => onDownloadRecording(rec)}
                 onDelete={() => onDeleteRecording(rec.id)}

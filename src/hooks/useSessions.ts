@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Client, Session, Discipline, Capture, Recording, PersistedSessionState, ReportData } from '../types';
 import { uid } from '../utils/uid';
 
-interface DiskFile { name: string; path: string; createdAt: string; duration: number; }
+interface DiskFile { name: string; path: string; createdAt: string; duration: number; sourceRecording?: string; sourceTime?: number; }
 
 /**
  * Encode a local file path for use as an HTTP request path.
@@ -172,11 +172,15 @@ export function useSessions() {
 
   const saveCapture = useCallback(async (
     session: Session, blob: Blob, filename: string,
+    sourceInfo?: { sourceRecording?: string; sourceTime?: number },
   ): Promise<void> => {
     const api = getAPI();
     if (!api || !session.folderPath) return;
     const buffer = new Uint8Array(await blob.arrayBuffer());
-    await api.sessionsSaveCapture({ sessionFolderPath: session.folderPath, filename, buffer });
+    await api.sessionsSaveCapture({
+      sessionFolderPath: session.folderPath, filename, buffer,
+      ...sourceInfo,
+    });
   }, []);
 
   const saveRecording = useCallback(async (
@@ -273,6 +277,8 @@ export function useSessions() {
       url: buildUrl(f.path),
       createdAt: new Date(f.createdAt),
       filePath: f.path,
+      sourceRecording: f.sourceRecording,
+      sourceTime: f.sourceTime,
     }));
 
     const recordings: Recording[] = recordingFiles.map(f => ({
