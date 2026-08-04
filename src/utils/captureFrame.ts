@@ -58,21 +58,19 @@ export async function capturePane(
     ctx.drawImage(imgEl, 0, 0, outW, outH);
   }
 
-  // Annotations — rendu direct à la résolution native pour éviter l'upscaling pixelisé.
-  // Les coordonnées des éléments sont en "content space" (CSS px, videoRect).
-  // On applique scale(sx, sy) pour mapper vers la résolution native avant de rendre.
+  // Annotations. Les coords sont en "content space" (CSS px, origine coin haut-gauche
+  // du videoRect). On dessine sur un canvas intermédiaire AUX DIMENSIONS DU videoRect
+  // — c'est indispensable car renderLayersWithDraft applique son propre setTransform
+  // (absolu) et écraserait tout scale pré-appliqué. On met ensuite l'ensemble à
+  // l'échelle vers la résolution native via drawImage.
   if (layers && layers.length > 0 && videoRect && videoRect.w > 0 && videoRect.h > 0) {
-    const sx = outW / videoRect.w;
-    const sy = outH / videoRect.h;
-
     const annotTmp = document.createElement('canvas');
-    annotTmp.width  = outW;
-    annotTmp.height = outH;
+    annotTmp.width  = Math.max(1, Math.round(videoRect.w));
+    annotTmp.height = Math.max(1, Math.round(videoRect.h));
     const annotCtx = annotTmp.getContext('2d')!;
-    annotCtx.scale(sx, sy);
     renderLayersWithDraft(annotCtx, layers, null, undefined, undefined, 1, { x: 0, y: 0 }, videoRect.w, videoRect.h);
 
-    ctx.drawImage(annotTmp, 0, 0);
+    ctx.drawImage(annotTmp, 0, 0, annotTmp.width, annotTmp.height, 0, 0, outW, outH);
   }
 
   // ── Output ────────────────────────────────────────────────────────────────
