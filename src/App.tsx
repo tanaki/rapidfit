@@ -620,7 +620,7 @@ export default function App() {
 
         {/* ── Media panel — overlay absolu pour ne pas réduire la zone vidéo ── */}
         {media.showMediaPanel && (
-          <div className="absolute bottom-0 left-0 right-0 z-30">
+          <div className="absolute bottom-0 left-0 right-0 z-[500]">
             <MediaPanel
               captures={media.captures}
               recordings={media.recordings}
