@@ -194,6 +194,8 @@ export default function App() {
   const [tool, setTool] = useState<Tool>('pan');
   const [color, setColor] = useState('#ef4444');
   const [skeletonFacing, setSkeletonFacing] = useState<'left' | 'right'>('right');
+  const [poseDetecting, setPoseDetecting] = useState(false);
+  const [poseToast, setPoseToast] = useState<string | null>(null);
 
   const advanceColor = useCallback(() => {
     setColor(prev => {
@@ -240,6 +242,20 @@ export default function App() {
   const media = useAppMedia({
     splitMode, activePaneIndex, setPaneBSource, sessions, persistRecording, removeRecording, onNavigateToSource,
   });
+
+  // Option "détection auto de pose" (bouton dédié) — cible la pane active.
+  const handleAutoPose = useCallback(async () => {
+    const ref = (splitMode && activePaneIndex === 1) ? paneRef1 : paneRef0;
+    if (!ref.current) return;
+    setPoseToast(null);
+    setPoseDetecting(true);
+    let res: 'ok' | 'nopose' | 'error' = 'error';
+    try { res = await ref.current.autoDetectSkeleton(); } catch { res = 'error'; }
+    setPoseDetecting(false);
+    if (res === 'nopose') setPoseToast(t('skeleton.noPose', 'Aucune pose détectée sur cette image'));
+    else if (res === 'error') setPoseToast(t('skeleton.poseError', 'Détection de pose indisponible (vidéo requise / réessayez)'));
+    if (res !== 'ok') setTimeout(() => setPoseToast(null), 4000);
+  }, [splitMode, activePaneIndex, t]);
 
   const [savedVideoRectA, setSavedVideoRectA] = useState<{ w: number; h: number } | null>(null);
   const [savedVideoRectB, setSavedVideoRectB] = useState<{ w: number; h: number } | null>(null);
@@ -445,6 +461,13 @@ export default function App() {
     <div className="flex flex-col h-screen bg-[#0d0d14] text-slate-100 select-none overflow-hidden">
       <UpdateBanner />
 
+      {poseToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[3000] flex items-center gap-2 bg-[#1a1a2e]/95 border border-amber-600/40 text-slate-200 text-xs rounded-lg px-4 py-2.5 shadow-2xl backdrop-blur-sm">
+          <span className="text-amber-400">⚠</span>
+          <span>{poseToast}</span>
+        </div>
+      )}
+
       <AppHeader
         sessionProps={{
           clients: sessions.clients,
@@ -483,6 +506,8 @@ export default function App() {
           canRedo={activeLayers.future.length > 0}
           skeletonFacing={skeletonFacing}
           onSkeletonFacing={setSkeletonFacing}
+          onAutoPose={handleAutoPose}
+          poseDetecting={poseDetecting}
         />
 
         <div className="flex-1 bg-black overflow-hidden flex flex-col">

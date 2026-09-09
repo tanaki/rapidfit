@@ -24,7 +24,8 @@
     "trajectory": "Tracer une trajectoire",
     "undo": "Annuler (Ctrl+Z)",
     "redo": "Rétablir (Ctrl+Y)",
-    "clear": "Effacer le calque actif"
+    "clear": "Effacer le calque actif",
+    "autoPose": "Détecter la pose auto (IA)"
   },
   "recording": {
     "live": "📷 Live",
@@ -275,112 +276,312 @@
       "title": "Membre inférieur — Pied",
       "engoudissement-pied": {
         "name": "Engourdissement des pieds",
-        "c0": { "p": "Pieds trop serrés", "s0": "Augmenter la taille des chaussures ou les desserrer", "s1": "Utiliser des chaussures plus larges sur l'avant du pied (modèles \"wide\" : Shimano, Lake, Specialized)", "s2": "Semelles plus fines ou individualisées avec un podologue du sport" }
+        "c0": {
+          "p": "Pieds trop serrés",
+          "s0": "Augmenter la taille des chaussures ou les desserrer",
+          "s1": "Utiliser des chaussures plus larges sur l'avant du pied (modèles \"wide\" : Shimano, Lake, Specialized)",
+          "s2": "Semelles plus fines ou individualisées avec un podologue du sport"
+        }
       },
       "douleur-cou-pied": {
         "name": "Douleur au cou du pied",
-        "c0": { "p": "Chaussure trop serrée avec la languette qui appuie sur la zone (pédale en haut ou flexion dorsale trop importante)", "s0": "Remplacer les chaussures pour un modèle plus ouvert à ce niveau (ex. marque Lake)", "s1": "Couper une partie de la languette avec des ciseaux (très présent sur les chaussures Sidi)", "s2": "Semelles plus fines ou individualisées avec un podologue du sport", "s3": "Revoir l'engagement des cales (trop avancées) et la hauteur de la selle (trop basse) : la cheville peut travailler sur une mauvaise amplitude" }
+        "c0": {
+          "p": "Chaussure trop serrée avec la languette qui appuie sur la zone (pédale en haut ou flexion dorsale trop importante)",
+          "s0": "Remplacer les chaussures pour un modèle plus ouvert à ce niveau (ex. marque Lake)",
+          "s1": "Couper une partie de la languette avec des ciseaux (très présent sur les chaussures Sidi)",
+          "s2": "Semelles plus fines ou individualisées avec un podologue du sport",
+          "s3": "Revoir l'engagement des cales (trop avancées) et la hauteur de la selle (trop basse) : la cheville peut travailler sur une mauvaise amplitude"
+        }
       },
       "douleurs-pieds": {
         "name": "Douleurs aux pieds",
-        "c0": { "p": "Pression trop importante sur le bord externe du pied ou autre point de pression maximale", "s0": "Chaussures trop serrées ou trop étroites sur l'avant — utiliser des chaussures \"wide\"", "s1": "Semelles individualisées avec un podologue du sport", "s2": "Rapprocher les cales de l'intérieur de la chaussure pour éloigner les chaussures des manivelles" }
+        "c0": {
+          "p": "Pression trop importante sur le bord externe du pied ou autre point de pression maximale",
+          "s0": "Chaussures trop serrées ou trop étroites sur l'avant — utiliser des chaussures \"wide\"",
+          "s1": "Semelles individualisées avec un podologue du sport",
+          "s2": "Rapprocher les cales de l'intérieur de la chaussure pour éloigner les chaussures des manivelles"
+        }
       },
       "crampes-pieds": {
         "name": "Crampes aux pieds",
-        "c0": { "p": "Pieds trop serrés", "s0": "Augmenter la taille des chaussures ou les desserrer", "s1": "Semelles plus fines ou individualisées" },
-        "c1": { "p": "Pieds pas assez maintenus (les orteils travaillent plus pour garder la stabilité)", "s0": "Diminuer la taille des chaussures, semelles plus épaisses ou individualisées", "s1": "Chaussures moins larges et plus courtes", "s2": "Engager davantage le pied (rapprocher la cale du talon)" },
-        "c2": { "p": "Cales mal réglées ou selle trop basse", "s0": "Revoir l'engagement des cales (souvent trop avancées)", "s1": "Revoir les réglages de la selle (souvent trop basse)" },
-        "c3": { "p": "Chaussures non adaptées", "s0": "Remplacer les chaussures pour un modèle plus en lien avec la morphologie" }
+        "c0": {
+          "p": "Pieds trop serrés",
+          "s0": "Augmenter la taille des chaussures ou les desserrer",
+          "s1": "Semelles plus fines ou individualisées"
+        },
+        "c1": {
+          "p": "Pieds pas assez maintenus (les orteils travaillent plus pour garder la stabilité)",
+          "s0": "Diminuer la taille des chaussures, semelles plus épaisses ou individualisées",
+          "s1": "Chaussures moins larges et plus courtes",
+          "s2": "Engager davantage le pied (rapprocher la cale du talon)"
+        },
+        "c2": {
+          "p": "Cales mal réglées ou selle trop basse",
+          "s0": "Revoir l'engagement des cales (souvent trop avancées)",
+          "s1": "Revoir les réglages de la selle (souvent trop basse)"
+        },
+        "c3": {
+          "p": "Chaussures non adaptées",
+          "s0": "Remplacer les chaussures pour un modèle plus en lien avec la morphologie"
+        }
       },
       "tendon-achille": {
         "name": "Tendon d'Achille",
-        "c0": { "p": "Flexion plantaire maximale trop importante", "s0": "Revoir l'engagement des cales (souvent trop avancées)", "s1": "Revoir la hauteur de la selle (souvent trop basse)", "s2": "Engager davantage le pied (rapprocher la cale du talon)" },
-        "c1": { "p": "Chaussures non adaptées", "s0": "Remplacer les chaussures pour un modèle qui n'appuie pas sur le tendon" },
-        "c2": { "p": "Beaucoup de dénivelé positif (faible cadence, mobilisation de la cheville plus importante) ou travail en force trop important", "s0": "Réduire le volume d'entraînement, notamment le travail en force et les parcours vallonnés", "s1": "Augmenter la cadence de pédalage", "s2": "Monter la selle à l'angle optimal selon la pratique" }
+        "c0": {
+          "p": "Flexion plantaire maximale trop importante",
+          "s0": "Revoir l'engagement des cales (souvent trop avancées)",
+          "s1": "Revoir la hauteur de la selle (souvent trop basse)",
+          "s2": "Engager davantage le pied (rapprocher la cale du talon)"
+        },
+        "c1": {
+          "p": "Chaussures non adaptées",
+          "s0": "Remplacer les chaussures pour un modèle qui n'appuie pas sur le tendon"
+        },
+        "c2": {
+          "p": "Beaucoup de dénivelé positif (faible cadence, mobilisation de la cheville plus importante) ou travail en force trop important",
+          "s0": "Réduire le volume d'entraînement, notamment le travail en force et les parcours vallonnés",
+          "s1": "Augmenter la cadence de pédalage",
+          "s2": "Monter la selle à l'angle optimal selon la pratique"
+        }
       }
     },
     "genou": {
       "title": "Membre inférieur — Genou",
       "genou-anterieur": {
         "name": "Devant du genou (antérieur)",
-        "c0": { "p": "Sollicitation trop importante des quadriceps, flexion trop importante des genoux", "s0": "Monter la selle et/ou la reculer", "s1": "Revoir l'engagement des cales", "s2": "Engager davantage le pied (rapprocher la cale du talon)", "s3": "Réduire le volume d'entraînement, notamment le travail en force et les parcours vallonnés", "s4": "Augmenter la cadence de pédalage" },
-        "c1": { "p": "Travail en force trop important", "s0": "Augmenter la cadence moyenne de pédalage", "s1": "Réduire le volume d'entraînement" },
-        "c2": { "p": "Amplitude de travail du genou trop importante", "s0": "Passer sur des manivelles plus petites" }
+        "c0": {
+          "p": "Sollicitation trop importante des quadriceps, flexion trop importante des genoux",
+          "s0": "Monter la selle et/ou la reculer",
+          "s1": "Revoir l'engagement des cales",
+          "s2": "Engager davantage le pied (rapprocher la cale du talon)",
+          "s3": "Réduire le volume d'entraînement, notamment le travail en force et les parcours vallonnés",
+          "s4": "Augmenter la cadence de pédalage"
+        },
+        "c1": {
+          "p": "Travail en force trop important",
+          "s0": "Augmenter la cadence moyenne de pédalage",
+          "s1": "Réduire le volume d'entraînement"
+        },
+        "c2": {
+          "p": "Amplitude de travail du genou trop importante",
+          "s0": "Passer sur des manivelles plus petites"
+        }
       },
       "genou-posterieur": {
         "name": "Derrière le genou (postérieur)",
-        "c0": { "p": "Sollicitation trop importante des ischios-jambiers (extension trop importante du genou)", "s0": "Baisser la selle", "s1": "Avancer la selle", "s2": "Distance selle-cintre trop importante : réduire la longueur de la potence", "s3": "Revoir l'engagement des cales", "s4": "Pivoter la cale pour rapprocher le talon du cadre", "s5": "Remplacer les cales et/ou les pédales si elles sont usées — diminuer la liberté angulaire si réglable" }
+        "c0": {
+          "p": "Sollicitation trop importante des ischios-jambiers (extension trop importante du genou)",
+          "s0": "Baisser la selle",
+          "s1": "Avancer la selle",
+          "s2": "Distance selle-cintre trop importante : réduire la longueur de la potence",
+          "s3": "Revoir l'engagement des cales",
+          "s4": "Pivoter la cale pour rapprocher le talon du cadre",
+          "s5": "Remplacer les cales et/ou les pédales si elles sont usées — diminuer la liberté angulaire si réglable"
+        }
       },
       "patte-oie": {
         "name": "Patte d'oie (intérieur du genou, zone basse)",
-        "c0": { "p": "Extension maximale de la jambe trop importante", "s0": "Baisser la selle" },
-        "c1": { "p": "Rotation externe du pied trop importante (talon trop proche du cadre)", "s0": "Pivoter la cale pour éloigner le talon du cadre", "s1": "Remplacer les cales et/ou les pédales si elles sont usées — diminuer la liberté angulaire si réglable" },
-        "c2": { "p": "Pieds trop éloignés du cadre", "s0": "Diminuer le déport : rapprocher les cales de l'extérieur des chaussures pour rapprocher les chaussures des manivelles" }
+        "c0": {
+          "p": "Extension maximale de la jambe trop importante",
+          "s0": "Baisser la selle"
+        },
+        "c1": {
+          "p": "Rotation externe du pied trop importante (talon trop proche du cadre)",
+          "s0": "Pivoter la cale pour éloigner le talon du cadre",
+          "s1": "Remplacer les cales et/ou les pédales si elles sont usées — diminuer la liberté angulaire si réglable"
+        },
+        "c2": {
+          "p": "Pieds trop éloignés du cadre",
+          "s0": "Diminuer le déport : rapprocher les cales de l'extérieur des chaussures pour rapprocher les chaussures des manivelles"
+        }
       },
       "rotule-interne": {
         "name": "Bord interne de la rotule",
-        "c0": { "p": "Contraintes trop importantes sur le bord interne de la rotule", "s0": "Réduire le volume d'entraînement, notamment le travail en force et les parcours vallonnés", "s1": "Augmenter la cadence de pédalage", "s2": "Selle trop basse ou trop avancée : corriger la hauteur", "s3": "Pivoter la cale pour rapprocher le talon du cadre" },
-        "c1": { "p": "Dysplasie fémoro-patellaire ou autre cause structurelle", "s0": "Consultez un spécialiste" }
+        "c0": {
+          "p": "Contraintes trop importantes sur le bord interne de la rotule",
+          "s0": "Réduire le volume d'entraînement, notamment le travail en force et les parcours vallonnés",
+          "s1": "Augmenter la cadence de pédalage",
+          "s2": "Selle trop basse ou trop avancée : corriger la hauteur",
+          "s3": "Pivoter la cale pour rapprocher le talon du cadre"
+        },
+        "c1": {
+          "p": "Dysplasie fémoro-patellaire ou autre cause structurelle",
+          "s0": "Consultez un spécialiste"
+        }
       },
       "rotule-externe": {
         "name": "Bord externe de la rotule",
-        "c0": { "p": "Contraintes trop importantes sur le bord externe de la rotule (même logique que le côté interne)", "s0": "Réduire le volume d'entraînement, notamment le travail en force et les parcours vallonnés", "s1": "Augmenter la cadence de pédalage", "s2": "Selle trop basse ou trop avancée : corriger la hauteur", "s3": "Pivoter la cale pour éloigner le talon du cadre (sens opposé au bord interne)" }
+        "c0": {
+          "p": "Contraintes trop importantes sur le bord externe de la rotule (même logique que le côté interne)",
+          "s0": "Réduire le volume d'entraînement, notamment le travail en force et les parcours vallonnés",
+          "s1": "Augmenter la cadence de pédalage",
+          "s2": "Selle trop basse ou trop avancée : corriger la hauteur",
+          "s3": "Pivoter la cale pour éloigner le talon du cadre (sens opposé au bord interne)"
+        }
       },
       "bandelette": {
         "name": "Extérieur du genou (latéral) — Bandelette ilio-tibiale",
-        "c0": { "p": "Rotation interne du pied trop importante (talon trop éloigné du cadre)", "s0": "Pivoter la cale pour rapprocher le talon du cadre", "s1": "Remplacer les cales et/ou les pédales si elles sont usées — diminuer la liberté angulaire si réglable" },
-        "c1": { "p": "Cheville trop libre / pieds trop proches du cadre", "s0": "Augmenter le déport : rapprocher les cales de l'intérieur des chaussures pour éloigner les chaussures des manivelles", "s1": "Si insuffisant, utiliser des \"spacers\" ou des pédales avec un axe plus long" },
-        "c2": { "p": "Frottement de la bandelette lié à une mauvaise hauteur de selle", "s0": "Contrôler la hauteur de la selle" }
+        "c0": {
+          "p": "Rotation interne du pied trop importante (talon trop éloigné du cadre)",
+          "s0": "Pivoter la cale pour rapprocher le talon du cadre",
+          "s1": "Remplacer les cales et/ou les pédales si elles sont usées — diminuer la liberté angulaire si réglable"
+        },
+        "c1": {
+          "p": "Cheville trop libre / pieds trop proches du cadre",
+          "s0": "Augmenter le déport : rapprocher les cales de l'intérieur des chaussures pour éloigner les chaussures des manivelles",
+          "s1": "Si insuffisant, utiliser des \"spacers\" ou des pédales avec un axe plus long"
+        },
+        "c2": {
+          "p": "Frottement de la bandelette lié à une mauvaise hauteur de selle",
+          "s0": "Contrôler la hauteur de la selle"
+        }
       }
     },
     "hanche-dos": {
       "title": "Hanche & Dos",
       "hanches": {
         "name": "Douleurs aux hanches",
-        "c0": { "p": "Flexion trop importante de la hanche", "s0": "Baisser la selle à l'angle optimal selon la pratique", "s1": "Avancer la selle", "s2": "Réduire la potence", "s3": "Relever le poste de pilotage (lever le guidon)", "s4": "Diminuer la longueur des manivelles" },
-        "c1": { "p": "Amplitude articulaire trop importante ou mauvais alignement hanche/genou/cheville", "s0": "Contrôler la hauteur de la selle", "s1": "Ajuster la rotation et le déport des cales", "s2": "Selle mal réglée : recalibrer", "s3": "Passer sur des manivelles plus petites", "s4": "Consulter un podologue du sport" },
-        "c2": { "p": "Compensation du bassin suite à une dissymétrie des membres inférieurs", "s0": "Trouver la cause de cette dissymétrie avec un podologue", "s1": "Orienter la cale du genou qui rentre vers l'extérieur pour retrouver un alignement (rapprocher le talon de la manivelle)", "s2": "Différence de longueur de jambes : consulter un podologue pour diagnostic précis" },
-        "c3": { "p": "Dysplasie de hanche ou autre cause structurelle", "s0": "Consultez un spécialiste" }
+        "c0": {
+          "p": "Flexion trop importante de la hanche",
+          "s0": "Baisser la selle à l'angle optimal selon la pratique",
+          "s1": "Avancer la selle",
+          "s2": "Réduire la potence",
+          "s3": "Relever le poste de pilotage (lever le guidon)",
+          "s4": "Diminuer la longueur des manivelles"
+        },
+        "c1": {
+          "p": "Amplitude articulaire trop importante ou mauvais alignement hanche/genou/cheville",
+          "s0": "Contrôler la hauteur de la selle",
+          "s1": "Ajuster la rotation et le déport des cales",
+          "s2": "Selle mal réglée : recalibrer",
+          "s3": "Passer sur des manivelles plus petites",
+          "s4": "Consulter un podologue du sport"
+        },
+        "c2": {
+          "p": "Compensation du bassin suite à une dissymétrie des membres inférieurs",
+          "s0": "Trouver la cause de cette dissymétrie avec un podologue",
+          "s1": "Orienter la cale du genou qui rentre vers l'extérieur pour retrouver un alignement (rapprocher le talon de la manivelle)",
+          "s2": "Différence de longueur de jambes : consulter un podologue pour diagnostic précis"
+        },
+        "c3": {
+          "p": "Dysplasie de hanche ou autre cause structurelle",
+          "s0": "Consultez un spécialiste"
+        }
       },
       "lombaires": {
         "name": "Douleurs lombaires",
-        "c0": { "p": "Chaîne musculaire postérieure trop mise en tension / buste trop incliné vers l'avant", "s0": "Réduire la potence", "s1": "Lever le poste de pilotage (remonter le guidon)", "s2": "Baisser la selle (et éventuellement l'avancer)" },
-        "c1": { "p": "Buste trop incliné vers l'arrière (rétroversion du bassin)", "s0": "Incliner la selle vers l'avant", "s1": "Utiliser une selle plus adaptée (formats larges et courts pour gagner en stabilité)" },
-        "c2": { "p": "Déhanchement / instabilité du bassin", "s0": "Selle trop haute ou trop reculée : corriger la hauteur et le recul", "s1": "Remonter le guidon", "s2": "Modèle de selle non adapté", "s3": "Différence de longueur de jambes : consulter un podologue pour diagnostic précis", "s4": "Consulter un podologue du sport" }
+        "c0": {
+          "p": "Chaîne musculaire postérieure trop mise en tension / buste trop incliné vers l'avant",
+          "s0": "Réduire la potence",
+          "s1": "Lever le poste de pilotage (remonter le guidon)",
+          "s2": "Baisser la selle (et éventuellement l'avancer)"
+        },
+        "c1": {
+          "p": "Buste trop incliné vers l'arrière (rétroversion du bassin)",
+          "s0": "Incliner la selle vers l'avant",
+          "s1": "Utiliser une selle plus adaptée (formats larges et courts pour gagner en stabilité)"
+        },
+        "c2": {
+          "p": "Déhanchement / instabilité du bassin",
+          "s0": "Selle trop haute ou trop reculée : corriger la hauteur et le recul",
+          "s1": "Remonter le guidon",
+          "s2": "Modèle de selle non adapté",
+          "s3": "Différence de longueur de jambes : consulter un podologue pour diagnostic précis",
+          "s4": "Consulter un podologue du sport"
+        }
       }
     },
     "assise": {
       "title": "Assise",
       "perinee": {
         "name": "Compression du périnée (avant de la selle)",
-        "c0": { "p": "Trop de pression sur l'avant et le bec de la selle / bassin trop orienté vers l'avant", "s0": "Incliner la selle vers l'avant", "s1": "Baisser la selle", "s2": "Remonter le guidon", "s3": "Changer de selle pour un modèle plus adapté" },
-        "c1": { "p": "Cuissard de mauvaise qualité ou frottements", "s0": "Utiliser un cuissard de meilleure qualité", "s1": "Utiliser de la crème NOK de chez Akileine" }
+        "c0": {
+          "p": "Trop de pression sur l'avant et le bec de la selle / bassin trop orienté vers l'avant",
+          "s0": "Incliner la selle vers l'avant",
+          "s1": "Baisser la selle",
+          "s2": "Remonter le guidon",
+          "s3": "Changer de selle pour un modèle plus adapté"
+        },
+        "c1": {
+          "p": "Cuissard de mauvaise qualité ou frottements",
+          "s0": "Utiliser un cuissard de meilleure qualité",
+          "s1": "Utiliser de la crème NOK de chez Akileine"
+        }
       },
       "appuis-selle": {
         "name": "Douleurs à l'arrière de la selle (points d'appui)",
-        "c0": { "p": "Trop de pression sur l'arrière — selle trop inclinée vers l'arrière", "s0": "Changer de selle pour un modèle plus adapté", "s1": "Incliner la selle vers l'avant", "s2": "Utiliser un cuissard de meilleure qualité", "s3": "Utiliser de la crème NOK de chez Akileine" },
-        "c1": { "p": "Selle trop large", "s0": "Utiliser une selle plus étroite, notamment au niveau du bec" }
+        "c0": {
+          "p": "Trop de pression sur l'arrière — selle trop inclinée vers l'arrière",
+          "s0": "Changer de selle pour un modèle plus adapté",
+          "s1": "Incliner la selle vers l'avant",
+          "s2": "Utiliser un cuissard de meilleure qualité",
+          "s3": "Utiliser de la crème NOK de chez Akileine"
+        },
+        "c1": {
+          "p": "Selle trop large",
+          "s0": "Utiliser une selle plus étroite, notamment au niveau du bec"
+        }
       },
       "irritation-cuisses": {
         "name": "Irritation à l'intérieur des cuisses",
-        "c0": { "p": "Cuissard de mauvaise qualité et frottements", "s0": "Utiliser un cuissard de meilleure qualité", "s1": "Utiliser de la crème NOK de chez Akileine", "s2": "Incliner la selle vers l'arrière", "s3": "Réduire la longueur de la potence et reculer la selle" }
+        "c0": {
+          "p": "Cuissard de mauvaise qualité et frottements",
+          "s0": "Utiliser un cuissard de meilleure qualité",
+          "s1": "Utiliser de la crème NOK de chez Akileine",
+          "s2": "Incliner la selle vers l'arrière",
+          "s3": "Réduire la longueur de la potence et reculer la selle"
+        }
       }
     },
     "superieur": {
       "title": "Membre supérieur — Épaules, Cervicales & Mains",
       "epaules-cervicales": {
         "name": "Épaules & Cervicales",
-        "c0": { "p": "Trop de poids sur les bras (antépulsion trop importante)", "s0": "Incliner la selle vers l'arrière", "s1": "Réduire la longueur de la potence et reculer la selle", "s2": "Relever le poste de pilotage" },
-        "c1": { "p": "Ouverture des bras trop importante", "s0": "Réduire la longueur de la potence", "s1": "Relever le poste de pilotage", "s2": "Réduire le recul de la selle" },
-        "c2": { "p": "Épaules trop fermées", "s0": "Augmenter la largeur du guidon (= largeur entre les deux acromions)" },
-        "c3": { "p": "Tensions trop importantes aux cervicales comprimant certaines racines nerveuses", "s0": "Réduire la longueur de la potence", "s1": "Remonter le guidon", "s2": "Une multitude d'autres choses — consultez un spécialiste si persistance" }
+        "c0": {
+          "p": "Trop de poids sur les bras (antépulsion trop importante)",
+          "s0": "Incliner la selle vers l'arrière",
+          "s1": "Réduire la longueur de la potence et reculer la selle",
+          "s2": "Relever le poste de pilotage"
+        },
+        "c1": {
+          "p": "Ouverture des bras trop importante",
+          "s0": "Réduire la longueur de la potence",
+          "s1": "Relever le poste de pilotage",
+          "s2": "Réduire le recul de la selle"
+        },
+        "c2": {
+          "p": "Épaules trop fermées",
+          "s0": "Augmenter la largeur du guidon (= largeur entre les deux acromions)"
+        },
+        "c3": {
+          "p": "Tensions trop importantes aux cervicales comprimant certaines racines nerveuses",
+          "s0": "Réduire la longueur de la potence",
+          "s1": "Remonter le guidon",
+          "s2": "Une multitude d'autres choses — consultez un spécialiste si persistance"
+        }
       },
       "mains-poignets": {
         "name": "Engourdissement / Douleurs aux poignets et aux mains",
-        "c0": { "p": "Trop de poids sur les poignets", "s0": "Incliner la selle vers l'arrière", "s1": "Réduire la longueur de la potence", "s2": "Contrôler la hauteur des poignées" },
-        "c1": { "p": "Mauvaise prise des poignées", "s0": "Réduire la longueur de la potence si les poignées sont difficiles d'accès", "s1": "Contrôler la hauteur des poignées" },
-        "c2": { "p": "Guidoline de mauvaise qualité ou vibrations", "s0": "Revoir le modèle de guidoline", "s1": "Utiliser deux guidolines superposées pour absorber les vibrations" },
-        "c3": { "p": "Tensions face antérieure de l'avant-bras", "s0": "Réduire la largeur du guidon (= largeur entre les deux acromions)" }
+        "c0": {
+          "p": "Trop de poids sur les poignets",
+          "s0": "Incliner la selle vers l'arrière",
+          "s1": "Réduire la longueur de la potence",
+          "s2": "Contrôler la hauteur des poignées"
+        },
+        "c1": {
+          "p": "Mauvaise prise des poignées",
+          "s0": "Réduire la longueur de la potence si les poignées sont difficiles d'accès",
+          "s1": "Contrôler la hauteur des poignées"
+        },
+        "c2": {
+          "p": "Guidoline de mauvaise qualité ou vibrations",
+          "s0": "Revoir le modèle de guidoline",
+          "s1": "Utiliser deux guidolines superposées pour absorber les vibrations"
+        },
+        "c3": {
+          "p": "Tensions face antérieure de l'avant-bras",
+          "s0": "Réduire la largeur du guidon (= largeur entre les deux acromions)"
+        }
       }
     }
   },
@@ -510,5 +711,9 @@
     "noCaptures": "Aucune capture",
     "noRecordings": "Aucune vidéo",
     "doubleClickRename": "Double-clic pour renommer"
+  },
+  "skeleton": {
+    "noPose": "Aucune pose détectée sur cette image",
+    "poseError": "Détection de pose indisponible (vidéo requise / réessayez)"
   }
 }

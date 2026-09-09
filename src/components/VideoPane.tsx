@@ -66,6 +66,7 @@ export interface VideoPaneHandle {
   seekTo: (time: number) => void;
   getTime: () => number;
   getVideoRect: () => { w: number; h: number } | null;
+  autoDetectSkeleton: () => Promise<'ok' | 'nopose' | 'error'>;
   isPaused: () => boolean;
   togglePlay: () => void;
 }
@@ -161,6 +162,34 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     }
     return worldPoints;
   }, [naturalToWorld]);
+
+  // Option "détection auto" : cale le squelette actif sur la pose détectée
+  // (ou en crée un). Robuste — jamais d'échec silencieux.
+  //   'ok'     : pose détectée et appliquée
+  //   'nopose' : aucune pose trouvée sur la frame
+  //   'error'  : IA indisponible (MediaPipe / réseau / GPU)
+  const autoDetectSkeleton = useCallback(async (): Promise<'ok' | 'nopose' | 'error'> => {
+    const ap = annotationPropsRef.current;
+    if (!ap) return 'error';
+    let points: Record<string, Point> | null;
+    try {
+      points = await handleDetectPose();
+    } catch {
+      return 'error';
+    }
+    if (!points) return 'nopose';
+    const skPoints = points as Record<SkeletonKey, Point>; // 8 joints garantis (SIDE_MAP)
+    const layer = ap.layers.find(l => l.id === ap.activeLayerId);
+    const sk = layer?.elements.find(e => e.type === 'skeleton') as SkeletonElement | undefined;
+    if (sk) {
+      ap.onUpdateElement(ap.activeLayerId, { ...sk, points: skPoints });
+    } else {
+      ap.onAddElement(ap.activeLayerId, {
+        type: 'skeleton', id: uid(), color: ap.color, strokeWidth: ap.strokeWidth, points: skPoints,
+      });
+    }
+    return 'ok';
+  }, [handleDetectPose]);
 
   // Démarre le tracking en extrayant les positions du squelette actif
   const handleStartTracking = useCallback(() => {
@@ -454,6 +483,7 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
     },
     getTime()    { return videoRef.current?.currentTime ?? 0; },
     getVideoRect() { const vr = videoRectRef2.current; return vr ? { w: vr.w, h: vr.h } : null; },
+    autoDetectSkeleton() { return autoDetectSkeleton(); },
     isPaused()   { return videoRef.current?.paused ?? true; },
     togglePlay() { const v = videoRef.current; if (!v) return; v.paused ? v.play() : v.pause(); },
   }));
@@ -513,7 +543,6 @@ export const VideoPane = forwardRef<VideoPaneHandle, Props>(function VideoPane(
           onDeleteElement={annotationProps.onDeleteElement}
           onBeginDrag={annotationProps.onBeginDrag}
           onRescaleElements={annotationProps.onRescaleElements}
-          onDetectPose={isVideoSource ? handleDetectPose : undefined}
           videoRect={videoRect}
           imgW={imgDims.w}
           imgH={imgDims.h}

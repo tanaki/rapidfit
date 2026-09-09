@@ -25,13 +25,15 @@ interface Props {
   canRedo: boolean;
   skeletonFacing: 'left' | 'right';
   onSkeletonFacing: (f: 'left' | 'right') => void;
+  onAutoPose?: () => void;
+  poseDetecting?: boolean;
 }
 
 export function Toolbar({
   tool, color,
   onTool, onColor,
   onUndo, onRedo, canUndo, canRedo,
-  skeletonFacing, onSkeletonFacing,
+  skeletonFacing, onSkeletonFacing, onAutoPose, poseDetecting,
 }: Props) {
   const { t } = useTranslation();
 
@@ -112,6 +114,19 @@ export function Toolbar({
               title={t('toolbar.skeletonLeft', 'Cycliste vers la gauche')}
             >←</button>
           </div>
+          {/* Détection auto de pose (option) — clic normal = squelette simple */}
+          {onAutoPose && (
+            <button
+              onClick={onAutoPose}
+              disabled={poseDetecting}
+              title={t('toolbar.autoPose', 'Détecter la pose automatiquement (IA)')}
+              className="w-10 h-8 rounded-lg text-sm flex items-center justify-center bg-[#22223b] text-indigo-300 hover:bg-[#2d2d48] disabled:opacity-50 transition-colors"
+            >
+              {poseDetecting
+                ? <span className="w-3.5 h-3.5 rounded-full border-2 border-indigo-400/40 border-t-indigo-400 animate-spin" />
+                : '🤖'}
+            </button>
+          )}
         </>
       )}
 
